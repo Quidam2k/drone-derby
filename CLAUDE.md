@@ -11,6 +11,10 @@ game. Browser-first PWA. From-scratch rewrite; the plan of record is
 ## Commands
 
 - `npm run dev` — Vite dev server (default port 5173)
+- `CONVEX_AGENT_MODE=anonymous npx convex dev` — local Convex backend
+  (anonymous local deployment, no Convex account; writes `.env.local`).
+  Run alongside `npm run dev` for online play; without a configured
+  `VITE_CONVEX_URL` the app falls back to hot-seat-only.
 - `npm run build` — typecheck + production build
 - `npm test` — run the Vitest suite once
 - `npm run test:watch` — Vitest in watch mode

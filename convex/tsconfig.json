@@ -1,0 +1,17 @@
+{
+  /* Convex functions tsconfig (checked by `npx convex dev` on push). */
+  "compilerOptions": {
+    "allowJs": true,
+    "strict": true,
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "isolatedModules": true,
+    "noEmit": true
+  },
+  "include": ["./**/*", "../src/engine/**/*"],
+  "exclude": ["./_generated"]
+}

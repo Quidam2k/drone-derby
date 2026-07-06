@@ -537,3 +537,150 @@ input:focus {
 .continue-btn {
   margin-left: 0.75rem;
 }
+
+/* ---- online (lobby / join / async game) --------------------------------- */
+
+.lobby-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.lobby-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.lobby-header .title {
+  margin: 0;
+}
+button.quiet {
+  background: none;
+  border-color: transparent;
+  color: var(--muted, #8b93a7);
+  font-size: 0.85rem;
+}
+.lobby-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+.lobby-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.lobby-card h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.lobby-card-note {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted, #8b93a7);
+}
+.game-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.game-list h3 {
+  margin: 0 0 0.25rem;
+}
+.game-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: left;
+  padding: 0.6rem 0.9rem;
+}
+.game-row-players {
+  font-weight: 600;
+}
+.game-row-note {
+  margin-left: auto;
+  font-size: 0.85rem;
+  color: var(--muted, #8b93a7);
+}
+.status-chip {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+}
+.status-chip.status-active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.status-chip.status-finished {
+  opacity: 0.7;
+}
+.join-screen input {
+  font-size: 1.1rem;
+  text-align: center;
+}
+.invite-box {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.6rem 1rem;
+  margin: 1rem 0;
+}
+.open-seat {
+  opacity: 0.45;
+}
+.error-note {
+  color: #ff7b72;
+  margin: 0.5rem 0;
+}
+.error-note.floating {
+  position: fixed;
+  top: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--panel);
+  border: 1px solid #ff7b72;
+  border-radius: 8px;
+  padding: 0.4rem 1rem;
+  z-index: 10;
+}
+.waiting-note {
+  text-align: center;
+  color: var(--muted, #8b93a7);
+  margin: 1rem 0 0.5rem;
+}
+.back-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 1rem;
+  color: var(--muted, #8b93a7);
+  text-decoration: none;
+  z-index: 5;
+}
+.back-link:hover,
+.quiet-link:hover,
+.primary-link:hover {
+  color: var(--accent);
+}
+.quiet-link {
+  display: block;
+  text-align: center;
+  margin-top: 1.25rem;
+  color: var(--muted, #8b93a7);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+.primary-link {
+  color: var(--accent);
+  text-decoration: none;
+  margin-top: 1rem;
+  display: inline-block;
+}
