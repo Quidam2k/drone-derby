@@ -24,7 +24,7 @@ function CardFace({ card, small }: { card: Card; small?: boolean }) {
 interface ProgrammingViewProps {
   game: GameState;
   seat: number;
-  onSubmit: (program: Program) => void;
+  onSubmit: (program: Program, taunt?: string) => void;
 }
 
 export function ProgrammingView({ game, seat, onSubmit }: ProgrammingViewProps) {
@@ -32,6 +32,7 @@ export function ProgrammingView({ game, seat, onSubmit }: ProgrammingViewProps) 
   const hand = game.hands[robot.player];
   const [slots, setSlots] = useState<(Card | null)[]>([null, null, null, null, null]);
   const [selected, setSelected] = useState<Card | null>(null);
+  const [taunt, setTaunt] = useState('');
 
   const placedIds = new Set(slots.filter((c): c is Card => c !== null).map((c) => c.id));
   const locked = (r: number) => isRegisterLocked(robot.damage, r);
@@ -51,7 +52,10 @@ export function ProgrammingView({ game, seat, onSubmit }: ProgrammingViewProps) 
 
   const submit = () => {
     // Locked slots are ignored by the engine; send null there.
-    onSubmit(slots.map((c, i) => (locked(i + 1) ? null : c)));
+    onSubmit(
+      slots.map((c, i) => (locked(i + 1) ? null : c)),
+      taunt.trim() || undefined,
+    );
   };
 
   return (
@@ -109,6 +113,14 @@ export function ProgrammingView({ game, seat, onSubmit }: ProgrammingViewProps) 
       </div>
 
       <div className="programming-footer">
+        <input
+          className="taunt-input"
+          value={taunt}
+          maxLength={60}
+          placeholder="Say something… (shown in the replay)"
+          onChange={(e) => setTaunt(e.target.value)}
+          data-testid="taunt-input"
+        />
         <span className="hint">
           {selected
             ? 'Tap a register to place the card'

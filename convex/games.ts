@@ -20,6 +20,8 @@ import type { Card, GameState, PlayerId, Program } from '../src/engine';
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 4;
 const BOARD_NAME = 'Proving Grounds';
+const NUDGE_COOLDOWN_MS = 12 * 60 * 60 * 1000;
+const TAUNT_MAX_LENGTH = 60;
 
 const cardValidator = v.object({
   id: v.string(),
@@ -111,6 +113,12 @@ function cleanName(raw: string): string {
     throw new Error('Name must be 1–16 characters');
   }
   return name;
+}
+
+/** Collapse whitespace and cap length; undefined when nothing is left. */
+function cleanTaunt(raw: string | undefined): string | undefined {
+  const taunt = raw?.replace(/\s+/g, ' ').trim().slice(0, TAUNT_MAX_LENGTH);
+  return taunt ? taunt : undefined;
 }
 
 /**
@@ -236,7 +244,12 @@ export const startGame = mutation({
 });
 
 export const submitProgram = mutation({
-  args: { gameId: v.id('games'), program: programValidator },
+  args: {
+    gameId: v.id('games'),
+    program: programValidator,
+    /** Optional speech-bubble line shown over the robot in the replay. */
+    taunt: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
     const game = await ctx.db.get(args.gameId);
@@ -266,6 +279,7 @@ export const submitProgram = mutation({
     });
 
     const turn = game.currentTurn;
+    const taunt = cleanTaunt(args.taunt);
     const prior = await ctx.db
       .query('submissions')
       .withIndex('by_game_turn_player', (q) =>
@@ -273,9 +287,15 @@ export const submitProgram = mutation({
       )
       .unique();
     if (prior) {
-      await ctx.db.patch(prior._id, { program });
+      await ctx.db.patch(prior._id, { program, taunt });
     } else {
-      await ctx.db.insert('submissions', { gameId: game._id, turn, playerId: me._id, program });
+      await ctx.db.insert('submissions', {
+        gameId: game._id,
+        turn,
+        playerId: me._id,
+        program,
+        taunt,
+      });
     }
 
     // Last active player in? Execute the turn authoritatively.
@@ -285,9 +305,12 @@ export const submitProgram = mutation({
 
     const byPlayerId = new Map(players.map((p) => [p._id, p.name]));
     const programs: Record<PlayerId, Program> = {};
+    const taunts: Record<PlayerId, string> = {};
     for (const sub of submissions) {
       const name = byPlayerId.get(sub.playerId);
-      if (name !== undefined) programs[name] = sub.program as Program;
+      if (name === undefined) continue;
+      programs[name] = sub.program as Program;
+      if (sub.taunt) taunts[name] = sub.taunt;
     }
 
     const result = executeTurn(state, programs, game.seed + turn);
@@ -296,6 +319,7 @@ export const submitProgram = mutation({
       turn,
       prevState: state,
       events: result.events,
+      taunts,
       executedAt: Date.now(),
     });
     const finished = isGameOver(result.state);
@@ -328,6 +352,58 @@ export const markTurnSeen = mutation({
     if (!me) throw new Error('You are not in this game');
     const seen = Math.min(Math.max(me.lastSeenTurn, args.turn), game.currentTurn - 1);
     if (seen !== me.lastSeenTurn) await ctx.db.patch(me._id, { lastSeenTurn: seen });
+  },
+});
+
+/**
+ * Poke the players everyone is waiting on (the async-friendly alternative to
+ * turn deadlines — this game has none). Any member who isn't being waited on
+ * may nudge; in a lobby only the host may, and it pings everyone else.
+ * Rate-limited to one nudge per game per 12h so it can't become spam.
+ */
+export const nudge = mutation({
+  args: { gameId: v.id('games') },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const game = await ctx.db.get(args.gameId);
+    if (!game) throw new Error('Game not found');
+    const me = await playerFor(ctx, game._id, userId);
+    if (!me) throw new Error('You are not in this game');
+
+    const now = Date.now();
+    const wait = (game.lastNudgeAt ?? 0) + NUDGE_COOLDOWN_MS - now;
+    if (wait > 0) {
+      throw new Error(`Already nudged recently — try again in ${Math.ceil(wait / 3_600_000)}h`);
+    }
+
+    const players = await gamePlayers(ctx, game._id);
+    let targets: Id<'users'>[];
+    let body: string;
+    if (game.status === 'active' && game.state) {
+      const submissions = await turnSubmissions(ctx, game._id, game.currentTurn);
+      const waiting = waitingOnNames(game.state as GameState, players, submissions);
+      if (waiting.includes(me.name)) {
+        throw new Error('Submit your own program before nudging the others');
+      }
+      targets = players.filter((p) => waiting.includes(p.name)).map((p) => p.userId);
+      body = `${me.name} is waiting on you — turn ${game.currentTurn}`;
+    } else if (game.status === 'lobby') {
+      if (game.createdBy !== userId) throw new Error('Only the host can nudge the lobby');
+      targets = players.map((p) => p.userId).filter((u) => u !== userId);
+      body = `${me.name} is waiting for you in the game lobby`;
+    } else {
+      throw new Error('This game is over — nobody left to nudge');
+    }
+    if (targets.length === 0) throw new Error('Nobody to nudge right now');
+
+    await ctx.db.patch(game._id, { lastNudgeAt: now });
+    await ctx.scheduler.runAfter(0, internal.push.send, {
+      userIds: [...new Set(targets)],
+      title: 'Drone Derby',
+      body,
+      url: `/#/game/${game._id}`,
+      tag: `game-${game._id}`,
+    });
   },
 });
 
@@ -431,6 +507,8 @@ export const game = query({
         submitted: submitted.has(p._id),
       })),
       waitingOn: state ? waitingOnNames(state, players, submissions) : [],
+      /** Epoch ms when games.nudge next succeeds (rate limit). */
+      nudgeAvailableAt: (game.lastNudgeAt ?? 0) + NUDGE_COOLDOWN_MS,
       state: state ? sanitizeState(state, me.name) : null,
     };
   },
@@ -454,6 +532,7 @@ export const turn = query({
       turn: row.turn,
       executedAt: row.executedAt,
       events: row.events,
+      taunts: (row.taunts ?? {}) as Record<string, string>,
       prevState: sanitizeState(row.prevState as GameState, null),
     };
   },

@@ -60,9 +60,11 @@ interface BoardProps {
   visual: VisualState;
   /** Current replay event, for transient overlays. Omit in live views. */
   currentEvent?: EngineEvent | null;
+  /** Speech bubbles to draw over robots (replay taunts). */
+  bubbles?: { player: PlayerId; text: string }[];
 }
 
-export function Board({ board, visual, currentEvent }: BoardProps) {
+export function Board({ board, visual, currentEvent, bubbles }: BoardProps) {
   const angles = useSmoothAngles(visual.robots);
 
   const wallsByCell = new Map<string, Direction[]>();
@@ -117,6 +119,21 @@ export function Board({ board, visual, currentEvent }: BoardProps) {
               </div>
             ),
         )}
+
+        {bubbles?.map((b) => {
+          const robot = visual.robots.find((r) => r.player === b.player);
+          if (!robot || !robot.visible) return null;
+          return (
+            <div
+              key={b.player}
+              className="speech-bubble"
+              data-testid={`bubble-${b.player}`}
+              style={{ left: cellPx(robot.pos.x + 0.5), top: cellPx(robot.pos.y) }}
+            >
+              {b.text}
+            </div>
+          );
+        })}
 
         {currentEvent?.type === 'laser-fired' && <BeamOverlay path={currentEvent.path} />}
         {currentEvent?.type === 'robot-blocked' && (

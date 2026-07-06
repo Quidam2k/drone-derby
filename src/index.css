@@ -694,3 +694,120 @@ button.quiet {
   margin-top: 1rem;
   display: inline-block;
 }
+
+/* ---- phase 5: speech bubbles, nudge, history, stats ----------------------- */
+
+.speech-bubble {
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 4px));
+  max-width: calc(var(--tile) * 4);
+  width: max-content;
+  background: #fffdf5;
+  color: #1a1d24;
+  border-radius: 10px;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.78rem;
+  line-height: 1.25;
+  text-align: center;
+  z-index: 4;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  animation: bubble-pop 0.18s ease-out;
+}
+.speech-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #fffdf5;
+}
+@keyframes bubble-pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-100% - 4px)) scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, calc(-100% - 4px)) scale(1);
+  }
+}
+
+.taunt-input {
+  flex: 1;
+  min-width: 0;
+  max-width: 22rem;
+  font-size: 0.85rem;
+}
+
+.nudge-box {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+.nudge-box button.quiet {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+}
+.nudge-box button.quiet:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.nudge-note {
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+
+.history-link {
+  display: block;
+  margin: 0 auto;
+}
+.history-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  max-width: 30rem;
+  margin: 1rem 0 1.5rem;
+}
+.history-turn {
+  padding: 0.45rem 0.9rem;
+}
+.history-turn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.gameover-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.9rem 1.2rem;
+  margin: 0.5rem 0 1.25rem;
+  min-width: 18rem;
+}
+.gameover-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.gameover-stat-row.eliminated {
+  opacity: 0.55;
+}
+.gameover-stat-name {
+  font-weight: 600;
+}
+.gameover-stat-detail {
+  margin-left: auto;
+  color: var(--text-dim);
+}
+
+.player-badge.waiting {
+  color: var(--muted, #8b93a7);
+}

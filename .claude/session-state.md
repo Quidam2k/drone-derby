@@ -1,27 +1,28 @@
 # Session State
-Updated: 2026-07-06 (Phase 4 DONE — game is LIVE)
+Updated: 2026-07-06 (Phase 5 DONE — deployed to prod)
 
 ## Current Task
 Drone Derby v2 — cascade: cascades/2026-07-05-v2-rewrite.md.
-Phases 1–4 DONE. LIVE at https://drone-derby.pages.dev
-(GitHub: https://github.com/Quidam2k/drone-derby). Phase 5 is next.
+Phases 1–5 DONE. LIVE at https://drone-derby.pages.dev. Phase 6 (level
+editor) is next; enter plan mode with its scope loaded.
 
 ## Just Completed
-- Deployed: Convex prod fastidious-dinosaur-923 + dev vivid-cat-177 (both
-  with JWT/JWKS/SITE_URL/VAPID env vars), Cloudflare Pages `drone-derby`.
-  Redeploy = `npm run deploy` (both CLIs logged in on this PC).
-- Prod smoke PASSED incl. real push round-trip (subscribe → push:send --prod
-  → notification shown). screengrab/phase4-prod-lobby.png.
-- CLI notes (PEM `--` separator, --yes, login --login-flow poll) in cascade.
+- Phase 5: nudge button (12h rate limit, games.nudge), speech bubbles
+  (taunt with program → bubble in replay, online + hot-seat), history
+  browser (HistoryBrowser.tsx, never touches markTurnSeen), game-over
+  stats + lobby turn/✓⏳ badges. Deadlines/AFK dropped by Todd's call —
+  deferred indefinitely as a possible per-game option.
+- Verified: 61 tests + typecheck, dev E2E (two contexts), prod deploy +
+  spot-check (nudge/bubble/history all green). screengrab/phase5-*.png.
 
 ## Next Steps
-1. Todd: fun-playtest on the live site; install PWA on phone + verify push.
-2. Phase 5 per cascade ⚠️ NEXT: deadlines + nudges, AFK policy (ask Todd),
-   history browser, stats, polish; optional Resend/Google auth.
+1. Todd: fun-playtest verdict (still open) — tweaks take priority.
+2. Phase 6 per cascade: canvas level editor, boards in Convex, sharing.
 
 ## Open Questions / Blockers
-- Fun-playtest verdict (gates Phase 5 priorities). AFK policy undecided.
+- Fun-playtest verdict; optional Resend/Google creds for real auth.
 
 ## Key Files
-- cascades/2026-07-05-v2-rewrite.md — Phase 4 deploy notes + Phase 5 scope
-- convex/push.ts, convex/notifications.ts, src/sw.ts — push pipeline
+- cascades/2026-07-05-v2-rewrite.md — Phase 5 delivered notes + Phase 6
+- convex/games.ts (nudge/taunts), src/components/online/HistoryBrowser.tsx,
+  src/components/replay/taunts.ts

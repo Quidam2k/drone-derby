@@ -8,6 +8,7 @@ import { countCheckpoints } from '../../engine';
 import { Board } from '../board/Board';
 import { PlayerStrip } from '../board/PlayerStrip';
 import { CARD_LABEL } from '../cards';
+import { tauntWindows, visibleTaunts } from './taunts';
 import { initialVisual, visualAt } from './visualState';
 
 const SPEEDS = [0.5, 1, 2, 4] as const;
@@ -102,10 +103,12 @@ interface ReplayPlayerProps {
   /** State the turn started from; the replay folds events on top of it. */
   prevState: GameState;
   events: EventLog;
+  /** Speech-bubble lines by player, shown when each robot first acts. */
+  taunts?: Record<string, string>;
   onDone: () => void;
 }
 
-export function ReplayPlayer({ prevState, events, onDone }: ReplayPlayerProps) {
+export function ReplayPlayer({ prevState, events, taunts, onDone }: ReplayPlayerProps) {
   const initial = useMemo(() => initialVisual(prevState), [prevState]);
   const [cursor, setCursor] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -114,6 +117,8 @@ export function ReplayPlayer({ prevState, events, onDone }: ReplayPlayerProps) {
   const atEnd = cursor >= events.length;
   const visual = useMemo(() => visualAt(initial, events, cursor), [initial, events, cursor]);
   const currentEvent = cursor > 0 ? events[cursor - 1] : null;
+  const windows = useMemo(() => tauntWindows(events), [events]);
+  const bubbles = taunts ? visibleTaunts(taunts, windows, cursor) : undefined;
 
   useEffect(() => {
     if (!playing) return;
@@ -138,7 +143,12 @@ export function ReplayPlayer({ prevState, events, onDone }: ReplayPlayerProps) {
       </header>
 
       <div className="game-layout">
-        <Board board={prevState.board} visual={visual} currentEvent={currentEvent} />
+        <Board
+          board={prevState.board}
+          visual={visual}
+          currentEvent={currentEvent}
+          bubbles={bubbles}
+        />
         <PlayerStrip visual={visual} checkpointTarget={countCheckpoints(prevState.board)} />
       </div>
 
