@@ -18,6 +18,7 @@ import { ProgrammingView } from '../programming/ProgrammingView';
 import { GameOverScreen } from '../programming/GameOverScreen';
 import { ReplayPlayer } from '../replay/ReplayPlayer';
 import { CenterNote, errorMessage, SignInGate } from './common';
+import { NotificationsButton } from './NotificationsButton';
 
 export function OnlineGameScreen({ gameId }: { gameId: string }) {
   return (
@@ -142,6 +143,7 @@ function GameLobby({ g }: { g: GameView }) {
         <p className="setup-hint">Waiting for {g.players.find((p) => p.isHost)?.name} to start…</p>
       )}
       {error && <p className="error-note">{error}</p>}
+      <NotificationsButton />
       <a className="quiet-link" href="#/">
         ‹ Back to the lobby
       </a>
@@ -202,6 +204,7 @@ function WaitingView({
           ? `Waiting on ${g.waitingOn.join(', ')} — the replay starts as soon as everyone's in.`
           : 'Executing the turn…'}
       </p>
+      <NotificationsButton />
       <a className="quiet-link" href="#/">
         ‹ Back to the lobby (your program is saved)
       </a>

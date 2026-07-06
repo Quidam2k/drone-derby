@@ -8,6 +8,7 @@ import { useAuthActions } from '@convex-dev/auth/react';
 import { api } from '../../../convex/_generated/api';
 import { navigate } from '../../services/route';
 import { errorMessage, SignInGate, useSavedName } from './common';
+import { NotificationsButton } from './NotificationsButton';
 
 export function LobbyScreen() {
   return (
@@ -49,9 +50,12 @@ function LobbyInner() {
     <div className="screen lobby-screen">
       <header className="lobby-header">
         <h1 className="title">Drone Derby</h1>
-        <button className="quiet" onClick={() => void signOut()}>
-          Sign out
-        </button>
+        <span className="lobby-header-actions">
+          <NotificationsButton />
+          <button className="quiet" onClick={() => void signOut()}>
+            Sign out
+          </button>
+        </span>
       </header>
 
       <div className="lobby-actions">

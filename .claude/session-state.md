@@ -1,29 +1,31 @@
 # Session State
-Updated: 2026-07-06 (Phase 3 complete)
+Updated: 2026-07-06 (Phase 4 code complete)
 
 ## Current Task
-Drone Derby v2 rewrite — cascade: cascades/2026-07-05-v2-rewrite.md.
-Phases 1–3 DONE; Phase 4 (PWA + push + deploy) is next.
+Drone Derby v2 — cascade: cascades/2026-07-05-v2-rewrite.md.
+Phase 4 code DONE + verified locally; only the deploy step remains,
+blocked on Todd's gates.
 
 ## Just Completed
-- Phase 3: Convex async multiplayer. Backend in convex/ (schema, Anonymous
-  auth, games.ts), server runs the pure engine; hands secret at wire level.
-  Client: hash routes (#/ lobby, #/hotseat, #/game/<id>, #/join/<code>),
-  online screens, auto-replay of unseen turns via existing ReplayPlayer.
-- Verified: typecheck + 58 tests green; two-browser-context Playwright E2E
-  (create/join/program/replay, positions match) — screengrab/phase3-*.png.
+- PWA shell: vite-plugin-pwa injectManifest, custom src/sw.ts (push +
+  notificationclick), icons via `npm run icons`, iOS meta, tsconfig.sw.json.
+- Web push end-to-end: pushSubscriptions table, convex/notifications.ts,
+  convex/push.ts ("use node" web-push action), notifyOthers() from
+  startGame/submitProgram, src/services/push.ts + NotificationsButton.
+- Verified: typecheck + 58 tests + build green; SW activates on preview;
+  REAL push round-trip locally (subscribe → convex run push:send → FCM →
+  notification shown). screengrab/phase4-lobby-notifications-on.png.
 
 ## Next Steps
-1. Todd: fun-playtest (hot-seat + async vs himself); `CONVEX_AGENT_MODE=anonymous
-   npx convex dev` + `npm run dev` to run locally (no Convex account needed).
-2. Phase 4 gates: `npx convex login` (interactive), pick static host,
-   optional Resend/Google creds. Then PWA + web push + deploy per cascade.
+1. Todd: `! npx convex login`, confirm host (Cloudflare Pages recommended,
+   `npm run deploy` prewired, needs `npx wrangler login`), fun-playtest.
+2. Deploy per cascade ⚠️ NEXT: prod env vars (fresh VAPID + JWT single-line
+   + SITE_URL), `npm run deploy`, prod smoke + phone push, Phase 4 → DONE.
 
 ## Open Questions / Blockers
-- Fun-playtest verdict still pending (now covers online pacing too).
+- Gates 1–3 (playtest verdict, convex login, host choice). Optional: Resend/
+  Google creds (gate 4, can slip to Phase 5).
 
 ## Key Files
-- cascades/2026-07-05-v2-rewrite.md — plan of record + Phase 3 notes
-- convex/games.ts — all multiplayer mutations/queries + sanitizeState
-- src/components/online/OnlineGameScreen.tsx — async turn loop
-- src/services/route.ts — hash router
+- cascades/2026-07-05-v2-rewrite.md — Phase 4 notes + deploy sequence
+- convex/push.ts, convex/notifications.ts, src/sw.ts, src/services/push.ts

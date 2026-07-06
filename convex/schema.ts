@@ -44,6 +44,16 @@ export default defineSchema({
     executedAt: v.number(),
   }).index('by_game_turn', ['gameId', 'turn']),
 
+  pushSubscriptions: defineTable({
+    userId: v.id('users'),
+    /** Push-service URL; the natural dedupe key (one row per browser). */
+    endpoint: v.string(),
+    /** Encryption keys from PushSubscription.toJSON(), as web-push wants them. */
+    keys: v.object({ p256dh: v.string(), auth: v.string() }),
+  })
+    .index('by_user', ['userId'])
+    .index('by_endpoint', ['endpoint']),
+
   submissions: defineTable({
     gameId: v.id('games'),
     turn: v.number(),
