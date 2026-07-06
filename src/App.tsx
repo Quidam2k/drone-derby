@@ -2,6 +2,7 @@ import { Component, type ReactNode } from 'react';
 import { convex } from './services/convex';
 import { useRoute } from './services/route';
 import { HotSeatGame } from './components/hotseat/HotSeatGame';
+import { EditorScreen } from './components/editor/EditorScreen';
 import { LobbyScreen } from './components/online/LobbyScreen';
 import { JoinScreen } from './components/online/JoinScreen';
 import { OnlineGameScreen } from './components/online/OnlineGameScreen';
@@ -30,6 +31,9 @@ class RouteBoundary extends Component<{ children: ReactNode }, { error: Error | 
 
 export function App() {
   const route = useRoute();
+
+  // The editor is fully local — it works with or without a backend.
+  if (route.name === 'editor') return <EditorScreen />;
 
   // No backend configured: the game is hot-seat only.
   if (!convex) return <HotSeatGame />;

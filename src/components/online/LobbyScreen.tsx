@@ -124,6 +124,14 @@ function LobbyInner() {
             Start hot-seat game
           </button>
         </div>
+
+        <div className="lobby-card">
+          <h3>Board editor</h3>
+          <p className="lobby-card-note">Design your own factory floor.</p>
+          <button onClick={() => navigate('#/editor')} data-testid="editor-link">
+            Open editor
+          </button>
+        </div>
       </div>
 
       {error && <p className="error-note">{error}</p>}

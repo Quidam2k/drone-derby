@@ -4,7 +4,7 @@
 // from one number.
 
 import { create } from 'zustand';
-import type { EventLog, GameState, PlayerId, Program } from '../engine';
+import type { BoardDef, EventLog, GameState, PlayerId, Program } from '../engine';
 import { createGame, executeTurn, isGameOver, provingGrounds } from '../engine';
 
 export type Screen = 'setup' | 'handoff' | 'programming' | 'replay' | 'gameover';
@@ -27,7 +27,8 @@ interface GameStore {
   pendingTaunts: Record<PlayerId, string>;
   lastTurn: LastTurn | null;
 
-  startGame: (playerNames: string[]) => void;
+  /** Start a hot-seat game; `board` overrides the default (editor test-drives). */
+  startGame: (playerNames: string[], board?: BoardDef) => void;
   /** Handoff screen's Ready button: reveal the current seat's hand. */
   beginProgramming: () => void;
   submitProgram: (program: Program, taunt?: string) => void;
@@ -51,9 +52,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
   pendingTaunts: {},
   lastTurn: null,
 
-  startGame: (playerNames) => {
+  startGame: (playerNames, board) => {
     const seed = Date.now() % 1_000_000_000;
-    const game = createGame(provingGrounds(), playerNames, seed);
+    const game = createGame(board ?? provingGrounds(), playerNames, seed);
     set({
       game,
       initialSeed: seed,

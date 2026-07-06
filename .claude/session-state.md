@@ -1,28 +1,26 @@
 # Session State
-Updated: 2026-07-06 (Phase 5 DONE — deployed to prod)
+Updated: 2026-07-06 (Phase 6a DONE — committed)
 
 ## Current Task
 Drone Derby v2 — cascade: cascades/2026-07-05-v2-rewrite.md.
-Phases 1–5 DONE. LIVE at https://drone-derby.pages.dev. Phase 6 (level
-editor) is next; enter plan mode with its scope loaded.
+Phases 1–5 + 6a DONE. LIVE at https://drone-derby.pages.dev (6a not yet
+deployed — deploy rides with 6b). Next: Phase 6b per cascade section.
 
 ## Just Completed
-- Phase 5: nudge button (12h rate limit, games.nudge), speech bubbles
-  (taunt with program → bubble in replay, online + hot-seat), history
-  browser (HistoryBrowser.tsx, never touches markTurnSeen), game-over
-  stats + lobby turn/✓⏳ badges. Deadlines/AFK dropped by Todd's call —
-  deferred indefinitely as a possible per-game option.
-- Verified: 61 tests + typecheck, dev E2E (two contexts), prod deploy +
-  spot-check (nudge/bubble/history all green). screengrab/phase5-*.png.
+- Phase 6a: DOM-grid level editor at #/editor — engine validateBoard
+  (pure, reused by 6b server gate), editorStore (undo/redo strokes,
+  auto-numbering, resize, localStorage draft), editor UI (palette/board
+  hit-layer with edge zones/validation panel/toolbar), test-drive into
+  hot-seat via startGame(names, board?). Lobby "Board editor" card added.
+- Verified: typecheck + 85 tests (24 new); full Playwright E2E incl. drag
+  paint, import gate, reload survival, test-drive turn on a 12×9 board.
+  screengrab/phase6a-editor.png.
 
 ## Next Steps
-1. Todd: fun-playtest verdict (still open) — tweaks take priority.
-2. Phase 6 per cascade: canvas level editor, boards in Convex, sharing.
-
-## Open Questions / Blockers
-- Fun-playtest verdict; optional Resend/Google creds for real auth.
+1. Phase 6b: boards table + convex/boards.ts CRUD (validateBoard gate),
+   games.boardId, lobby board picker, #/editor/<boardId>, prod deploy + E2E.
+2. Still open: Todd's fun-playtest verdict (tweaks outrank 6b).
 
 ## Key Files
-- cascades/2026-07-05-v2-rewrite.md — Phase 5 delivered notes + Phase 6
-- convex/games.ts (nudge/taunts), src/components/online/HistoryBrowser.tsx,
-  src/components/replay/taunts.ts
+- src/engine/validate.ts, src/store/editorStore.ts,
+  src/components/editor/*, cascades/2026-07-05-v2-rewrite.md (§6a/6b)

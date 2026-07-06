@@ -38,8 +38,9 @@ Run `npm run typecheck` and `npm test` before committing.
   replay player consumes only the EventLog; never derive animations from
   state diffs. Changing the event union is a breaking change to replay —
   extend, don't reshape.
-- **Rendering is DOM/CSS grid**, not canvas. Canvas is reserved for the
-  future level editor (Phase 6).
+- **Rendering is DOM/CSS grid**, not canvas — including the level editor
+  (Phase 6a), which reuses the game's `Board`/`Tile` renderer under a
+  transparent hit layer. No canvas anywhere.
 - **Rules source**: `docs/game_mechanics_md.md` (MVP scope: moves, pushing,
   edge-based walls, pits, conveyors + express, gears, checkpoints, board +
   robot lasers, damage with locked registers, 3 lives, respawn). Cut from

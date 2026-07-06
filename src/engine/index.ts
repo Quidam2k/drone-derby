@@ -38,3 +38,11 @@ export {
   wallBlocked,
 } from './board';
 export { provingGrounds } from './boards';
+export {
+  MAX_BOARD_SIZE,
+  MAX_SPAWNS,
+  MIN_BOARD_SIZE,
+  MIN_SPAWNS,
+  validateBoard,
+  type BoardValidation,
+} from './validate';
