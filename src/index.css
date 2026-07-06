@@ -61,7 +61,8 @@ button.primary.big {
   padding: 0.7rem 1.6rem;
 }
 
-input {
+input,
+select {
   font: inherit;
   color: var(--text);
   background: var(--panel);
@@ -69,7 +70,8 @@ input {
   border-radius: 8px;
   padding: 0.45rem 0.7rem;
 }
-input:focus {
+input:focus,
+select:focus {
   outline: none;
   border-color: var(--accent);
 }
@@ -650,6 +652,10 @@ button.quiet {
 .error-note {
   color: #ff7b72;
   margin: 0.5rem 0;
+}
+.save-note {
+  color: var(--accent);
+  font-size: 0.9rem;
 }
 .error-note.floating {
   position: fixed;

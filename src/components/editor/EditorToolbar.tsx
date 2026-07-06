@@ -1,9 +1,16 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useConvexAuth, useMutation } from 'convex/react';
+import { useAuthActions } from '@convex-dev/auth/react';
+import { api } from '../../../convex/_generated/api';
+import type { Id } from '../../../convex/_generated/dataModel';
 import type { BoardDef } from '../../engine';
 import { MAX_BOARD_SIZE, MIN_BOARD_SIZE, validateBoard } from '../../engine';
+import { convex } from '../../services/convex';
 import { navigate } from '../../services/route';
 import { useEditorStore } from '../../store/editorStore';
 import { useGameStore } from '../../store/gameStore';
+import { errorMessage } from '../online/common';
+import { markBoardHydrated } from './EditorScreen';
 
 function Stepper({
   label,
@@ -30,7 +37,100 @@ function Stepper({
   );
 }
 
-export function EditorToolbar() {
+/**
+ * "Save online" — only rendered when Convex is configured (it uses Convex
+ * hooks, which need the provider). Signs the user in anonymously on first
+ * save; the first save mints an id and moves the URL to #/editor/<id> so
+ * later saves update in place.
+ */
+function SaveOnlineButton({ boardId }: { boardId?: string }) {
+  const board = useEditorStore((s) => s.board);
+  const validation = useEditorStore((s) => s.validation);
+  const { isAuthenticated } = useConvexAuth();
+  const { signIn } = useAuthActions();
+  const save = useMutation(api.boards.save);
+  const [busy, setBusy] = useState(false);
+  /** Save requested but we're still waiting for the auth token to land. */
+  const [pendingAuth, setPendingAuth] = useState(false);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const noteTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  const hasErrors = validation.errors.length > 0;
+
+  async function doSave() {
+    try {
+      const { boardId: savedId } = await save({
+        boardId: boardId as Id<'boards'> | undefined,
+        board,
+      });
+      setNote({ ok: true, text: 'Saved ✓' });
+      noteTimer.current = setTimeout(() => setNote(null), 2500);
+      if (!boardId) {
+        // Mark hydrated first so the boards.get subscription that mounts on
+        // navigate doesn't reload the board over any brand-new edits.
+        markBoardHydrated(savedId);
+        navigate(`#/editor/${savedId}`);
+      }
+    } catch (e) {
+      setNote({ ok: false, text: errorMessage(e) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // First-ever save: signIn() resolves before the client carries the token,
+  // so wait for isAuthenticated to flip before actually saving.
+  useEffect(() => {
+    if (pendingAuth && isAuthenticated) {
+      setPendingAuth(false);
+      void doSave();
+    }
+    // doSave is recreated per render; the flags fully describe when to run.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAuth, isAuthenticated]);
+
+  async function onSave() {
+    setBusy(true);
+    setNote(null);
+    clearTimeout(noteTimer.current);
+    if (isAuthenticated) {
+      await doSave();
+      return;
+    }
+    try {
+      setPendingAuth(true);
+      await signIn('anonymous');
+    } catch (e) {
+      setPendingAuth(false);
+      setNote({ ok: false, text: errorMessage(e) });
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => void onSave()}
+        disabled={hasErrors || busy}
+        title={
+          hasErrors
+            ? `Fix validation errors first: ${validation.errors[0]}`
+            : 'Save this board to your account for online games'
+        }
+        data-testid="save-online"
+      >
+        {busy ? 'Saving…' : boardId ? 'Save' : 'Save online'}
+      </button>
+      {note && (
+        <span className={note.ok ? 'save-note' : 'error-note'} data-testid="save-note">
+          {note.text}
+        </span>
+      )}
+    </>
+  );
+}
+
+export function EditorToolbar({ boardId }: { boardId?: string }) {
   const board = useEditorStore((s) => s.board);
   const validation = useEditorStore((s) => s.validation);
   const canUndo = useEditorStore((s) => s.historyIndex > 0);
@@ -120,6 +220,8 @@ export function EditorToolbar() {
           Clear
         </button>
       </span>
+
+      {convex && <SaveOnlineButton boardId={boardId} />}
 
       <button
         className="primary"

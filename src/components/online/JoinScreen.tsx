@@ -45,7 +45,7 @@ function JoinInner({ code }: { code: string }) {
     info.status !== 'lobby'
       ? 'This game has already started.'
       : info.full
-        ? 'This game is full (4 players max).'
+        ? `This game is full (${info.seats} players max).`
         : null;
 
   const join = () => {

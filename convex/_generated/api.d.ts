@@ -9,7 +9,9 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as boards from "../boards.js";
 import type * as games from "../games.js";
+import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
 import type * as notifications from "../notifications.js";
 import type * as push from "../push.js";
@@ -22,7 +24,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  boards: typeof boards;
   games: typeof games;
+  helpers: typeof helpers;
   http: typeof http;
   notifications: typeof notifications;
   push: typeof push;

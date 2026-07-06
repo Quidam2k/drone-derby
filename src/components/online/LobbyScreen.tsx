@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { api } from '../../../convex/_generated/api';
+import type { Id } from '../../../convex/_generated/dataModel';
 import { navigate } from '../../services/route';
 import { errorMessage, SignInGate, useSavedName } from './common';
 import { NotificationsButton } from './NotificationsButton';
@@ -48,9 +49,11 @@ function PlayerBadges({ g }: { g: GameSummary }) {
 
 function LobbyInner() {
   const games = useQuery(api.games.myGames);
+  const boards = useQuery(api.boards.myBoards);
   const createGame = useMutation(api.games.createGame);
   const { signOut } = useAuthActions();
   const [name, setName] = useSavedName();
+  const [boardId, setBoardId] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,7 +61,7 @@ function LobbyInner() {
   const create = () => {
     setBusy(true);
     setError(null);
-    createGame({ name })
+    createGame({ name, boardId: boardId ? (boardId as Id<'boards'>) : undefined })
       .then(({ gameId }) => navigate(`#/game/${gameId}`))
       .catch((e: unknown) => setError(errorMessage(e)))
       .finally(() => setBusy(false));
@@ -86,6 +89,21 @@ function LobbyInner() {
             onChange={(e) => setName(e.target.value)}
             data-testid="lobby-name"
           />
+          {boards !== undefined && boards.length > 0 && (
+            <select
+              value={boardId}
+              onChange={(e) => setBoardId(e.target.value)}
+              data-testid="board-picker"
+              aria-label="Board"
+            >
+              <option value="">Proving Grounds (built-in)</option>
+              {boards.map((b) => (
+                <option key={b.boardId} value={b.boardId}>
+                  {b.name} — {b.width}×{b.height}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             className="primary"
             disabled={busy || name.trim().length === 0}
