@@ -1,0 +1,996 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`determinism > golden EventLog: fixed seed, fixed programs → exact event stream 1`] = `
+[
+  {
+    "turn": 1,
+    "type": "turn-started",
+  },
+  {
+    "register": 1,
+    "type": "register-started",
+  },
+  {
+    "card": {
+      "id": "move2-730",
+      "priority": 730,
+      "type": "move2",
+    },
+    "player": "alice",
+    "register": 1,
+    "type": "card-revealed",
+  },
+  {
+    "card": {
+      "id": "move1-630",
+      "priority": 630,
+      "type": "move1",
+    },
+    "player": "bob",
+    "register": 1,
+    "type": "card-revealed",
+  },
+  {
+    "from": {
+      "x": 1,
+      "y": 9,
+    },
+    "player": "alice",
+    "pushed": false,
+    "to": {
+      "x": 1,
+      "y": 8,
+    },
+    "type": "robot-moved",
+  },
+  {
+    "from": {
+      "x": 1,
+      "y": 8,
+    },
+    "player": "alice",
+    "pushed": false,
+    "to": {
+      "x": 1,
+      "y": 7,
+    },
+    "type": "robot-moved",
+  },
+  {
+    "from": {
+      "x": 3,
+      "y": 9,
+    },
+    "player": "bob",
+    "pushed": false,
+    "to": {
+      "x": 3,
+      "y": 8,
+    },
+    "type": "robot-moved",
+  },
+  {
+    "hit": undefined,
+    "path": [
+      {
+        "x": 0,
+        "y": 3,
+      },
+      {
+        "x": 1,
+        "y": 3,
+      },
+      {
+        "x": 2,
+        "y": 3,
+      },
+      {
+        "x": 3,
+        "y": 3,
+      },
+      {
+        "x": 4,
+        "y": 3,
+      },
+      {
+        "x": 5,
+        "y": 3,
+      },
+      {
+        "x": 6,
+        "y": 3,
+      },
+      {
+        "x": 7,
+        "y": 3,
+      },
+      {
+        "x": 8,
+        "y": 3,
+      },
+      {
+        "x": 9,
+        "y": 3,
+      },
+    ],
+    "source": "board",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "hit": "bob",
+    "path": [
+      {
+        "x": 9,
+        "y": 8,
+      },
+      {
+        "x": 8,
+        "y": 8,
+      },
+      {
+        "x": 7,
+        "y": 8,
+      },
+      {
+        "x": 6,
+        "y": 8,
+      },
+      {
+        "x": 5,
+        "y": 8,
+      },
+      {
+        "x": 4,
+        "y": 8,
+      },
+      {
+        "x": 3,
+        "y": 8,
+      },
+    ],
+    "source": "board",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "amount": 1,
+    "player": "bob",
+    "total": 1,
+    "type": "damage",
+  },
+  {
+    "hit": undefined,
+    "path": [
+      {
+        "x": 1,
+        "y": 6,
+      },
+      {
+        "x": 1,
+        "y": 5,
+      },
+      {
+        "x": 1,
+        "y": 4,
+      },
+    ],
+    "shooter": "alice",
+    "source": "robot",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "hit": undefined,
+    "path": [
+      {
+        "x": 3,
+        "y": 7,
+      },
+      {
+        "x": 3,
+        "y": 6,
+      },
+      {
+        "x": 3,
+        "y": 5,
+      },
+      {
+        "x": 3,
+        "y": 4,
+      },
+      {
+        "x": 3,
+        "y": 3,
+      },
+      {
+        "x": 3,
+        "y": 2,
+      },
+      {
+        "x": 3,
+        "y": 1,
+      },
+      {
+        "x": 3,
+        "y": 0,
+      },
+    ],
+    "shooter": "bob",
+    "source": "robot",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "register": 2,
+    "type": "register-started",
+  },
+  {
+    "card": {
+      "id": "move2-770",
+      "priority": 770,
+      "type": "move2",
+    },
+    "player": "alice",
+    "register": 2,
+    "type": "card-revealed",
+  },
+  {
+    "card": {
+      "id": "turnLeft-370",
+      "priority": 370,
+      "type": "turnLeft",
+    },
+    "player": "bob",
+    "register": 2,
+    "type": "card-revealed",
+  },
+  {
+    "from": {
+      "x": 1,
+      "y": 7,
+    },
+    "player": "alice",
+    "pushed": false,
+    "to": {
+      "x": 1,
+      "y": 6,
+    },
+    "type": "robot-moved",
+  },
+  {
+    "from": {
+      "x": 1,
+      "y": 6,
+    },
+    "player": "alice",
+    "pushed": false,
+    "to": {
+      "x": 1,
+      "y": 5,
+    },
+    "type": "robot-moved",
+  },
+  {
+    "from": "N",
+    "player": "bob",
+    "to": "W",
+    "type": "robot-rotated",
+  },
+  {
+    "hit": undefined,
+    "path": [
+      {
+        "x": 0,
+        "y": 3,
+      },
+      {
+        "x": 1,
+        "y": 3,
+      },
+      {
+        "x": 2,
+        "y": 3,
+      },
+      {
+        "x": 3,
+        "y": 3,
+      },
+      {
+        "x": 4,
+        "y": 3,
+      },
+      {
+        "x": 5,
+        "y": 3,
+      },
+      {
+        "x": 6,
+        "y": 3,
+      },
+      {
+        "x": 7,
+        "y": 3,
+      },
+      {
+        "x": 8,
+        "y": 3,
+      },
+      {
+        "x": 9,
+        "y": 3,
+      },
+    ],
+    "source": "board",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "hit": "bob",
+    "path": [
+      {
+        "x": 9,
+        "y": 8,
+      },
+      {
+        "x": 8,
+        "y": 8,
+      },
+      {
+        "x": 7,
+        "y": 8,
+      },
+      {
+        "x": 6,
+        "y": 8,
+      },
+      {
+        "x": 5,
+        "y": 8,
+      },
+      {
+        "x": 4,
+        "y": 8,
+      },
+      {
+        "x": 3,
+        "y": 8,
+      },
+    ],
+    "source": "board",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "amount": 1,
+    "player": "bob",
+    "total": 2,
+    "type": "damage",
+  },
+  {
+    "hit": undefined,
+    "path": [
+      {
+        "x": 1,
+        "y": 4,
+      },
+    ],
+    "shooter": "alice",
+    "source": "robot",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "hit": undefined,
+    "path": [
+      {
+        "x": 2,
+        "y": 8,
+      },
+      {
+        "x": 1,
+        "y": 8,
+      },
+      {
+        "x": 0,
+        "y": 8,
+      },
+    ],
+    "shooter": "bob",
+    "source": "robot",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "register": 3,
+    "type": "register-started",
+  },
+  {
+    "card": {
+      "id": "move1-540",
+      "priority": 540,
+      "type": "move1",
+    },
+    "player": "bob",
+    "register": 3,
+    "type": "card-revealed",
+  },
+  {
+    "card": {
+      "id": "backUp-460",
+      "priority": 460,
+      "type": "backUp",
+    },
+    "player": "alice",
+    "register": 3,
+    "type": "card-revealed",
+  },
+  {
+    "from": {
+      "x": 3,
+      "y": 8,
+    },
+    "player": "bob",
+    "pushed": false,
+    "to": {
+      "x": 2,
+      "y": 8,
+    },
+    "type": "robot-moved",
+  },
+  {
+    "from": {
+      "x": 1,
+      "y": 5,
+    },
+    "player": "alice",
+    "pushed": false,
+    "to": {
+      "x": 1,
+      "y": 6,
+    },
+    "type": "robot-moved",
+  },
+  {
+    "hit": undefined,
+    "path": [
+      {
+        "x": 0,
+        "y": 3,
+      },
+      {
+        "x": 1,
+        "y": 3,
+      },
+      {
+        "x": 2,
+        "y": 3,
+      },
+      {
+        "x": 3,
+        "y": 3,
+      },
+      {
+        "x": 4,
+        "y": 3,
+      },
+      {
+        "x": 5,
+        "y": 3,
+      },
+      {
+        "x": 6,
+        "y": 3,
+      },
+      {
+        "x": 7,
+        "y": 3,
+      },
+      {
+        "x": 8,
+        "y": 3,
+      },
+      {
+        "x": 9,
+        "y": 3,
+      },
+    ],
+    "source": "board",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "hit": "bob",
+    "path": [
+      {
+        "x": 9,
+        "y": 8,
+      },
+      {
+        "x": 8,
+        "y": 8,
+      },
+      {
+        "x": 7,
+        "y": 8,
+      },
+      {
+        "x": 6,
+        "y": 8,
+      },
+      {
+        "x": 5,
+        "y": 8,
+      },
+      {
+        "x": 4,
+        "y": 8,
+      },
+      {
+        "x": 3,
+        "y": 8,
+      },
+      {
+        "x": 2,
+        "y": 8,
+      },
+    ],
+    "source": "board",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "amount": 1,
+    "player": "bob",
+    "total": 3,
+    "type": "damage",
+  },
+  {
+    "hit": undefined,
+    "path": [
+      {
+        "x": 1,
+        "y": 5,
+      },
+      {
+        "x": 1,
+        "y": 4,
+      },
+    ],
+    "shooter": "alice",
+    "source": "robot",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "hit": undefined,
+    "path": [
+      {
+        "x": 1,
+        "y": 8,
+      },
+      {
+        "x": 0,
+        "y": 8,
+      },
+    ],
+    "shooter": "bob",
+    "source": "robot",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "register": 4,
+    "type": "register-started",
+  },
+  {
+    "card": {
+      "id": "move2-680",
+      "priority": 680,
+      "type": "move2",
+    },
+    "player": "bob",
+    "register": 4,
+    "type": "card-revealed",
+  },
+  {
+    "card": {
+      "id": "turnLeft-350",
+      "priority": 350,
+      "type": "turnLeft",
+    },
+    "player": "alice",
+    "register": 4,
+    "type": "card-revealed",
+  },
+  {
+    "from": {
+      "x": 2,
+      "y": 8,
+    },
+    "player": "bob",
+    "pushed": false,
+    "to": {
+      "x": 1,
+      "y": 8,
+    },
+    "type": "robot-moved",
+  },
+  {
+    "from": {
+      "x": 1,
+      "y": 8,
+    },
+    "player": "bob",
+    "pushed": false,
+    "to": {
+      "x": 0,
+      "y": 8,
+    },
+    "type": "robot-moved",
+  },
+  {
+    "from": "N",
+    "player": "alice",
+    "to": "W",
+    "type": "robot-rotated",
+  },
+  {
+    "hit": undefined,
+    "path": [
+      {
+        "x": 0,
+        "y": 3,
+      },
+      {
+        "x": 1,
+        "y": 3,
+      },
+      {
+        "x": 2,
+        "y": 3,
+      },
+      {
+        "x": 3,
+        "y": 3,
+      },
+      {
+        "x": 4,
+        "y": 3,
+      },
+      {
+        "x": 5,
+        "y": 3,
+      },
+      {
+        "x": 6,
+        "y": 3,
+      },
+      {
+        "x": 7,
+        "y": 3,
+      },
+      {
+        "x": 8,
+        "y": 3,
+      },
+      {
+        "x": 9,
+        "y": 3,
+      },
+    ],
+    "source": "board",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "hit": "bob",
+    "path": [
+      {
+        "x": 9,
+        "y": 8,
+      },
+      {
+        "x": 8,
+        "y": 8,
+      },
+      {
+        "x": 7,
+        "y": 8,
+      },
+      {
+        "x": 6,
+        "y": 8,
+      },
+      {
+        "x": 5,
+        "y": 8,
+      },
+      {
+        "x": 4,
+        "y": 8,
+      },
+      {
+        "x": 3,
+        "y": 8,
+      },
+      {
+        "x": 2,
+        "y": 8,
+      },
+      {
+        "x": 1,
+        "y": 8,
+      },
+      {
+        "x": 0,
+        "y": 8,
+      },
+    ],
+    "source": "board",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "amount": 1,
+    "player": "bob",
+    "total": 4,
+    "type": "damage",
+  },
+  {
+    "hit": undefined,
+    "path": [
+      {
+        "x": 0,
+        "y": 6,
+      },
+    ],
+    "shooter": "alice",
+    "source": "robot",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "hit": undefined,
+    "path": [],
+    "shooter": "bob",
+    "source": "robot",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "register": 5,
+    "type": "register-started",
+  },
+  {
+    "card": {
+      "id": "turnRight-220",
+      "priority": 220,
+      "type": "turnRight",
+    },
+    "player": "bob",
+    "register": 5,
+    "type": "card-revealed",
+  },
+  {
+    "card": {
+      "id": "uTurn-60",
+      "priority": 60,
+      "type": "uTurn",
+    },
+    "player": "alice",
+    "register": 5,
+    "type": "card-revealed",
+  },
+  {
+    "from": "W",
+    "player": "bob",
+    "to": "N",
+    "type": "robot-rotated",
+  },
+  {
+    "from": "W",
+    "player": "alice",
+    "to": "E",
+    "type": "robot-rotated",
+  },
+  {
+    "hit": undefined,
+    "path": [
+      {
+        "x": 0,
+        "y": 3,
+      },
+      {
+        "x": 1,
+        "y": 3,
+      },
+      {
+        "x": 2,
+        "y": 3,
+      },
+      {
+        "x": 3,
+        "y": 3,
+      },
+      {
+        "x": 4,
+        "y": 3,
+      },
+      {
+        "x": 5,
+        "y": 3,
+      },
+      {
+        "x": 6,
+        "y": 3,
+      },
+      {
+        "x": 7,
+        "y": 3,
+      },
+      {
+        "x": 8,
+        "y": 3,
+      },
+      {
+        "x": 9,
+        "y": 3,
+      },
+    ],
+    "source": "board",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "hit": "bob",
+    "path": [
+      {
+        "x": 9,
+        "y": 8,
+      },
+      {
+        "x": 8,
+        "y": 8,
+      },
+      {
+        "x": 7,
+        "y": 8,
+      },
+      {
+        "x": 6,
+        "y": 8,
+      },
+      {
+        "x": 5,
+        "y": 8,
+      },
+      {
+        "x": 4,
+        "y": 8,
+      },
+      {
+        "x": 3,
+        "y": 8,
+      },
+      {
+        "x": 2,
+        "y": 8,
+      },
+      {
+        "x": 1,
+        "y": 8,
+      },
+      {
+        "x": 0,
+        "y": 8,
+      },
+    ],
+    "source": "board",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "amount": 1,
+    "player": "bob",
+    "total": 5,
+    "type": "damage",
+  },
+  {
+    "card": {
+      "id": "turnRight-220",
+      "priority": 220,
+      "type": "turnRight",
+    },
+    "player": "bob",
+    "register": 5,
+    "type": "register-locked",
+  },
+  {
+    "hit": undefined,
+    "path": [
+      {
+        "x": 2,
+        "y": 6,
+      },
+      {
+        "x": 3,
+        "y": 6,
+      },
+      {
+        "x": 4,
+        "y": 6,
+      },
+      {
+        "x": 5,
+        "y": 6,
+      },
+      {
+        "x": 6,
+        "y": 6,
+      },
+      {
+        "x": 7,
+        "y": 6,
+      },
+      {
+        "x": 8,
+        "y": 6,
+      },
+      {
+        "x": 9,
+        "y": 6,
+      },
+    ],
+    "shooter": "alice",
+    "source": "robot",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "hit": undefined,
+    "path": [
+      {
+        "x": 0,
+        "y": 7,
+      },
+      {
+        "x": 0,
+        "y": 6,
+      },
+      {
+        "x": 0,
+        "y": 5,
+      },
+      {
+        "x": 0,
+        "y": 4,
+      },
+      {
+        "x": 0,
+        "y": 3,
+      },
+      {
+        "x": 0,
+        "y": 2,
+      },
+      {
+        "x": 0,
+        "y": 1,
+      },
+      {
+        "x": 0,
+        "y": 0,
+      },
+    ],
+    "shooter": "bob",
+    "source": "robot",
+    "strength": 1,
+    "type": "laser-fired",
+  },
+  {
+    "turn": 1,
+    "type": "turn-ended",
+  },
+]
+`;

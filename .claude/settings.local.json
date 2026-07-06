@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(find:*)",
+      "Bash(ls:*)",
+      "Bash(npm run typecheck:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm install:*)",
+      "Bash(npx playwright:*)",
+      "Bash(npm run setup:*)",
+      "Bash(npm run docker:up:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm ls:*)",
+      "Bash(rm:*)",
+      "Bash(npm:*)",
+      "Bash(node:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(start H:Developmentdrone_derbytest-game.html)"
+    ],
+    "deny": []
+  }
+}

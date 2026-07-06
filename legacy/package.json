@@ -1,0 +1,75 @@
+{
+  "name": "drone-derby",
+  "version": "1.0.0",
+  "description": "Web-based asynchronous multiplayer programming game inspired by RoboRally mechanics",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server:dev\" \"npm run client:dev\"",
+    "build": "npm run client:build && npm run server:build",
+    "start": "node server/dist/index.js",
+    "server:dev": "cd server && npm run dev",
+    "server:build": "cd server && npm run build",
+    "client:dev": "cd client && npm run dev",
+    "client:build": "cd client && npm run build",
+    "test": "npm run test:server && npm run test:client && npm run test:e2e",
+    "test:server": "cd server && npm test",
+    "test:client": "cd client && npm test",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug",
+    "lint": "npm run lint:server && npm run lint:client",
+    "lint:server": "cd server && npm run lint",
+    "lint:client": "cd client && npm run lint",
+    "typecheck": "npm run typecheck:server && npm run typecheck:client",
+    "typecheck:server": "cd server && npm run typecheck",
+    "typecheck:client": "cd client && npm run typecheck",
+    "db:migrate": "cd server && npm run db:migrate",
+    "db:seed": "cd server && npm run db:seed",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "setup": "npm install && npm run setup:server && npm run setup:client",
+    "setup:server": "cd server && npm install",
+    "setup:client": "cd client && npm install"
+  },
+  "keywords": [
+    "game",
+    "multiplayer",
+    "asynchronous",
+    "programming",
+    "roboralley",
+    "web-game",
+    "react",
+    "nodejs",
+    "websockets"
+  ],
+  "author": "Drone Derby Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.2",
+    "concurrently": "^8.2.2",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.2.0"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/drone-derby.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/drone-derby/issues"
+  },
+  "homepage": "https://github.com/your-org/drone-derby#readme"
+}

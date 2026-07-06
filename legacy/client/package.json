@@ -1,0 +1,74 @@
+{
+  "name": "drone-derby-client",
+  "version": "1.0.0",
+  "description": "Frontend React application for Drone Derby multiplayer game",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint src --ext ts,tsx --fix",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.11.1",
+    "@emotion/styled": "^11.11.0",
+    "@hookform/resolvers": "^3.3.2",
+    "@mui/icons-material": "^5.15.0",
+    "@mui/material": "^5.15.0",
+    "@reduxjs/toolkit": "^2.0.1",
+    "axios": "^1.6.2",
+    "date-fns": "^2.30.0",
+    "framer-motion": "^10.16.16",
+    "konva": "^9.2.0",
+    "lodash": "^4.17.21",
+    "react": "^18.2.0",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
+    "react-dom": "^18.2.0",
+    "react-hook-form": "^7.48.2",
+    "react-hot-toast": "^2.4.1",
+    "react-konva": "^18.2.10",
+    "react-redux": "^9.0.4",
+    "react-router-dom": "^6.20.1",
+    "redux-persist": "^6.0.0",
+    "socket.io-client": "^4.7.4",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.1",
+    "@types/lodash": "^4.14.202",
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@types/testing-library__jest-dom": "^6.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.14.0",
+    "@typescript-eslint/parser": "^6.14.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/ui": "^1.0.4",
+    "eslint": "^8.55.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "jsdom": "^23.0.1",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.8",
+    "vitest": "^1.0.4"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}

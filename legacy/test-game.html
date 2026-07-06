@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Derby - Game Logic Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(10, 50px);
+            grid-template-rows: repeat(10, 50px);
+            gap: 1px;
+            margin: 20px 0;
+            border: 2px solid #333;
+            background: #ddd;
+        }
+        .tile {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            position: relative;
+        }
+        .floor { background-color: #f5f5f5; }
+        .wall { background-color: #424242; color: white; }
+        .conveyorNormal { background-color: #81c784; }
+        .conveyorFast { background-color: #4caf50; }
+        .checkpoint { background-color: #ffb74d; }
+        .start { background-color: #64b5f6; }
+        .robot {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #e91e63;
+            border-radius: 50%;
+            z-index: 10;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 14px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #2196f3;
+            color: white;
+        }
+        button:hover {
+            background: #1976d2;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .cards {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .card {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            min-width: 80px;
+            text-align: center;
+            background: white;
+        }
+        .card.selected {
+            border-color: #2196f3;
+            background: #e3f2fd;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+        }
+        .log {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background: #fafafa;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚁 Drone Derby - Game Logic Test</h1>
+        
+        <div class="status">
+            <div>Turn: <span id="turn">1</span></div>
+            <div>Phase: <span id="phase">programming</span></div>
+            <div>Robot Position: <span id="position">(0, 0)</span></div>
+            <div>Robot Facing: <span id="facing">north</span></div>
+            <div>Checkpoints: <span id="checkpoints">0/2</span></div>
+        </div>
+
+        <div class="controls">
+            <button onclick="createTestBoard()">Create Test Board</button>
+            <button onclick="resetGame()">Reset Game</button>
+            <button onclick="executeSelectedCards()" id="executeBtn" disabled>Execute Turn</button>
+        </div>
+
+        <div class="cards">
+            <h3>Available Cards (select 5):</h3>
+            <div id="cardHand"></div>
+        </div>
+
+        <div class="cards">
+            <h3>Selected Program:</h3>
+            <div id="selectedCards"></div>
+        </div>
+
+        <div class="board" id="gameBoard"></div>
+
+        <div>
+            <h3>Game Log:</h3>
+            <div class="log" id="gameLog"></div>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let gameState = {
+            board: Array(10).fill().map(() => Array(10).fill({type: 'floor'})),
+            robot: { x: 0, y: 0, facing: 'north' },
+            turn: 1,
+            phase: 'programming',
+            checkpoints: [],
+            checkpointsReached: [],
+            hand: [],
+            selectedCards: []
+        };
+
+        // Game logic functions (simplified versions of server logic)
+        function moveForward(position, facing, spaces) {
+            let newPosition = { ...position };
+            
+            for (let i = 0; i < spaces; i++) {
+                switch (facing) {
+                    case 'north': newPosition.y -= 1; break;
+                    case 'south': newPosition.y += 1; break;
+                    case 'east': newPosition.x += 1; break;
+                    case 'west': newPosition.x -= 1; break;
+                }
+            }
+            
+            return newPosition;
+        }
+
+        function rotateLeft(facing) {
+            const rotations = { north: 'west', west: 'south', south: 'east', east: 'north' };
+            return rotations[facing] || facing;
+        }
+
+        function rotateRight(facing) {
+            const rotations = { north: 'east', east: 'south', south: 'west', west: 'north' };
+            return rotations[facing] || facing;
+        }
+
+        function uTurn(facing) {
+            const rotations = { north: 'south', south: 'north', east: 'west', west: 'east' };
+            return rotations[facing] || facing;
+        }
+
+        function validateMove(position) {
+            // Check board boundaries
+            if (position.x < 0 || position.x >= 10 || position.y < 0 || position.y >= 10) {
+                log('Robot hit board boundary!');
+                return {
+                    x: Math.max(0, Math.min(9, position.x)),
+                    y: Math.max(0, Math.min(9, position.y))
+                };
+            }
+
+            // Check for walls
+            const tile = gameState.board[position.y][position.x];
+            if (tile.type === 'wall') {
+                log('Robot hit a wall!');
+                return gameState.robot; // Return current position
+            }
+
+            return position;
+        }
+
+        function executeMove(card) {
+            let newPosition = { ...gameState.robot };
+            let newFacing = gameState.robot.facing;
+
+            log(`Executing ${card.type} (priority: ${card.priority})`);
+
+            switch (card.type) {
+                case 'move1':
+                    newPosition = moveForward(gameState.robot, gameState.robot.facing, 1);
+                    break;
+                case 'move2':
+                    newPosition = moveForward(gameState.robot, gameState.robot.facing, 2);
+                    break;
+                case 'move3':
+                    newPosition = moveForward(gameState.robot, gameState.robot.facing, 3);
+                    break;
+                case 'rotateLeft':
+                    newFacing = rotateLeft(gameState.robot.facing);
+                    break;
+                case 'rotateRight':
+                    newFacing = rotateRight(gameState.robot.facing);
+                    break;
+                case 'uTurn':
+                    newFacing = uTurn(gameState.robot.facing);
+                    break;
+            }
+
+            // Validate move
+            const validatedPosition = validateMove(newPosition);
+            gameState.robot = { ...validatedPosition, facing: newFacing };
+
+            // Check for checkpoint collection
+            checkCheckpointCollection();
+            
+            log(`Robot moved to (${gameState.robot.x}, ${gameState.robot.y}) facing ${gameState.robot.facing}`);
+        }
+
+        function checkCheckpointCollection() {
+            const tile = gameState.board[gameState.robot.y][gameState.robot.x];
+            
+            if (tile.type === 'checkpoint' && tile.checkpointNumber) {
+                const nextCheckpoint = gameState.checkpointsReached.length + 1;
+                
+                if (tile.checkpointNumber === nextCheckpoint) {
+                    gameState.checkpointsReached.push(tile.checkpointNumber);
+                    log(`Checkpoint ${tile.checkpointNumber} collected!`);
+                    
+                    // Check win condition
+                    if (gameState.checkpointsReached.length === gameState.checkpoints.length) {
+                        log('🎉 GAME WON! All checkpoints collected!');
+                        gameState.phase = 'complete';
+                    }
+                }
+            }
+        }
+
+        function applyBoardEffects() {
+            const tile = gameState.board[gameState.robot.y][gameState.robot.x];
+            
+            if (tile.type === 'conveyorNormal' || tile.type === 'conveyorFast') {
+                const spaces = tile.type === 'conveyorFast' ? 2 : 1;
+                log(`Conveyor belt moving robot ${spaces} space(s) ${tile.direction}`);
+                
+                const newPosition = moveForward(gameState.robot, tile.direction, spaces);
+                const validatedPosition = validateMove(newPosition);
+                gameState.robot = { ...validatedPosition, facing: gameState.robot.facing };
+                
+                checkCheckpointCollection();
+            }
+        }
+
+        function generateCardHand() {
+            const cardTypes = ['move1', 'move2', 'move3', 'rotateLeft', 'rotateRight', 'uTurn'];
+            const hand = [];
+            
+            for (let i = 0; i < 9; i++) {
+                hand.push({
+                    id: Math.random().toString(36).substr(2, 9),
+                    type: cardTypes[Math.floor(Math.random() * cardTypes.length)],
+                    priority: Math.floor(Math.random() * 100) + 1
+                });
+            }
+            
+            return hand.sort((a, b) => b.priority - a.priority);
+        }
+
+        function createTestBoard() {
+            log('Creating test board...');
+            
+            // Reset board
+            gameState.board = Array(10).fill().map(() => Array(10).fill({type: 'floor'}));
+            
+            // Add some walls
+            gameState.board[2][5] = {type: 'wall'};
+            gameState.board[3][5] = {type: 'wall'};
+            gameState.board[4][5] = {type: 'wall'};
+            gameState.board[6][3] = {type: 'wall'};
+            gameState.board[7][3] = {type: 'wall'};
+            
+            // Add conveyors
+            gameState.board[5][2] = {type: 'conveyorNormal', direction: 'east'};
+            gameState.board[5][3] = {type: 'conveyorNormal', direction: 'east'};
+            gameState.board[5][4] = {type: 'conveyorFast', direction: 'south'};
+            
+            // Add start position
+            gameState.board[0][0] = {type: 'start'};
+            
+            // Add checkpoints
+            gameState.board[2][8] = {type: 'checkpoint', checkpointNumber: 1};
+            gameState.board[8][2] = {type: 'checkpoint', checkpointNumber: 2};
+            
+            gameState.checkpoints = [
+                {id: 1, position: {x: 8, y: 2}},
+                {id: 2, position: {x: 2, y: 8}}
+            ];
+            
+            log('Test board created with walls, conveyors, and 2 checkpoints');
+            renderBoard();
+            updateStatus();
+        }
+
+        function resetGame() {
+            log('Resetting game...');
+            gameState.robot = { x: 0, y: 0, facing: 'north' };
+            gameState.turn = 1;
+            gameState.phase = 'programming';
+            gameState.checkpointsReached = [];
+            gameState.selectedCards = [];
+            gameState.hand = generateCardHand();
+            
+            renderBoard();
+            renderCards();
+            updateStatus();
+            log('Game reset complete');
+        }
+
+        function selectCard(cardIndex) {
+            if (gameState.selectedCards.length >= 5) {
+                log('Cannot select more than 5 cards');
+                return;
+            }
+            
+            const card = gameState.hand[cardIndex];
+            if (!gameState.selectedCards.find(c => c.id === card.id)) {
+                gameState.selectedCards.push(card);
+                log(`Selected card: ${card.type} (priority: ${card.priority})`);
+                renderCards();
+                updateExecuteButton();
+            }
+        }
+
+        function removeSelectedCard(cardIndex) {
+            gameState.selectedCards.splice(cardIndex, 1);
+            renderCards();
+            updateExecuteButton();
+        }
+
+        function executeSelectedCards() {
+            if (gameState.selectedCards.length === 0) {
+                log('No cards selected!');
+                return;
+            }
+
+            log(`Executing turn ${gameState.turn} with ${gameState.selectedCards.length} cards`);
+            gameState.phase = 'executing';
+            updateStatus();
+
+            // Sort cards by priority (higher priority first)
+            const sortedCards = [...gameState.selectedCards].sort((a, b) => b.priority - a.priority);
+
+            // Execute cards with delay for visualization
+            let cardIndex = 0;
+            function executeNextCard() {
+                if (cardIndex < sortedCards.length && gameState.phase === 'executing') {
+                    executeMove(sortedCards[cardIndex]);
+                    renderBoard();
+                    updateStatus();
+                    cardIndex++;
+                    
+                    setTimeout(() => {
+                        executeNextCard();
+                    }, 1000);
+                } else {
+                    // Apply board effects
+                    if (gameState.phase === 'executing') {
+                        log('Applying board effects...');
+                        applyBoardEffects();
+                        renderBoard();
+                        updateStatus();
+                        
+                        setTimeout(() => {
+                            finishTurn();
+                        }, 1000);
+                    }
+                }
+            }
+
+            executeNextCard();
+        }
+
+        function finishTurn() {
+            if (gameState.phase === 'complete') {
+                log('Game complete!');
+                return;
+            }
+
+            gameState.turn++;
+            gameState.phase = 'programming';
+            gameState.selectedCards = [];
+            gameState.hand = generateCardHand();
+            
+            log(`Turn ${gameState.turn} started`);
+            renderCards();
+            updateStatus();
+            updateExecuteButton();
+        }
+
+        function renderBoard() {
+            const board = document.getElementById('gameBoard');
+            board.innerHTML = '';
+            
+            for (let y = 0; y < 10; y++) {
+                for (let x = 0; x < 10; x++) {
+                    const tile = gameState.board[y][x];
+                    const tileElement = document.createElement('div');
+                    tileElement.className = `tile ${tile.type}`;
+                    
+                    // Add tile content
+                    if (tile.type === 'checkpoint') {
+                        tileElement.textContent = tile.checkpointNumber;
+                    } else if (tile.type === 'start') {
+                        tileElement.textContent = 'S';
+                    } else if (tile.type === 'conveyorNormal' || tile.type === 'conveyorFast') {
+                        const arrows = { north: '↑', south: '↓', east: '→', west: '←' };
+                        tileElement.textContent = arrows[tile.direction] || '?';
+                    }
+                    
+                    // Add robot
+                    if (gameState.robot.x === x && gameState.robot.y === y) {
+                        const robot = document.createElement('div');
+                        robot.className = 'robot';
+                        robot.title = `Robot facing ${gameState.robot.facing}`;
+                        tileElement.appendChild(robot);
+                    }
+                    
+                    board.appendChild(tileElement);
+                }
+            }
+        }
+
+        function renderCards() {
+            // Render hand
+            const handElement = document.getElementById('cardHand');
+            handElement.innerHTML = '';
+            
+            gameState.hand.forEach((card, index) => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'card';
+                cardElement.onclick = () => selectCard(index);
+                cardElement.innerHTML = `
+                    <div>${card.type}</div>
+                    <div>P: ${card.priority}</div>
+                `;
+                handElement.appendChild(cardElement);
+            });
+            
+            // Render selected cards
+            const selectedElement = document.getElementById('selectedCards');
+            selectedElement.innerHTML = '';
+            
+            gameState.selectedCards.forEach((card, index) => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'card selected';
+                cardElement.onclick = () => removeSelectedCard(index);
+                cardElement.innerHTML = `
+                    <div>${card.type}</div>
+                    <div>P: ${card.priority}</div>
+                    <div>Slot ${index + 1}</div>
+                `;
+                selectedElement.appendChild(cardElement);
+            });
+        }
+
+        function updateStatus() {
+            document.getElementById('turn').textContent = gameState.turn;
+            document.getElementById('phase').textContent = gameState.phase;
+            document.getElementById('position').textContent = `(${gameState.robot.x}, ${gameState.robot.y})`;
+            document.getElementById('facing').textContent = gameState.robot.facing;
+            document.getElementById('checkpoints').textContent = `${gameState.checkpointsReached.length}/${gameState.checkpoints.length}`;
+        }
+
+        function updateExecuteButton() {
+            const btn = document.getElementById('executeBtn');
+            btn.disabled = gameState.selectedCards.length === 0 || gameState.phase !== 'programming';
+        }
+
+        function log(message) {
+            const logElement = document.getElementById('gameLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        // Initialize game
+        createTestBoard();
+        resetGame();
+        log('🚁 Drone Derby Game Logic Test initialized');
+        log('Instructions:');
+        log('1. Click "Create Test Board" to set up a test map');
+        log('2. Select up to 5 cards from your hand');
+        log('3. Click "Execute Turn" to run your program');
+        log('4. Collect checkpoints in order to win!');
+    </script>
+</body>
+</html>

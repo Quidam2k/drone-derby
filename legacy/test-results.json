@@ -1,0 +1,531 @@
+{
+  "config": {
+    "configFile": "H:\\Development\\drone_derby\\playwright.config.ts",
+    "rootDir": "H:/Development/drone_derby/tests/e2e",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 10
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "H:/Development/drone_derby/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "H:/Development/drone_derby/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "H:/Development/drone_derby/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "H:/Development/drone_derby/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "H:/Development/drone_derby/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "H:/Development/drone_derby/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "H:/Development/drone_derby/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "Mobile Chrome",
+        "name": "Mobile Chrome",
+        "testDir": "H:/Development/drone_derby/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "H:/Development/drone_derby/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 10
+        },
+        "id": "Mobile Safari",
+        "name": "Mobile Safari",
+        "testDir": "H:/Development/drone_derby/tests/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.54.2",
+    "workers": 12,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "simple.spec.ts",
+      "file": "simple.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Simple Connectivity Test",
+          "file": "simple.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should be able to navigate to localhost",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 8573,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "❌ Client server not running: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/\", waiting until \"networkidle\"\u001b[22m\n\n    at H:\\Development\\drone_derby\\tests\\e2e\\simple.spec.ts:7:18 {\n  name: 'Error',\n  [Symbol(step)]: {\n    stepId: 'pw:api@8',\n    location: {\n      file: 'H:\\\\Development\\\\drone_derby\\\\tests\\\\e2e\\\\simple.spec.ts',\n      line: 7,\n      column: 18\n    },\n    category: 'pw:api',\n    title: 'Navigate to \"/\"',\n    apiName: 'page.goto',\n    params: {\n      url: 'http://localhost:3000',\n      waitUntil: 'networkidle',\n      timeout: 5000\n    },\n    boxedStack: undefined,\n    steps: [],\n    attachmentIndices: [],\n    info: TestStepInfoImpl {\n      annotations: [],\n      _testInfo: [TestInfoImpl],\n      _stepId: 'pw:api@8',\n      skip: [Function (anonymous)]\n    },\n    complete: [Function: complete],\n    endWallTime: 1754152552235,\n    error: {\n      message: 'Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/\\n' +\n        'Call log:\\n' +\n        '\\x1B[2m  - navigating to \"http://localhost:3000/\", waiting until \"networkidle\"\\x1B[22m\\n',\n      stack: 'Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/\\n' +\n        'Call log:\\n' +\n        '\\x1B[2m  - navigating to \"http://localhost:3000/\", waiting until \"networkidle\"\\x1B[22m\\n' +\n        '\\n' +\n        '    at H:\\\\Development\\\\drone_derby\\\\tests\\\\e2e\\\\simple.spec.ts:7:18',\n      cause: undefined\n    }\n  }\n}\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-02T16:35:43.039Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b095e72a376a9d09f724-d657f9f222d3921fb7b6",
+              "file": "simple.spec.ts",
+              "line": 4,
+              "column": 7
+            },
+            {
+              "title": "should verify test framework is working",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 8397,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-02T16:35:42.217Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b095e72a376a9d09f724-c8362747c9a0e98d569f",
+              "file": "simple.spec.ts",
+              "line": 25,
+              "column": 7
+            },
+            {
+              "title": "should be able to navigate to localhost",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "timedOut",
+                      "duration": 30821,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded while setting up \"page\".\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded while setting up \"page\".\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded while setting up \"page\".\u001b[39m"
+                        },
+                        {
+                          "message": "Error: browserContext.newPage: Test timeout of 30000ms exceeded."
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-02T16:35:41.408Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "b095e72a376a9d09f724-677d4db3df22e849a021",
+              "file": "simple.spec.ts",
+              "line": 4,
+              "column": 7
+            },
+            {
+              "title": "should verify test framework is working",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "timedOut",
+                      "duration": 30775,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded while setting up \"page\".\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded while setting up \"page\".\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded while setting up \"page\".\u001b[39m"
+                        },
+                        {
+                          "message": "Error: browserContext.newPage: Test timeout of 30000ms exceeded."
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-02T16:35:42.216Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "b095e72a376a9d09f724-15b79c53814a007613f4",
+              "file": "simple.spec.ts",
+              "line": 25,
+              "column": 7
+            },
+            {
+              "title": "should be able to navigate to localhost",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 9204,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "❌ Client server not running: page.goto: Could not connect to server\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/\", waiting until \"networkidle\"\u001b[22m\n\n    at H:\\Development\\drone_derby\\tests\\e2e\\simple.spec.ts:7:18 {\n  name: 'Error',\n  [Symbol(step)]: {\n    stepId: 'pw:api@8',\n    location: {\n      file: 'H:\\\\Development\\\\drone_derby\\\\tests\\\\e2e\\\\simple.spec.ts',\n      line: 7,\n      column: 18\n    },\n    category: 'pw:api',\n    title: 'Navigate to \"/\"',\n    apiName: 'page.goto',\n    params: {\n      url: 'http://localhost:3000',\n      waitUntil: 'networkidle',\n      timeout: 5000\n    },\n    boxedStack: undefined,\n    steps: [],\n    attachmentIndices: [],\n    info: TestStepInfoImpl {\n      annotations: [],\n      _testInfo: [TestInfoImpl],\n      _stepId: 'pw:api@8',\n      skip: [Function (anonymous)]\n    },\n    complete: [Function: complete],\n    endWallTime: 1754152552237,\n    error: {\n      message: 'Error: page.goto: Could not connect to server\\n' +\n        'Call log:\\n' +\n        '\\x1B[2m  - navigating to \"http://localhost:3000/\", waiting until \"networkidle\"\\x1B[22m\\n',\n      stack: 'Error: page.goto: Could not connect to server\\n' +\n        'Call log:\\n' +\n        '\\x1B[2m  - navigating to \"http://localhost:3000/\", waiting until \"networkidle\"\\x1B[22m\\n' +\n        '\\n' +\n        '    at H:\\\\Development\\\\drone_derby\\\\tests\\\\e2e\\\\simple.spec.ts:7:18',\n      cause: undefined\n    }\n  }\n}\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-02T16:35:42.216Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b095e72a376a9d09f724-82334bdd546d41a08bfc",
+              "file": "simple.spec.ts",
+              "line": 4,
+              "column": 7
+            },
+            {
+              "title": "should verify test framework is working",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 4261,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-02T16:35:42.226Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b095e72a376a9d09f724-cb4c41cc89da3d8d2001",
+              "file": "simple.spec.ts",
+              "line": 25,
+              "column": 7
+            },
+            {
+              "title": "should be able to navigate to localhost",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 6,
+                      "status": "passed",
+                      "duration": 8827,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "❌ Client server not running: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/\", waiting until \"networkidle\"\u001b[22m\n\n    at H:\\Development\\drone_derby\\tests\\e2e\\simple.spec.ts:7:18 {\n  name: 'Error',\n  [Symbol(step)]: {\n    stepId: 'pw:api@8',\n    location: {\n      file: 'H:\\\\Development\\\\drone_derby\\\\tests\\\\e2e\\\\simple.spec.ts',\n      line: 7,\n      column: 18\n    },\n    category: 'pw:api',\n    title: 'Navigate to \"/\"',\n    apiName: 'page.goto',\n    params: {\n      url: 'http://localhost:3000',\n      waitUntil: 'networkidle',\n      timeout: 5000\n    },\n    boxedStack: undefined,\n    steps: [],\n    attachmentIndices: [],\n    info: TestStepInfoImpl {\n      annotations: [],\n      _testInfo: [TestInfoImpl],\n      _stepId: 'pw:api@8',\n      skip: [Function (anonymous)]\n    },\n    complete: [Function: complete],\n    endWallTime: 1754152561361,\n    error: {\n      message: 'Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/\\n' +\n        'Call log:\\n' +\n        '\\x1B[2m  - navigating to \"http://localhost:3000/\", waiting until \"networkidle\"\\x1B[22m\\n',\n      stack: 'Error: page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3000/\\n' +\n        'Call log:\\n' +\n        '\\x1B[2m  - navigating to \"http://localhost:3000/\", waiting until \"networkidle\"\\x1B[22m\\n' +\n        '\\n' +\n        '    at H:\\\\Development\\\\drone_derby\\\\tests\\\\e2e\\\\simple.spec.ts:7:18',\n      cause: undefined\n    }\n  }\n}\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-02T16:35:43.042Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b095e72a376a9d09f724-8e8fd94306dd8a35b4aa",
+              "file": "simple.spec.ts",
+              "line": 4,
+              "column": 7
+            },
+            {
+              "title": "should verify test framework is working",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 17031,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-02T16:35:43.042Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b095e72a376a9d09f724-30c450ec3dc7a57ecc8b",
+              "file": "simple.spec.ts",
+              "line": 25,
+              "column": 7
+            },
+            {
+              "title": "should be able to navigate to localhost",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 8,
+                      "status": "passed",
+                      "duration": 6920,
+                      "errors": [],
+                      "stdout": [
+                        {
+                          "text": "❌ Client server not running: page.goto: Could not connect to server\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3000/\", waiting until \"networkidle\"\u001b[22m\n\n    at H:\\Development\\drone_derby\\tests\\e2e\\simple.spec.ts:7:18 {\n  name: 'Error',\n  [Symbol(step)]: {\n    stepId: 'pw:api@8',\n    location: {\n      file: 'H:\\\\Development\\\\drone_derby\\\\tests\\\\e2e\\\\simple.spec.ts',\n      line: 7,\n      column: 18\n    },\n    category: 'pw:api',\n    title: 'Navigate to \"/\"',\n    apiName: 'page.goto',\n    params: {\n      url: 'http://localhost:3000',\n      waitUntil: 'networkidle',\n      timeout: 5000\n    },\n    boxedStack: undefined,\n    steps: [],\n    attachmentIndices: [],\n    info: TestStepInfoImpl {\n      annotations: [],\n      _testInfo: [TestInfoImpl],\n      _stepId: 'pw:api@8',\n      skip: [Function (anonymous)]\n    },\n    complete: [Function: complete],\n    endWallTime: 1754152552237,\n    error: {\n      message: 'Error: page.goto: Could not connect to server\\n' +\n        'Call log:\\n' +\n        '\\x1B[2m  - navigating to \"http://localhost:3000/\", waiting until \"networkidle\"\\x1B[22m\\n',\n      stack: 'Error: page.goto: Could not connect to server\\n' +\n        'Call log:\\n' +\n        '\\x1B[2m  - navigating to \"http://localhost:3000/\", waiting until \"networkidle\"\\x1B[22m\\n' +\n        '\\n' +\n        '    at H:\\\\Development\\\\drone_derby\\\\tests\\\\e2e\\\\simple.spec.ts:7:18',\n      cause: undefined\n    }\n  }\n}\n"
+                        }
+                      ],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-02T16:35:43.032Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b095e72a376a9d09f724-885818a2ae961f3e1655",
+              "file": "simple.spec.ts",
+              "line": 4,
+              "column": 7
+            },
+            {
+              "title": "should verify test framework is working",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 9,
+                      "status": "passed",
+                      "duration": 4164,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-08-02T16:35:42.222Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "b095e72a376a9d09f724-34cefd7ec58eb1bcf3c7",
+              "file": "simple.spec.ts",
+              "line": 25,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-08-02T16:35:26.951Z",
+    "duration": 63256.652,
+    "expected": 8,
+    "skipped": 0,
+    "unexpected": 2,
+    "flaky": 0
+  }
+}
