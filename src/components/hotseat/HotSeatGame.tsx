@@ -48,10 +48,11 @@ export function HotSeatGame() {
         <ReplayPlayer
           prevState={lastTurn!.prevState}
           events={lastTurn!.events}
+          taunts={lastTurn!.taunts}
           onDone={store.finishReplay}
         />
       );
     case 'gameover':
-      return <GameOverScreen winner={game!.winner} onNewGame={store.newGame} />;
+      return <GameOverScreen winner={game!.winner} finalState={game} onNewGame={store.newGame} />;
   }
 }

@@ -18,6 +18,7 @@ import { ProgrammingView } from '../programming/ProgrammingView';
 import { GameOverScreen } from '../programming/GameOverScreen';
 import { ReplayPlayer } from '../replay/ReplayPlayer';
 import { CenterNote, errorMessage, SignInGate } from './common';
+import { HistoryBrowser } from './HistoryBrowser';
 import { NotificationsButton } from './NotificationsButton';
 
 export function OnlineGameScreen({ gameId }: { gameId: string }) {
@@ -34,6 +35,7 @@ function GameInner({ gameId }: { gameId: Id<'games'> }) {
   const g = useQuery(api.games.game, { gameId });
   const submitProgram = useMutation(api.games.submitProgram);
   const [error, setError] = useState<string | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   if (g === undefined) return <CenterNote>Loading game…</CenterNote>;
   if (g === null) {
@@ -50,26 +52,57 @@ function GameInner({ gameId }: { gameId: Id<'games'> }) {
 
   if (g.status === 'lobby') return <GameLobby g={g} />;
 
-  // Catch up on turns this player hasn't watched yet, oldest first.
+  // History is deliberately checked before the unseen-turn catch-up: it never
+  // touches markTurnSeen, and closing it drops straight back into that logic.
   const executedThrough = g.currentTurn - 1;
+  if (historyOpen && executedThrough >= 1) {
+    return (
+      <HistoryBrowser
+        gameId={g.gameId}
+        lastTurn={executedThrough}
+        onClose={() => setHistoryOpen(false)}
+      />
+    );
+  }
+
+  // Catch up on turns this player hasn't watched yet, oldest first.
   if (g.myLastSeenTurn < executedThrough) {
     return <TurnReplay gameId={g.gameId} turn={g.myLastSeenTurn + 1} />;
   }
 
   if (g.status === 'finished') {
-    return <GameOverScreen winner={g.winner} onNewGame={() => navigate('#/')} />;
+    return (
+      <GameOverScreen
+        winner={g.winner}
+        finalState={g.state as GameState}
+        onNewGame={() => navigate('#/')}
+      >
+        {executedThrough >= 1 && (
+          <button className="quiet" onClick={() => setHistoryOpen(true)} data-testid="open-history">
+            Watch past turns
+          </button>
+        )}
+      </GameOverScreen>
+    );
   }
 
   const state = g.state as GameState; // sanitized: my hand only, no decks
   const myRobot = state.robots[g.mySeat];
 
   if (myRobot.eliminated || g.mySubmitted) {
-    return <WaitingView g={g} state={state} spectating={myRobot.eliminated} />;
+    return (
+      <WaitingView
+        g={g}
+        state={state}
+        spectating={myRobot.eliminated}
+        onHistory={executedThrough >= 1 ? () => setHistoryOpen(true) : undefined}
+      />
+    );
   }
 
-  const submit = (program: Program) => {
+  const submit = (program: Program, taunt?: string) => {
     setError(null);
-    submitProgram({ gameId: g.gameId, program }).catch((e: unknown) =>
+    submitProgram({ gameId: g.gameId, program, taunt }).catch((e: unknown) =>
       setError(errorMessage(e)),
     );
   };
@@ -173,8 +206,39 @@ function TurnReplay({ gameId, turn }: { gameId: Id<'games'>; turn: number }) {
       key={turn}
       prevState={data.prevState as GameState}
       events={data.events as EventLog}
+      taunts={data.taunts}
       onDone={done}
     />
+  );
+}
+
+function NudgeButton({ g }: { g: GameView }) {
+  const nudge = useMutation(api.games.nudge);
+  const [note, setNote] = useState<string | null>(null);
+  const coolingDown = Date.now() < g.nudgeAvailableAt;
+
+  return (
+    <span className="nudge-box">
+      <button
+        className="quiet"
+        disabled={coolingDown}
+        title={
+          coolingDown
+            ? `One nudge per 12h — next at ${new Date(g.nudgeAvailableAt).toLocaleString()}`
+            : 'Send a push notification to the players you are waiting on'
+        }
+        data-testid="nudge-button"
+        onClick={() => {
+          setNote(null);
+          nudge({ gameId: g.gameId })
+            .then(() => setNote('Nudge sent!'))
+            .catch((e: unknown) => setNote(errorMessage(e)));
+        }}
+      >
+        👉 Nudge {coolingDown ? '(sent)' : ''}
+      </button>
+      {note && <span className="nudge-note">{note}</span>}
+    </span>
   );
 }
 
@@ -182,10 +246,12 @@ function WaitingView({
   g,
   state,
   spectating,
+  onHistory,
 }: {
   g: GameView;
   state: GameState;
   spectating: boolean;
+  onHistory?: () => void;
 }) {
   const visual = initialVisual(state);
   return (
@@ -200,10 +266,20 @@ function WaitingView({
         <PlayerStrip visual={visual} checkpointTarget={countCheckpoints(state.board)} />
       </div>
       <p className="waiting-note" data-testid="waiting-note">
-        {g.waitingOn.length > 0
-          ? `Waiting on ${g.waitingOn.join(', ')} — the replay starts as soon as everyone's in.`
-          : 'Executing the turn…'}
+        {g.waitingOn.length > 0 ? (
+          <>
+            Waiting on {g.waitingOn.join(', ')} — the replay starts as soon as everyone's in.{' '}
+            <NudgeButton g={g} />
+          </>
+        ) : (
+          'Executing the turn…'
+        )}
       </p>
+      {onHistory && (
+        <button className="quiet history-link" onClick={onHistory} data-testid="open-history">
+          Watch past turns
+        </button>
+      )}
       <NotificationsButton />
       <a className="quiet-link" href="#/">
         ‹ Back to the lobby (your program is saved)

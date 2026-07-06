@@ -13,6 +13,8 @@ interface LastTurn {
   events: EventLog;
   /** State the turn started from — the replay folds events on top of this. */
   prevState: GameState;
+  /** Speech-bubble lines submitted with this turn's programs. */
+  taunts: Record<PlayerId, string>;
 }
 
 interface GameStore {
@@ -22,12 +24,13 @@ interface GameStore {
   /** Seat index currently programming (or about to, on the handoff screen). */
   currentSeat: number;
   pendingPrograms: Record<PlayerId, Program>;
+  pendingTaunts: Record<PlayerId, string>;
   lastTurn: LastTurn | null;
 
   startGame: (playerNames: string[]) => void;
   /** Handoff screen's Ready button: reveal the current seat's hand. */
   beginProgramming: () => void;
-  submitProgram: (program: Program) => void;
+  submitProgram: (program: Program, taunt?: string) => void;
   finishReplay: () => void;
   newGame: () => void;
 }
@@ -45,6 +48,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
   initialSeed: 0,
   currentSeat: 0,
   pendingPrograms: {},
+  pendingTaunts: {},
   lastTurn: null,
 
   startGame: (playerNames) => {
@@ -55,6 +59,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       initialSeed: seed,
       currentSeat: 0,
       pendingPrograms: {},
+      pendingTaunts: {},
       lastTurn: null,
       screen: 'handoff',
     });
@@ -62,16 +67,22 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   beginProgramming: () => set({ screen: 'programming' }),
 
-  submitProgram: (program) => {
-    const { game, currentSeat, pendingPrograms, initialSeed } = get();
+  submitProgram: (program, taunt) => {
+    const { game, currentSeat, pendingPrograms, pendingTaunts, initialSeed } = get();
     if (!game) return;
     const player = game.robots[currentSeat].player;
     const programs = { ...pendingPrograms, [player]: program };
+    const taunts = taunt ? { ...pendingTaunts, [player]: taunt } : pendingTaunts;
 
     const nextSeat = firstActiveSeat(game, currentSeat + 1);
     if (nextSeat !== -1) {
       // More players to program: pass the device (hands stay secret).
-      set({ pendingPrograms: programs, currentSeat: nextSeat, screen: 'handoff' });
+      set({
+        pendingPrograms: programs,
+        pendingTaunts: taunts,
+        currentSeat: nextSeat,
+        screen: 'handoff',
+      });
       return;
     }
 
@@ -79,8 +90,9 @@ export const useGameStore = create<GameStore>((set, get) => ({
     const { state, events } = executeTurn(game, programs, initialSeed + game.turn);
     set({
       game: state,
-      lastTurn: { events, prevState: game },
+      lastTurn: { events, prevState: game, taunts },
       pendingPrograms: {},
+      pendingTaunts: {},
       screen: 'replay',
     });
   },
@@ -101,6 +113,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
       game: null,
       currentSeat: 0,
       pendingPrograms: {},
+      pendingTaunts: {},
       lastTurn: null,
     }),
 }));

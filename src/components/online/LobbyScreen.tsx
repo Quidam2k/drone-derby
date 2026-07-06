@@ -25,7 +25,25 @@ function gameNote(g: GameSummary): string {
   if (g.status === 'finished') return g.winner ? `${g.winner} won` : 'everyone was scrapped';
   if (g.unseenTurns > 0) return `${g.unseenTurns} turn${g.unseenTurns > 1 ? 's' : ''} to watch`;
   if (g.waitingOn.includes(g.myName)) return 'your move!';
-  return g.waitingOn.length > 0 ? `waiting on ${g.waitingOn.join(', ')}` : 'executing…';
+  return g.waitingOn.length > 0 ? 'waiting' : 'executing…';
+}
+
+/** Player names with a submitted ✓ / waiting ⏳ badge while the game runs. */
+function PlayerBadges({ g }: { g: GameSummary }) {
+  return (
+    <span className="game-row-players">
+      {g.playerNames.map((name, i) => {
+        const waiting = g.status === 'active' && g.waitingOn.includes(name);
+        return (
+          <span key={name} className={`player-badge${waiting ? ' waiting' : ''}`}>
+            {i > 0 && ', '}
+            {name}
+            {g.status === 'active' && (waiting ? ' ⏳' : ' ✓')}
+          </span>
+        );
+      })}
+    </span>
+  );
 }
 
 function LobbyInner() {
@@ -124,8 +142,10 @@ function LobbyInner() {
               onClick={() => navigate(`#/game/${g.gameId}`)}
               data-testid={`game-row-${g.gameId}`}
             >
-              <span className={`status-chip status-${g.status}`}>{g.status}</span>
-              <span className="game-row-players">{g.playerNames.join(', ')}</span>
+              <span className={`status-chip status-${g.status}`}>
+                {g.status === 'active' ? `turn ${g.currentTurn}` : g.status}
+              </span>
+              <PlayerBadges g={g} />
               <span className="game-row-note">{gameNote(g)}</span>
             </button>
           ))

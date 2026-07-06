@@ -19,6 +19,8 @@ export default defineSchema({
     winner: v.optional(v.union(v.string(), v.null())),
     /** Current authoritative engine GameState; absent until the host starts. */
     state: v.optional(v.any()),
+    /** When the last nudge push went out — rate-limits games.nudge. */
+    lastNudgeAt: v.optional(v.number()),
   }).index('by_inviteCode', ['inviteCode']),
 
   players: defineTable({
@@ -41,6 +43,8 @@ export default defineSchema({
     prevState: v.any(),
     /** EventLog emitted by executeTurn. */
     events: v.any(),
+    /** Speech-bubble lines submitted with this turn's programs, by player name. */
+    taunts: v.optional(v.any()),
     executedAt: v.number(),
   }).index('by_game_turn', ['gameId', 'turn']),
 
@@ -60,6 +64,8 @@ export default defineSchema({
     playerId: v.id('players'),
     /** Server-validated Program; never returned by queries to other players. */
     program: v.any(),
+    /** Optional speech-bubble line, shown over the robot in the turn replay. */
+    taunt: v.optional(v.string()),
   })
     .index('by_game_turn', ['gameId', 'turn'])
     .index('by_game_turn_player', ['gameId', 'turn', 'playerId']),
