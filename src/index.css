@@ -553,6 +553,16 @@ input:focus {
 .lobby-header .title {
   margin: 0;
 }
+.lobby-header-actions {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.notifications-toggle {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
 button.quiet {
   background: none;
   border-color: transparent;

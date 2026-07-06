@@ -6,6 +6,7 @@ import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import type { Doc, Id } from './_generated/dataModel';
+import { internal } from './_generated/api';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import {
   createGame as engineCreateGame,
@@ -112,6 +113,29 @@ function cleanName(raw: string): string {
   return name;
 }
 
+/**
+ * Best-effort web push to every player except the actor (convex/push.ts
+ * no-ops until VAPID keys are configured). One tag per game, so a newer
+ * notification replaces a stale one instead of stacking.
+ */
+async function notifyOthers(
+  ctx: MutationCtx,
+  gameId: Id<'games'>,
+  players: Doc<'players'>[],
+  actorUserId: Id<'users'>,
+  body: string,
+): Promise<void> {
+  const userIds = [...new Set(players.map((p) => p.userId))].filter((u) => u !== actorUserId);
+  if (userIds.length === 0) return;
+  await ctx.scheduler.runAfter(0, internal.push.send, {
+    userIds,
+    title: 'Drone Derby',
+    body,
+    url: `/#/game/${gameId}`,
+    tag: `game-${gameId}`,
+  });
+}
+
 // Unambiguous lowercase alphabet (no 0/o, 1/l/i) for invite codes.
 const CODE_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
 
@@ -207,6 +231,7 @@ export const startGame = mutation({
       game.seed,
     );
     await ctx.db.patch(game._id, { status: 'active', currentTurn: 1, state });
+    await notifyOthers(ctx, game._id, players, userId, 'Game on — program your first turn!');
   },
 });
 
@@ -279,6 +304,17 @@ export const submitProgram = mutation({
       currentTurn: turn + 1,
       ...(finished ? { status: 'finished' as const, winner: result.state.winner } : {}),
     });
+    await notifyOthers(
+      ctx,
+      game._id,
+      players,
+      userId,
+      finished
+        ? result.state.winner
+          ? `Game over — ${result.state.winner} wins! Watch the final turn.`
+          : 'Game over — everyone was scrapped. Watch the final turn.'
+        : `Turn ${turn} executed — watch the replay and program your move!`,
+    );
   },
 });
 
