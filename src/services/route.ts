@@ -2,6 +2,7 @@
 //   #/            lobby (or hot-seat when Convex is not configured)
 //   #/hotseat     pass & play on this device
 //   #/editor      level editor (local draft; works without a backend)
+//   #/editor/<id> level editor on a cloud-saved board
 //   #/game/<id>   online game screen
 //   #/join/<code> join via invite link
 
@@ -10,14 +11,14 @@ import { useSyncExternalStore } from 'react';
 export type Route =
   | { name: 'home' }
   | { name: 'hotseat' }
-  | { name: 'editor' }
+  | { name: 'editor'; boardId?: string }
   | { name: 'game'; gameId: string }
   | { name: 'join'; code: string };
 
 export function parseHash(hash: string): Route {
   const [head, arg] = hash.replace(/^#\/?/, '').split('/');
   if (head === 'hotseat') return { name: 'hotseat' };
-  if (head === 'editor') return { name: 'editor' };
+  if (head === 'editor') return arg ? { name: 'editor', boardId: arg } : { name: 'editor' };
   if (head === 'game' && arg) return { name: 'game', gameId: arg };
   if (head === 'join' && arg) return { name: 'join', code: arg };
   return { name: 'home' };

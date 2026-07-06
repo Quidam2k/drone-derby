@@ -32,8 +32,15 @@ class RouteBoundary extends Component<{ children: ReactNode }, { error: Error | 
 export function App() {
   const route = useRoute();
 
-  // The editor is fully local — it works with or without a backend.
-  if (route.name === 'editor') return <EditorScreen />;
+  // The editor works with or without a backend; a boardId in the hash loads
+  // a cloud-saved board (which needs Convex + sign-in, handled inside).
+  if (route.name === 'editor') {
+    return (
+      <RouteBoundary key={route.boardId ?? ''}>
+        <EditorScreen boardId={route.boardId} />
+      </RouteBoundary>
+    );
+  }
 
   // No backend configured: the game is hot-seat only.
   if (!convex) return <HotSeatGame />;

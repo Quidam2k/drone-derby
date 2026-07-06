@@ -19,9 +19,23 @@ export default defineSchema({
     winner: v.optional(v.union(v.string(), v.null())),
     /** Current authoritative engine GameState; absent until the host starts. */
     state: v.optional(v.any()),
+    /**
+     * BoardDef snapshot taken at createGame for custom-board games; absent
+     * means the built-in board. Later edits/deletes of the source board
+     * never touch this game.
+     */
+    board: v.optional(v.any()),
     /** When the last nudge push went out — rate-limits games.nudge. */
     lastNudgeAt: v.optional(v.number()),
   }).index('by_inviteCode', ['inviteCode']),
+
+  /** Player-made boards (level editor). `board` is an engine BoardDef. */
+  boards: defineTable({
+    name: v.string(),
+    createdBy: v.id('users'),
+    board: v.any(),
+    updatedAt: v.number(),
+  }).index('by_creator', ['createdBy']),
 
   players: defineTable({
     gameId: v.id('games'),

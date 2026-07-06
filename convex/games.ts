@@ -8,14 +8,16 @@ import type { MutationCtx, QueryCtx } from './_generated/server';
 import type { Doc, Id } from './_generated/dataModel';
 import { internal } from './_generated/api';
 import { getAuthUserId } from '@convex-dev/auth/server';
+import { requireUserId } from './helpers';
 import {
   createGame as engineCreateGame,
   executeTurn,
   isGameOver,
   isRegisterLocked,
   provingGrounds,
+  validateBoard,
 } from '../src/engine';
-import type { Card, GameState, PlayerId, Program } from '../src/engine';
+import type { BoardDef, Card, GameState, PlayerId, Program } from '../src/engine';
 
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 4;
@@ -41,10 +43,18 @@ const programValidator = v.array(v.union(v.null(), cardValidator));
 // ---------------------------------------------------------------------------
 // Helpers
 
-async function requireUserId(ctx: QueryCtx | MutationCtx): Promise<Id<'users'>> {
-  const userId = await getAuthUserId(ctx);
-  if (userId === null) throw new Error('Not signed in');
-  return userId;
+/** The board this game plays on: its custom-board snapshot, else the built-in. */
+function gameBoard(game: Doc<'games'>): BoardDef {
+  return (game.board as BoardDef | undefined) ?? provingGrounds();
+}
+
+/** Seats available on a board — one per spawn dock, capped by MAX_PLAYERS. */
+function maxSeats(board: BoardDef): number {
+  let spawns = 0;
+  for (const row of board.tiles) {
+    for (const t of row) if (t.kind === 'spawn') spawns++;
+  }
+  return Math.min(MAX_PLAYERS, spawns);
 }
 
 async function playerFor(
@@ -159,10 +169,25 @@ function randomInviteCode(): string {
 // Mutations
 
 export const createGame = mutation({
-  args: { name: v.string() },
+  args: {
+    name: v.string(),
+    /** Play on one of the caller's saved boards; omitted = built-in board. */
+    boardId: v.optional(v.id('boards')),
+  },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
     const name = cleanName(args.name);
+
+    // Snapshot the custom board now so later edits/deletes of the source
+    // board can never affect this game.
+    let board: BoardDef | undefined;
+    if (args.boardId) {
+      const doc = await ctx.db.get(args.boardId);
+      if (!doc || doc.createdBy !== userId) throw new Error('Board not found');
+      board = doc.board as BoardDef;
+      const { errors } = validateBoard(board);
+      if (errors.length > 0) throw new Error(`Board is not playable: ${errors[0]}`);
+    }
 
     let inviteCode = randomInviteCode();
     while (
@@ -175,12 +200,13 @@ export const createGame = mutation({
     }
 
     const gameId = await ctx.db.insert('games', {
-      boardName: BOARD_NAME,
+      boardName: board ? board.name : BOARD_NAME,
       seed: Math.floor(Math.random() * 1_000_000_000),
       status: 'lobby',
       inviteCode,
       createdBy: userId,
       currentTurn: 0,
+      ...(board ? { board } : {}),
     });
     await ctx.db.insert('players', { gameId, userId, name, seat: 0, lastSeenTurn: 0 });
     return { gameId, inviteCode };
@@ -203,7 +229,10 @@ export const joinGame = mutation({
 
     if (game.status !== 'lobby') throw new Error('That game has already started');
     const players = await gamePlayers(ctx, game._id);
-    if (players.length >= MAX_PLAYERS) throw new Error('That game is full (4 players max)');
+    const seats = maxSeats(gameBoard(game));
+    if (players.length >= seats) {
+      throw new Error(`That game is full — ${game.boardName} fits ${seats} players`);
+    }
 
     const name = cleanName(args.name);
     if (players.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
@@ -232,9 +261,13 @@ export const startGame = mutation({
 
     const players = await gamePlayers(ctx, game._id);
     if (players.length < MIN_PLAYERS) throw new Error('Need at least 2 players');
+    const board = gameBoard(game);
+    if (players.length > maxSeats(board)) {
+      throw new Error(`${game.boardName} only fits ${maxSeats(board)} players`);
+    }
 
     const state = engineCreateGame(
-      provingGrounds(),
+      board,
       players.map((p) => p.name),
       game.seed,
     );
@@ -463,7 +496,9 @@ export const gameByInvite = query({
       boardName: game.boardName,
       status: game.status,
       playerNames: players.map((p) => p.name),
-      full: players.length >= MAX_PLAYERS,
+      /** Seats on this game's board (custom boards may have fewer spawns). */
+      seats: maxSeats(gameBoard(game)),
+      full: players.length >= maxSeats(gameBoard(game)),
       alreadyJoined: userId !== null && players.some((p) => p.userId === userId),
     };
   },
