@@ -1,31 +1,27 @@
 # Session State
-Updated: 2026-07-06 (Phase 4 code complete)
+Updated: 2026-07-06 (Phase 4 DONE — game is LIVE)
 
 ## Current Task
 Drone Derby v2 — cascade: cascades/2026-07-05-v2-rewrite.md.
-Phase 4 code DONE + verified locally; only the deploy step remains,
-blocked on Todd's gates.
+Phases 1–4 DONE. LIVE at https://drone-derby.pages.dev
+(GitHub: https://github.com/Quidam2k/drone-derby). Phase 5 is next.
 
 ## Just Completed
-- PWA shell: vite-plugin-pwa injectManifest, custom src/sw.ts (push +
-  notificationclick), icons via `npm run icons`, iOS meta, tsconfig.sw.json.
-- Web push end-to-end: pushSubscriptions table, convex/notifications.ts,
-  convex/push.ts ("use node" web-push action), notifyOthers() from
-  startGame/submitProgram, src/services/push.ts + NotificationsButton.
-- Verified: typecheck + 58 tests + build green; SW activates on preview;
-  REAL push round-trip locally (subscribe → convex run push:send → FCM →
-  notification shown). screengrab/phase4-lobby-notifications-on.png.
+- Deployed: Convex prod fastidious-dinosaur-923 + dev vivid-cat-177 (both
+  with JWT/JWKS/SITE_URL/VAPID env vars), Cloudflare Pages `drone-derby`.
+  Redeploy = `npm run deploy` (both CLIs logged in on this PC).
+- Prod smoke PASSED incl. real push round-trip (subscribe → push:send --prod
+  → notification shown). screengrab/phase4-prod-lobby.png.
+- CLI notes (PEM `--` separator, --yes, login --login-flow poll) in cascade.
 
 ## Next Steps
-1. Todd: `! npx convex login`, confirm host (Cloudflare Pages recommended,
-   `npm run deploy` prewired, needs `npx wrangler login`), fun-playtest.
-2. Deploy per cascade ⚠️ NEXT: prod env vars (fresh VAPID + JWT single-line
-   + SITE_URL), `npm run deploy`, prod smoke + phone push, Phase 4 → DONE.
+1. Todd: fun-playtest on the live site; install PWA on phone + verify push.
+2. Phase 5 per cascade ⚠️ NEXT: deadlines + nudges, AFK policy (ask Todd),
+   history browser, stats, polish; optional Resend/Google auth.
 
 ## Open Questions / Blockers
-- Gates 1–3 (playtest verdict, convex login, host choice). Optional: Resend/
-  Google creds (gate 4, can slip to Phase 5).
+- Fun-playtest verdict (gates Phase 5 priorities). AFK policy undecided.
 
 ## Key Files
-- cascades/2026-07-05-v2-rewrite.md — Phase 4 notes + deploy sequence
-- convex/push.ts, convex/notifications.ts, src/sw.ts, src/services/push.ts
+- cascades/2026-07-05-v2-rewrite.md — Phase 4 deploy notes + Phase 5 scope
+- convex/push.ts, convex/notifications.ts, src/sw.ts — push pipeline
