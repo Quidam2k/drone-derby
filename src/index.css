@@ -1,0 +1,539 @@
+/* Drone Derby v2 — plain CSS, dark playful theme. No framework. */
+
+:root {
+  --tile: 52px;
+  --bg: #14161f;
+  --panel: #1f2230;
+  --panel-2: #2a2e40;
+  --line: #363b52;
+  --text: #e8eaf2;
+  --text-dim: #9aa0b8;
+  --accent: #4cc9f0;
+  --danger: #f25c54;
+  --wall: #e8b830;
+  --player-0: #f94144;
+  --player-1: #f9c74f;
+  --player-2: #43aa8b;
+  --player-3: #9d6bf2;
+}
+
+@media (max-width: 700px) {
+  :root {
+    --tile: 34px;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+}
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0b1020;
+  font-weight: 700;
+}
+button.primary.big {
+  font-size: 1.2rem;
+  padding: 0.7rem 1.6rem;
+}
+
+input {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.45rem 0.7rem;
+}
+input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* ---- screens ------------------------------------------------------------ */
+
+.screen {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 2rem;
+}
+
+.center-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  text-align: center;
+}
+
+.title {
+  font-size: 3rem;
+  margin: 0;
+  letter-spacing: 0.04em;
+  background: linear-gradient(90deg, var(--player-0), var(--player-1), var(--player-2), var(--accent));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.subtitle {
+  color: var(--text-dim);
+  margin-top: 0;
+}
+
+.setup-players {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.setup-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.remove-player {
+  padding: 0.25rem 0.5rem;
+}
+.add-player {
+  border-style: dashed;
+}
+.setup-hint {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.handoff-turn {
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  margin: 0;
+}
+.handoff-screen h1 {
+  font-size: 2.4rem;
+  margin: 0;
+}
+.handoff-hint {
+  color: var(--text-dim);
+}
+
+/* ---- shared layout ------------------------------------------------------ */
+
+.game-layout {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.player-swatch {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  border-radius: 25%;
+  margin-right: 0.45em;
+  vertical-align: -0.05em;
+}
+
+/* ---- board -------------------------------------------------------------- */
+
+.board {
+  display: grid;
+  position: relative;
+  border: 3px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  width: fit-content;
+}
+
+.tile {
+  width: var(--tile);
+  height: var(--tile);
+  position: relative;
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.045);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+}
+
+.tile-glyph {
+  font-size: calc(var(--tile) * 0.5);
+  line-height: 1;
+  user-select: none;
+}
+
+.tile-pit {
+  background: #0a0b11;
+  box-shadow: inset 0 0 calc(var(--tile) * 0.3) #000;
+}
+.pit-glyph {
+  color: #05060a;
+}
+
+.tile-conveyor {
+  background: #262c3d;
+}
+.conveyor-glyph {
+  color: #7f8db4;
+  letter-spacing: -0.15em;
+}
+.conveyor-glyph.express {
+  color: var(--accent);
+}
+
+.gear-glyph {
+  color: #c88f3c;
+  font-size: calc(var(--tile) * 0.62);
+}
+
+.checkpoint-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--tile) * 0.62);
+  height: calc(var(--tile) * 0.62);
+  border-radius: 50%;
+  border: 2px solid #43aa8b;
+  color: #6fe3bd;
+  font-weight: 700;
+  font-size: calc(var(--tile) * 0.36);
+}
+
+.spawn-glyph {
+  color: var(--text-dim);
+  font-size: calc(var(--tile) * 0.32);
+  border: 1px dashed var(--line);
+  border-radius: 50%;
+  width: calc(var(--tile) * 0.5);
+  height: calc(var(--tile) * 0.5);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Walls sit on cell edges; z-index above tiles, below robots. */
+.wall {
+  position: absolute;
+  background: var(--wall);
+  border-radius: 2px;
+  z-index: 2;
+}
+.wall-n { top: -2px; left: 1px; right: 1px; height: 5px; }
+.wall-s { bottom: -2px; left: 1px; right: 1px; height: 5px; }
+.wall-e { right: -2px; top: 1px; bottom: 1px; width: 5px; }
+.wall-w { left: -2px; top: 1px; bottom: 1px; width: 5px; }
+
+/* Board-laser emitter: a red pip mounted on the wall BEHIND the beam
+   direction (emitter-e fires east, so it sits on the west edge). */
+.emitter {
+  position: absolute;
+  width: calc(var(--tile) * 0.22);
+  height: calc(var(--tile) * 0.22);
+  background: var(--danger);
+  box-shadow: 0 0 6px var(--danger);
+  z-index: 2;
+}
+.emitter-e { left: 0; top: 50%; transform: translateY(-50%); border-radius: 0 50% 50% 0; }
+.emitter-w { right: 0; top: 50%; transform: translateY(-50%); border-radius: 50% 0 0 50%; }
+.emitter-s { top: 0; left: 50%; transform: translateX(-50%); border-radius: 0 0 50% 50%; }
+.emitter-n { bottom: 0; left: 50%; transform: translateX(-50%); border-radius: 50% 50% 0 0; }
+
+/* ---- robots + transient overlays ---------------------------------------- */
+
+.robots-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.robot {
+  position: absolute;
+  width: var(--tile);
+  height: var(--tile);
+  transition: transform 0.32s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.robot-body {
+  width: 72%;
+  height: 72%;
+  border-radius: 22%;
+  transition: transform 0.32s ease;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55), inset 0 0 0 2px rgba(255, 255, 255, 0.22);
+}
+
+.robot-nose {
+  font-size: calc(var(--tile) * 0.28);
+  line-height: 1.1;
+  color: rgba(0, 0, 0, 0.6);
+  user-select: none;
+}
+
+.laser-beam {
+  position: absolute;
+  background: var(--danger);
+  box-shadow: 0 0 8px var(--danger), 0 0 16px rgba(242, 92, 84, 0.6);
+  border-radius: 2px;
+  animation: beam-flash 0.5s ease-out;
+}
+@keyframes beam-flash {
+  from { opacity: 1; }
+  to { opacity: 0.7; }
+}
+
+.bump-flash {
+  position: absolute;
+  width: var(--tile);
+  height: var(--tile);
+  border: 3px solid rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+  animation: bump 0.4s ease-out forwards;
+}
+@keyframes bump {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.82); opacity: 0; }
+}
+
+/* ---- player strip -------------------------------------------------------- */
+
+.player-strip {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 200px;
+}
+
+.player-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+}
+.player-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.player-card.eliminated {
+  opacity: 0.45;
+}
+.player-name {
+  font-weight: 700;
+}
+.player-out {
+  color: var(--text-dim);
+  font-weight: 400;
+}
+.player-stats {
+  display: flex;
+  gap: 0.8rem;
+  margin: 0.25rem 0;
+  font-size: 0.9rem;
+}
+.player-stats .stat:first-child {
+  color: var(--danger);
+}
+.locked-stat {
+  color: var(--wall);
+}
+
+.damage-pips {
+  display: flex;
+  gap: 3px;
+}
+.pip {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+}
+.pip.hit {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+/* ---- programming -------------------------------------------------------- */
+
+.programming-header h2,
+.replay-header h2 {
+  margin: 0.4rem 0 0.8rem;
+}
+
+.registers {
+  display: flex;
+  gap: 0.6rem;
+  justify-content: center;
+  margin: 1rem 0 0.6rem;
+  flex-wrap: wrap;
+}
+
+.register-slot {
+  width: 92px;
+  height: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.3rem;
+  padding: 0.35rem;
+  border: 2px dashed var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.register-slot.filled {
+  border-style: solid;
+  border-color: var(--accent);
+}
+.register-slot.locked {
+  border-style: solid;
+  border-color: var(--wall);
+  background: repeating-linear-gradient(45deg, var(--panel), var(--panel) 8px, #262436 8px, #262436 16px);
+  opacity: 0.85;
+}
+.register-label {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+.register-empty {
+  color: var(--line);
+  font-size: 1.4rem;
+  margin-top: 0.8rem;
+}
+
+.hand {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 0.6rem 0;
+}
+
+.hand-card {
+  padding: 0.4rem 0.3rem;
+  width: 76px;
+  border-radius: 10px;
+  background: var(--panel-2);
+}
+.hand-card.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+  transform: translateY(-4px);
+}
+.hand-card.placed {
+  opacity: 0.3;
+}
+
+.card-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+.card-face .card-glyph {
+  font-size: 1.5rem;
+  line-height: 1.1;
+  letter-spacing: -0.12em;
+}
+.card-face .card-name {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.card-face .card-priority {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.card-face.small .card-glyph {
+  font-size: 1.2rem;
+}
+
+.programming-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+  margin-top: 0.6rem;
+}
+.hint {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+/* ---- replay -------------------------------------------------------------- */
+
+.replay-header {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+.register-indicator {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.caption {
+  min-height: 1.6rem;
+  text-align: center;
+  margin: 0.7rem 0 0.4rem;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.replay-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+.replay-controls .play-btn {
+  font-size: 1.1rem;
+  min-width: 3rem;
+}
+.speed-buttons {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin: 0 0.5rem;
+}
+.speed-buttons .selected {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+.continue-btn {
+  margin-left: 0.75rem;
+}
