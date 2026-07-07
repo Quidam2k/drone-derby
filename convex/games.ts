@@ -189,7 +189,10 @@ export const createGame = mutation({
     let board: BoardDef | undefined;
     if (args.boardId) {
       const doc = await ctx.db.get(args.boardId);
-      if (!doc || doc.createdBy !== userId) throw new Error('Board not found');
+      // Playable if it's yours, or anyone's published gallery board.
+      if (!doc || (doc.createdBy !== userId && doc.publishedAt === undefined)) {
+        throw new Error('Board not found');
+      }
       board = doc.board as BoardDef;
       const { errors } = validateBoard(board);
       if (errors.length > 0) throw new Error(`Board is not playable: ${errors[0]}`);

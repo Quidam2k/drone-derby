@@ -5,6 +5,7 @@
 //   #/editor/<id> level editor on a cloud-saved board
 //   #/game/<id>   online game screen
 //   #/join/<code> join via invite link
+//   #/gallery     published-board gallery
 
 import { useSyncExternalStore } from 'react';
 
@@ -13,7 +14,8 @@ export type Route =
   | { name: 'hotseat' }
   | { name: 'editor'; boardId?: string }
   | { name: 'game'; gameId: string }
-  | { name: 'join'; code: string };
+  | { name: 'join'; code: string }
+  | { name: 'gallery' };
 
 export function parseHash(hash: string): Route {
   const [head, arg] = hash.replace(/^#\/?/, '').split('/');
@@ -21,6 +23,7 @@ export function parseHash(hash: string): Route {
   if (head === 'editor') return arg ? { name: 'editor', boardId: arg } : { name: 'editor' };
   if (head === 'game' && arg) return { name: 'game', gameId: arg };
   if (head === 'join' && arg) return { name: 'join', code: arg };
+  if (head === 'gallery') return { name: 'gallery' };
   return { name: 'home' };
 }
 

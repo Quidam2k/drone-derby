@@ -35,7 +35,13 @@ export default defineSchema({
     createdBy: v.id('users'),
     board: v.any(),
     updatedAt: v.number(),
-  }).index('by_creator', ['createdBy']),
+    /** Set when published to the gallery; absent = private. */
+    publishedAt: v.optional(v.number()),
+    /** Self-reported byline shown in the gallery (players are anonymous). */
+    authorName: v.optional(v.string()),
+  })
+    .index('by_creator', ['createdBy'])
+    .index('by_publishedAt', ['publishedAt']),
 
   players: defineTable({
     gameId: v.id('games'),
