@@ -2,10 +2,10 @@
 // a transparent interaction layer on top: one hit zone per cell for tile
 // tools, plus four edge strips per cell for the wall/laser tools.
 
-import { useEffect } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import type { Direction } from '../../engine';
 import type { VisualState } from '../replay/visualState';
-import { Board } from '../board/Board';
+import { Board, tileFit } from '../board/Board';
 import { useEditorStore } from '../../store/editorStore';
 
 const EMPTY_VISUAL: VisualState = { robots: [], register: 0, winner: null };
@@ -27,7 +27,11 @@ export function EditorBoard() {
   }, [endStroke]);
 
   return (
-    <div className="editor-board-wrap" onContextMenu={(e) => e.preventDefault()}>
+    <div
+      className="editor-board-wrap"
+      style={{ '--tile': tileFit(board) } as CSSProperties}
+      onContextMenu={(e) => e.preventDefault()}
+    >
       <Board board={board} visual={EMPTY_VISUAL} />
       <div
         className="editor-hit-layer"
