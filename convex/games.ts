@@ -10,6 +10,7 @@ import { internal } from './_generated/api';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { requireUserId } from './helpers';
 import {
+  BUILTIN_BOARDS,
   createGame as engineCreateGame,
   executeTurn,
   isGameOver,
@@ -171,15 +172,20 @@ function randomInviteCode(): string {
 export const createGame = mutation({
   args: {
     name: v.string(),
-    /** Play on one of the caller's saved boards; omitted = built-in board. */
+    /** Play on one of the caller's saved boards. */
     boardId: v.optional(v.id('boards')),
+    /** Play on a built-in board by BUILTIN_BOARDS key. Neither arg = Proving Grounds. */
+    builtin: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
     const name = cleanName(args.name);
+    if (args.boardId && args.builtin) {
+      throw new Error('Pick either a built-in board or a saved board, not both');
+    }
 
-    // Snapshot the custom board now so later edits/deletes of the source
-    // board can never affect this game.
+    // Snapshot the board now so later edits (of a saved board, or of a
+    // built-in in a future release) can never affect this game.
     let board: BoardDef | undefined;
     if (args.boardId) {
       const doc = await ctx.db.get(args.boardId);
@@ -187,6 +193,10 @@ export const createGame = mutation({
       board = doc.board as BoardDef;
       const { errors } = validateBoard(board);
       if (errors.length > 0) throw new Error(`Board is not playable: ${errors[0]}`);
+    } else if (args.builtin) {
+      const entry = BUILTIN_BOARDS[args.builtin];
+      if (!entry) throw new Error(`Unknown built-in board "${args.builtin}"`);
+      board = entry.factory();
     }
 
     let inviteCode = randomInviteCode();

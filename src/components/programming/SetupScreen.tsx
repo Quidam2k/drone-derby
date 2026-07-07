@@ -1,14 +1,17 @@
 import { useState } from 'react';
+import type { BoardDef } from '../../engine';
+import { BUILTIN_BOARDS } from '../../engine';
 
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 4;
 
 interface SetupScreenProps {
-  onStart: (names: string[]) => void;
+  onStart: (names: string[], board?: BoardDef) => void;
 }
 
 export function SetupScreen({ onStart }: SetupScreenProps) {
   const [names, setNames] = useState<string[]>(['', '']);
+  const [boardKey, setBoardKey] = useState('proving-grounds');
 
   const trimmed = names.map((n) => n.trim());
   const valid =
@@ -51,10 +54,23 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
         </button>
       )}
 
+      <select
+        value={boardKey}
+        onChange={(e) => setBoardKey(e.target.value)}
+        data-testid="board-picker"
+        aria-label="Board"
+      >
+        {Object.entries(BUILTIN_BOARDS).map(([key, b]) => (
+          <option key={key} value={key}>
+            {b.name}
+          </option>
+        ))}
+      </select>
+
       <button
         className="primary big"
         disabled={!valid}
-        onClick={() => onStart(trimmed)}
+        onClick={() => onStart(trimmed, BUILTIN_BOARDS[boardKey].factory())}
         data-testid="start-game"
       >
         Start game
