@@ -556,6 +556,67 @@ button.quiet {
   font-size: 0.85rem;
   color: var(--muted, #8b93a7);
 }
+/* ---- board picker (thumbnail cards) -------------------------------------- */
+
+.board-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  max-width: 100%;
+}
+.board-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  flex: 0 0 auto;
+}
+.board-option[aria-checked='true'] {
+  border-color: var(--accent);
+  background: var(--panel);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.board-option-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.board-option-meta {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+.setup-screen .board-picker {
+  justify-content: center;
+}
+
+.board-thumb {
+  border-width: 1px;
+  border-radius: 3px;
+  pointer-events: none;
+}
+/* Wall/emitter chrome is sized in fixed px for 52px game tiles and would
+   swamp an 8px thumb tile — slim it down. */
+.board-thumb .wall-n,
+.board-thumb .wall-s {
+  height: 2px;
+  left: 0;
+  right: 0;
+}
+.board-thumb .wall-n { top: -1px; }
+.board-thumb .wall-s { bottom: -1px; }
+.board-thumb .wall-e,
+.board-thumb .wall-w {
+  width: 2px;
+  top: 0;
+  bottom: 0;
+}
+.board-thumb .wall-e { right: -1px; }
+.board-thumb .wall-w { left: -1px; }
+.board-thumb .emitter .sprite {
+  filter: none;
+}
+
 .game-list {
   display: flex;
   flex-direction: column;
@@ -1023,6 +1084,18 @@ button.quiet {
   .lobby-header {
     flex-wrap: wrap;
     gap: 0.25rem 0.75rem;
+  }
+  /* Board cards scroll sideways instead of stacking. */
+  .board-picker,
+  .setup-screen .board-picker {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: flex-start;
+    scroll-snap-type: x proximity;
+    padding-bottom: 0.25rem;
+  }
+  .board-option {
+    scroll-snap-align: start;
   }
   .invite-box {
     flex-wrap: wrap;

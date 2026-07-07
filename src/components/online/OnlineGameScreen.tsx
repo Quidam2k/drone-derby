@@ -12,6 +12,7 @@ import type { EventLog, GameState, Program } from '../../engine';
 import { countCheckpoints } from '../../engine';
 import { inviteUrl, navigate } from '../../services/route';
 import { Board } from '../board/Board';
+import { BoardThumb } from '../board/BoardThumb';
 import { PlayerStrip } from '../board/PlayerStrip';
 import { initialVisual } from '../replay/visualState';
 import { ProgrammingView } from '../programming/ProgrammingView';
@@ -125,6 +126,7 @@ function GameLobby({ g }: { g: GameView }) {
     <div className="screen center-screen game-lobby">
       <h1 className="title">Game lobby</h1>
       <p className="subtitle">{g.boardName} · first to all checkpoints wins</p>
+      {g.board && <BoardThumb board={g.board} tilePx={14} maxPx={240} />}
 
       <div className="setup-players">
         {g.players.map((p) => (

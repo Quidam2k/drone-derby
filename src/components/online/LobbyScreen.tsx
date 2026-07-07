@@ -8,13 +8,22 @@ import { useAuthActions } from '@convex-dev/auth/react';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { navigate } from '../../services/route';
+import type { BoardDef } from '../../engine';
 import { BUILTIN_BOARDS } from '../../engine';
+import { BoardPicker, type BoardOption } from '../board/BoardThumb';
 import { errorMessage, SignInGate, useSavedName } from './common';
 import { NotificationsButton } from './NotificationsButton';
 
 /** board-picker option values: 'builtin:<key>' or a saved board's document id. */
 const BUILTIN_PREFIX = 'builtin:';
 const DEFAULT_BOARD = `${BUILTIN_PREFIX}proving-grounds`;
+
+const BUILTIN_OPTIONS: BoardOption[] = Object.entries(BUILTIN_BOARDS).map(([key, b]) => ({
+  value: `${BUILTIN_PREFIX}${key}`,
+  name: b.name,
+  board: b.factory(),
+  badge: 'built-in',
+}));
 
 export function LobbyScreen() {
   return (
@@ -98,23 +107,18 @@ function LobbyInner() {
             onChange={(e) => setName(e.target.value)}
             data-testid="lobby-name"
           />
-          <select
+          <BoardPicker
+            options={[
+              ...BUILTIN_OPTIONS,
+              ...(boards ?? []).map((b) => ({
+                value: b.boardId as string,
+                name: b.name,
+                board: b.board as BoardDef,
+              })),
+            ]}
             value={board}
-            onChange={(e) => setBoard(e.target.value)}
-            data-testid="board-picker"
-            aria-label="Board"
-          >
-            {Object.entries(BUILTIN_BOARDS).map(([key, b]) => (
-              <option key={key} value={`${BUILTIN_PREFIX}${key}`}>
-                {b.name} (built-in)
-              </option>
-            ))}
-            {(boards ?? []).map((b) => (
-              <option key={b.boardId} value={b.boardId}>
-                {b.name} — {b.width}×{b.height}
-              </option>
-            ))}
-          </select>
+            onChange={setBoard}
+          />
           <button
             className="primary"
             disabled={busy || name.trim().length === 0}

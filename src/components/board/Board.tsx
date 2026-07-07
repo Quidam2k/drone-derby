@@ -74,9 +74,11 @@ interface BoardProps {
   bubbles?: { player: PlayerId; text: string }[];
 }
 
-export function Board({ board, visual, currentEvent, bubbles }: BoardProps) {
-  const angles = useSmoothAngles(visual.robots);
-
+/** Walls and laser emitters grouped by `"x,y"` cell key, in Tile-prop shape. */
+export function boardCellMaps(board: BoardDef): {
+  wallsByCell: Map<string, Direction[]>;
+  emittersByCell: Map<string, Direction[]>;
+} {
   const wallsByCell = new Map<string, Direction[]>();
   for (const w of board.walls) {
     const key = `${w.x},${w.y}`;
@@ -87,6 +89,12 @@ export function Board({ board, visual, currentEvent, bubbles }: BoardProps) {
     const key = `${l.pos.x},${l.pos.y}`;
     emittersByCell.set(key, [...(emittersByCell.get(key) ?? []), l.facing]);
   }
+  return { wallsByCell, emittersByCell };
+}
+
+export function Board({ board, visual, currentEvent, bubbles }: BoardProps) {
+  const angles = useSmoothAngles(visual.robots);
+  const { wallsByCell, emittersByCell } = boardCellMaps(board);
 
   return (
     <div

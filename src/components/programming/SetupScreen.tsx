@@ -1,9 +1,16 @@
 import { useState } from 'react';
 import type { BoardDef } from '../../engine';
 import { BUILTIN_BOARDS } from '../../engine';
+import { BoardPicker, type BoardOption } from '../board/BoardThumb';
 
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 4;
+
+const BOARD_OPTIONS: BoardOption[] = Object.entries(BUILTIN_BOARDS).map(([key, b]) => ({
+  value: key,
+  name: b.name,
+  board: b.factory(),
+}));
 
 interface SetupScreenProps {
   onStart: (names: string[], board?: BoardDef) => void;
@@ -54,18 +61,7 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
         </button>
       )}
 
-      <select
-        value={boardKey}
-        onChange={(e) => setBoardKey(e.target.value)}
-        data-testid="board-picker"
-        aria-label="Board"
-      >
-        {Object.entries(BUILTIN_BOARDS).map(([key, b]) => (
-          <option key={key} value={key}>
-            {b.name}
-          </option>
-        ))}
-      </select>
+      <BoardPicker options={BOARD_OPTIONS} value={boardKey} onChange={setBoardKey} />
 
       <button
         className="primary big"
