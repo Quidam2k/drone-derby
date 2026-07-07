@@ -556,6 +556,34 @@ button.quiet {
   font-size: 0.85rem;
   color: var(--muted, #8b93a7);
 }
+/* ---- board gallery (#/gallery) ------------------------------------------- */
+
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 1rem;
+}
+.gallery-card {
+  align-items: center;
+  text-align: center;
+}
+.gallery-card h3 {
+  overflow-wrap: anywhere;
+}
+.gallery-card .primary {
+  margin-top: auto;
+}
+.gallery-name {
+  max-width: 16rem;
+}
+.published-chip {
+  display: inline-block;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 0.72rem;
+}
 /* ---- board picker (thumbnail cards) -------------------------------------- */
 
 .board-picker {
@@ -703,6 +731,10 @@ button.quiet {
   color: var(--muted, #8b93a7);
   text-decoration: none;
   z-index: 5;
+}
+/* Inside a lobby-style header the link sits in flow, not pinned over the title. */
+.lobby-header .back-link {
+  position: static;
 }
 .back-link:hover,
 .quiet-link:hover,

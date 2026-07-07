@@ -1,7 +1,8 @@
-// Custom board persistence (level editor "Save online"). Boards are gated
-// server-side by the same pure validateBoard the editor uses live — only
-// playable boards get saved. All access is creator-only in 6b; sharing is
-// a later phase.
+// Custom board persistence (level editor "Save online") and the public
+// gallery. Boards are gated server-side by the same pure validateBoard the
+// editor uses live — only playable boards get saved or published. Editing
+// stays creator-only; published boards are readable (and playable) by
+// everyone via gallery/createGame.
 
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
@@ -54,6 +55,36 @@ export const save = mutation({
   },
 });
 
+/** Share a board in the gallery. Re-runs validation; re-publish updates the byline. */
+export const publish = mutation({
+  args: { boardId: v.id('boards'), authorName: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const doc = await ctx.db.get(args.boardId);
+    if (!doc || doc.createdBy !== userId) throw new Error('Board not found');
+
+    const authorName = args.authorName.trim();
+    if (authorName.length === 0 || authorName.length > NAME_MAX_LENGTH) {
+      throw new Error(`Author name must be 1–${NAME_MAX_LENGTH} characters`);
+    }
+
+    const { errors } = validateBoard(doc.board as BoardDef);
+    if (errors.length > 0) throw new Error(`Board is not playable: ${errors[0]}`);
+
+    await ctx.db.patch(args.boardId, { publishedAt: Date.now(), authorName });
+  },
+});
+
+export const unpublish = mutation({
+  args: { boardId: v.id('boards') },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const doc = await ctx.db.get(args.boardId);
+    if (!doc || doc.createdBy !== userId) throw new Error('Board not found');
+    await ctx.db.patch(args.boardId, { publishedAt: undefined, authorName: undefined });
+  },
+});
+
 export const remove = mutation({
   args: { boardId: v.id('boards') },
   handler: async (ctx, args) => {
@@ -83,6 +114,7 @@ export const myBoards = query({
           width: def.width,
           height: def.height,
           updatedAt: b.updatedAt,
+          publishedAt: b.publishedAt ?? null,
           board: def,
         };
       })
@@ -98,6 +130,33 @@ export const get = query({
     if (userId === null) return null;
     const board = await ctx.db.get(args.boardId);
     if (!board || board.createdBy !== userId) return null;
-    return { boardId: board._id, name: board.name, board: board.board as BoardDef };
+    return {
+      boardId: board._id,
+      name: board.name,
+      board: board.board as BoardDef,
+      publishedAt: board.publishedAt ?? null,
+    };
+  },
+});
+
+/** Published boards for the gallery, newest-first. Signed-in only. */
+export const gallery = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) return [];
+    const published = await ctx.db
+      .query('boards')
+      .withIndex('by_publishedAt', (q) => q.gt('publishedAt', 0))
+      .order('desc')
+      .take(50);
+    return published.map((b) => ({
+      boardId: b._id,
+      name: b.name,
+      board: b.board as BoardDef,
+      authorName: b.authorName ?? '',
+      publishedAt: b.publishedAt as number,
+      mine: b.createdBy === userId,
+    }));
   },
 });

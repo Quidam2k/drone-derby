@@ -114,6 +114,7 @@ function LobbyInner() {
                 value: b.boardId as string,
                 name: b.name,
                 board: b.board as BoardDef,
+                badge: b.publishedAt ? 'published' : undefined,
               })),
             ]}
             value={board}
@@ -163,6 +164,14 @@ function LobbyInner() {
           <p className="lobby-card-note">Design your own factory floor.</p>
           <button onClick={() => navigate('#/editor')} data-testid="editor-link">
             Open editor
+          </button>
+        </div>
+
+        <div className="lobby-card">
+          <h3>Board gallery</h3>
+          <p className="lobby-card-note">Play boards other pilots published.</p>
+          <button onClick={() => navigate('#/gallery')} data-testid="gallery-link">
+            Browse gallery
           </button>
         </div>
       </div>

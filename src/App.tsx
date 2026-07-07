@@ -6,6 +6,7 @@ import { EditorScreen } from './components/editor/EditorScreen';
 import { LobbyScreen } from './components/online/LobbyScreen';
 import { JoinScreen } from './components/online/JoinScreen';
 import { OnlineGameScreen } from './components/online/OnlineGameScreen';
+import { GalleryScreen } from './components/online/GalleryScreen';
 
 /** Catches render-time errors (e.g. a malformed game id in the hash). */
 class RouteBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -62,5 +63,7 @@ export function App() {
           <OnlineGameScreen gameId={route.gameId} />
         </RouteBoundary>
       );
+    case 'gallery':
+      return <GalleryScreen />;
   }
 }

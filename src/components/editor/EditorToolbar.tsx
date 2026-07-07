@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useConvexAuth, useMutation } from 'convex/react';
+import { useConvexAuth, useMutation, useQuery } from 'convex/react';
 import { useAuthActions } from '@convex-dev/auth/react';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
@@ -9,7 +9,7 @@ import { convex } from '../../services/convex';
 import { navigate } from '../../services/route';
 import { useEditorStore } from '../../store/editorStore';
 import { useGameStore } from '../../store/gameStore';
-import { errorMessage } from '../online/common';
+import { errorMessage, useSavedName } from '../online/common';
 import { markBoardHydrated } from './EditorScreen';
 
 function Stepper({
@@ -130,6 +130,70 @@ function SaveOnlineButton({ boardId }: { boardId?: string }) {
   );
 }
 
+/**
+ * Publish / unpublish a cloud-saved board to the public gallery. Publishes
+ * the server copy (save first to include fresh edits); the byline comes
+ * from the saved display name — re-publish to update it.
+ */
+function PublishButton({ boardId }: { boardId: string }) {
+  const info = useQuery(api.boards.get, { boardId: boardId as Id<'boards'> });
+  const publish = useMutation(api.boards.publish);
+  const unpublish = useMutation(api.boards.unpublish);
+  const [savedName] = useSavedName();
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const noteTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Loading, or missing/foreign board — CloudBoardLoader already shows that error.
+  if (!info) return null;
+  const published = info.publishedAt !== null;
+
+  async function toggle() {
+    setBusy(true);
+    setNote(null);
+    clearTimeout(noteTimer.current);
+    try {
+      if (published) {
+        await unpublish({ boardId: boardId as Id<'boards'> });
+        setNote({ ok: true, text: 'Removed from gallery' });
+      } else {
+        await publish({
+          boardId: boardId as Id<'boards'>,
+          authorName: savedName.trim() || 'anonymous',
+        });
+        setNote({ ok: true, text: 'Published ✓' });
+      }
+      noteTimer.current = setTimeout(() => setNote(null), 2500);
+    } catch (e) {
+      setNote({ ok: false, text: errorMessage(e) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => void toggle()}
+        disabled={busy}
+        title={
+          published
+            ? 'Remove this board from the public gallery'
+            : 'Share the saved copy of this board in the public gallery'
+        }
+        data-testid="publish-toggle"
+      >
+        {busy ? 'Working…' : published ? 'Unpublish' : 'Publish'}
+      </button>
+      {note && (
+        <span className={note.ok ? 'save-note' : 'error-note'} data-testid="publish-note">
+          {note.text}
+        </span>
+      )}
+    </>
+  );
+}
+
 export function EditorToolbar({ boardId }: { boardId?: string }) {
   const board = useEditorStore((s) => s.board);
   const validation = useEditorStore((s) => s.validation);
@@ -222,6 +286,7 @@ export function EditorToolbar({ boardId }: { boardId?: string }) {
       </span>
 
       {convex && <SaveOnlineButton boardId={boardId} />}
+      {convex && boardId && <PublishButton boardId={boardId} />}
 
       <button
         className="primary"
