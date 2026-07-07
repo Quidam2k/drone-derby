@@ -16,7 +16,12 @@ const NAME_MAX_LENGTH = 40;
 
 /** Insert a new board, or update one of the caller's own when boardId given. */
 export const save = mutation({
-  args: { boardId: v.optional(v.id('boards')), board: v.any() },
+  args: {
+    boardId: v.optional(v.id('boards')),
+    board: v.any(),
+    /** Fork attribution, honored on insert only — a fork is always a new row. */
+    forkedFrom: v.optional(v.object({ name: v.string(), authorName: v.string() })),
+  },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
 
@@ -50,6 +55,7 @@ export const save = mutation({
       createdBy: userId,
       board,
       updatedAt: Date.now(),
+      forkedFrom: args.forkedFrom,
     });
     return { boardId };
   },
@@ -157,6 +163,7 @@ export const gallery = query({
       authorName: b.authorName ?? '',
       publishedAt: b.publishedAt as number,
       mine: b.createdBy === userId,
+      forkedFrom: b.forkedFrom ?? null,
     }));
   },
 });

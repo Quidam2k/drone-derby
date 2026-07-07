@@ -14,6 +14,7 @@ beforeEach(() => {
   const board = emptyBoard('Untitled Board', 10, 10);
   useEditorStore.setState({
     board,
+    forkedFrom: null,
     history: [board],
     historyIndex: 0,
     activeTool: 'pit',
@@ -176,5 +177,22 @@ describe('editorStore', () => {
     expect(store().board.tiles[4][4]).toEqual({ kind: 'floor' });
     store().undo();
     expect(store().board.tiles[4][4]).toEqual({ kind: 'pit' });
+  });
+
+  it('loadDraft with attribution records the fork source', () => {
+    const source = emptyBoard('Copy of Thumb Test', 8, 8);
+    store().loadDraft(source, { name: 'Thumb Test', authorName: 'Bob' });
+    expect(store().forkedFrom).toEqual({ name: 'Thumb Test', authorName: 'Bob' });
+    expect(store().board.name).toBe('Copy of Thumb Test');
+  });
+
+  it('plain loadDraft and reset clear the fork attribution', () => {
+    store().loadDraft(emptyBoard('Fork', 8, 8), { name: 'Orig', authorName: 'Ann' });
+    store().loadDraft(emptyBoard('Imported', 8, 8));
+    expect(store().forkedFrom).toBeNull();
+
+    store().loadDraft(emptyBoard('Fork 2', 8, 8), { name: 'Orig', authorName: 'Ann' });
+    store().reset();
+    expect(store().forkedFrom).toBeNull();
   });
 });

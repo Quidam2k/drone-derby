@@ -22,6 +22,12 @@ export type ToolId =
   | 'wall'
   | 'laser';
 
+/** "Forked from X by Y" byline snapshot; rides beside the draft, not in BoardDef. */
+export interface ForkAttribution {
+  name: string;
+  authorName: string;
+}
+
 const DRAFT_KEY = 'droneDerby.editorDraft';
 const HISTORY_CAP = 50;
 const SAVE_DEBOUNCE_MS = 400;
@@ -49,28 +55,29 @@ function nextFreeNumber(board: BoardDef, kind: 'checkpoint' | 'spawn'): number {
 
 let saveTimer: ReturnType<typeof setTimeout> | undefined;
 
-function persistDraft(board: BoardDef): void {
+function persistDraft(board: BoardDef, forkedFrom: ForkAttribution | null): void {
   if (typeof localStorage === 'undefined') return; // node test runs
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ board }));
+      localStorage.setItem(DRAFT_KEY, JSON.stringify({ board, forkedFrom }));
     } catch {
       // Storage full/blocked — the in-memory draft still works.
     }
   }, SAVE_DEBOUNCE_MS);
 }
 
-function loadDraftFromStorage(): BoardDef | null {
+function loadDraftFromStorage(): { board: BoardDef; forkedFrom: ForkAttribution | null } | null {
   if (typeof localStorage === 'undefined') return null;
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
-    const board = (JSON.parse(raw) as { board?: BoardDef }).board;
+    const parsed = JSON.parse(raw) as { board?: BoardDef; forkedFrom?: ForkAttribution | null };
+    const board = parsed.board;
     // Trust the grid shape only; semantic errors are fine in a draft.
     if (!board || !Array.isArray(board.tiles) || board.tiles.length !== board.height) return null;
     if (board.tiles.some((row) => !Array.isArray(row) || row.length !== board.width)) return null;
-    return board;
+    return { board, forkedFrom: parsed.forkedFrom ?? null };
   } catch {
     return null;
   }
@@ -78,6 +85,8 @@ function loadDraftFromStorage(): BoardDef | null {
 
 interface EditorStore {
   board: BoardDef;
+  /** Set when the draft was forked from a gallery board; saved with new boards. */
+  forkedFrom: ForkAttribution | null;
   activeTool: ToolId;
   /** Options for the parameterized tools. */
   conveyorDir: Direction;
@@ -112,7 +121,7 @@ interface EditorStore {
   undo: () => void;
   redo: () => void;
   reset: () => void;
-  loadDraft: (board: BoardDef) => void;
+  loadDraft: (board: BoardDef, forkedFrom?: ForkAttribution | null) => void;
 }
 
 /** True when a wall matching this edge exists in either cell's representation. */
@@ -126,7 +135,9 @@ function edgeWallIndex(board: BoardDef, x: number, y: number, side: Direction): 
 }
 
 export const useEditorStore = create<EditorStore>((set, get) => {
-  const initial = loadDraftFromStorage() ?? freshBoard();
+  const stored = loadDraftFromStorage();
+  const initial = stored?.board ?? freshBoard();
+  const initialForkedFrom = stored?.forkedFrom ?? null;
 
   let inStroke = false;
   let strokeDirty = false;
@@ -153,7 +164,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       historyIndex: nextIndex,
       validation: validateBoard(board),
     });
-    persistDraft(board);
+    persistDraft(board, get().forkedFrom);
   }
 
   /** Clone the board, let `mutate` change it, and commit if it did. */
@@ -165,6 +176,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
   return {
     board: initial,
+    forkedFrom: initialForkedFrom,
     activeTool: 'pit',
     conveyorDir: 'E',
     conveyorExpress: false,
@@ -185,7 +197,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       const nextHistory = history.slice();
       nextHistory[historyIndex] = board;
       set({ board, history: nextHistory });
-      persistDraft(board);
+      persistDraft(board, get().forkedFrom);
     },
 
     paintTile: (x, y) => {
@@ -306,7 +318,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       if (historyIndex === 0) return;
       const board = history[historyIndex - 1];
       set({ board, historyIndex: historyIndex - 1, validation: validateBoard(board) });
-      persistDraft(board);
+      persistDraft(board, get().forkedFrom);
     },
 
     redo: () => {
@@ -314,11 +326,19 @@ export const useEditorStore = create<EditorStore>((set, get) => {
       if (historyIndex >= history.length - 1) return;
       const board = history[historyIndex + 1];
       set({ board, historyIndex: historyIndex + 1, validation: validateBoard(board) });
-      persistDraft(board);
+      persistDraft(board, get().forkedFrom);
     },
 
-    reset: () => commit(freshBoard()),
+    reset: () => {
+      // Attribution follows the draft's origin, not undo history: a fresh
+      // board is nobody's fork. Set before commit so the persist sees it.
+      set({ forkedFrom: null });
+      commit(freshBoard());
+    },
 
-    loadDraft: (board) => commit(clone(board)),
+    loadDraft: (board, forkedFrom) => {
+      set({ forkedFrom: forkedFrom ?? null });
+      commit(clone(board));
+    },
   };
 });

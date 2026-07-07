@@ -45,6 +45,7 @@ function Stepper({
  */
 function SaveOnlineButton({ boardId }: { boardId?: string }) {
   const board = useEditorStore((s) => s.board);
+  const forkedFrom = useEditorStore((s) => s.forkedFrom);
   const validation = useEditorStore((s) => s.validation);
   const { isAuthenticated } = useConvexAuth();
   const { signIn } = useAuthActions();
@@ -62,6 +63,8 @@ function SaveOnlineButton({ boardId }: { boardId?: string }) {
       const { boardId: savedId } = await save({
         boardId: boardId as Id<'boards'> | undefined,
         board,
+        // Attribution only matters when minting a new row (forks always do).
+        forkedFrom: boardId ? undefined : (forkedFrom ?? undefined),
       });
       setNote({ ok: true, text: 'Saved ✓' });
       noteTimer.current = setTimeout(() => setNote(null), 2500);
