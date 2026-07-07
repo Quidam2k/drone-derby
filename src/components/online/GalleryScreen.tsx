@@ -80,6 +80,11 @@ function GalleryInner() {
                 {b.board.width}×{b.board.height} ·{' '}
                 {b.mine ? <span className="published-chip">yours</span> : `by ${b.authorName}`}
               </p>
+              {b.forkedFrom && (
+                <p className="lobby-card-note">
+                  forked from {b.forkedFrom.name} by {b.forkedFrom.authorName}
+                </p>
+              )}
               <button
                 className="primary"
                 disabled={busyId !== null || name.trim().length === 0}
@@ -91,7 +96,10 @@ function GalleryInner() {
               <button
                 title="Replaces your current editor draft (Ctrl+Z in the editor restores it). Saving online creates your own new board."
                 onClick={() => {
-                  loadDraft({ ...b.board, name: forkName(b.name) });
+                  loadDraft(
+                    { ...b.board, name: forkName(b.name) },
+                    { name: b.name, authorName: b.authorName || 'anonymous' },
+                  );
                   navigate('#/editor');
                 }}
                 data-testid={`gallery-fork-${b.boardId}`}

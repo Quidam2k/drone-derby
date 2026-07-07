@@ -39,6 +39,8 @@ export default defineSchema({
     publishedAt: v.optional(v.number()),
     /** Self-reported byline shown in the gallery (players are anonymous). */
     authorName: v.optional(v.string()),
+    /** Name+byline snapshot of the board this was forked from; absent = not a fork. */
+    forkedFrom: v.optional(v.object({ name: v.string(), authorName: v.string() })),
   })
     .index('by_creator', ['createdBy'])
     .index('by_publishedAt', ['publishedAt']),

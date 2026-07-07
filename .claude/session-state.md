@@ -1,27 +1,31 @@
 # Session State
-Updated: 2026-07-06 ~22:30 (Phase 12 DONE — deployed to prod)
+Updated: 2026-07-07 ~09:15 (Phase 13 DONE — deployed to prod)
 
 ## Current Task
 Drone Derby v2 — cascade: cascades/2026-07-05-v2-rewrite.md.
-Phases 1–12 DONE and LIVE at https://drone-derby.pages.dev (Convex prod
-fastidious-dinosaur-923). MVP + editor + custom boards + mobile + 2 boards
-+ sprites + thumbnail pickers + gallery/sharing + board forking.
+Phases 1–13 DONE and LIVE at https://drone-derby.pages.dev (Convex prod
+fastidious-dinosaur-923). Forking story complete (fork + attribution).
 
 ## Just Completed
-- Phase 12: gallery cards get "Open a copy in the editor" — loadDraft
-  with `Copy of <name>` (40-char cap) + navigate to #/editor; Save online
-  then mints a NEW board. Client-only (GalleryScreen.tsx), no CSS, no
-  Convex, tests stay 86. Cascade §12 has full verification detail (dev
-  Playwright incl. undo-restore + convex-data row check; prod smoke with
-  throwaway published board, unpublished after).
+- Phase 13: forked boards remember "forked from <name> by <author>" —
+  `boards.forkedFrom` snapshot (insert-only, patch ignores), editorStore
+  carries it beside the draft (not in undo history; Import JSON/reset
+  clear it), gallery card renders a second muted line. Tests 86 → 88.
+- Verified on dev (Playwright fork→save→publish→card + convex data row
+  checks, 375px), deployed (Convex additive schema + CF Pages), prod
+  smoke OK. Cascade §13 has full detail. Committed + pushed.
 
 ## Next Steps
 1. THE STANDING GATE: Todd's fun-playtest verdict — rules/pacing tweaks
    become their own phase and preempt everything if they land.
 2. Backlog: third built-in board (after verdict), Resend/Google auth
-   (waiting on creds), gallery: attribution chain, search/pagination.
+   (waiting on creds), gallery search/pagination (when count warrants).
+
+## Open Questions / Blockers
+- Playtest verdict pending; auth creds pending.
 
 ## Key Files
-- src/components/online/GalleryScreen.tsx (fork button + forkName),
-  src/store/editorStore.ts (loadDraft — unchanged, load-bearing),
-  cascades/2026-07-05-v2-rewrite.md (§12 at bottom)
+- convex/schema.ts + convex/boards.ts (forkedFrom), src/store/
+  editorStore.ts (ForkAttribution, persist wrapper), src/components/
+  online/GalleryScreen.tsx, src/components/editor/EditorToolbar.tsx,
+  cascades/2026-07-05-v2-rewrite.md (§13 at bottom)
