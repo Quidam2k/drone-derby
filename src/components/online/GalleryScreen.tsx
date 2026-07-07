@@ -7,8 +7,14 @@ import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { navigate } from '../../services/route';
+import { useEditorStore } from '../../store/editorStore';
 import { BoardThumb } from '../board/BoardThumb';
 import { errorMessage, SignInGate, useSavedName } from './common';
+
+/** Board names are capped at 40 chars (editor toolbar input). */
+function forkName(name: string): string {
+  return `Copy of ${name}`.slice(0, 40);
+}
 
 export function GalleryScreen() {
   return (
@@ -21,6 +27,7 @@ export function GalleryScreen() {
 function GalleryInner() {
   const boards = useQuery(api.boards.gallery);
   const createGame = useMutation(api.games.createGame);
+  const loadDraft = useEditorStore((s) => s.loadDraft);
   const [name, setName] = useSavedName();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +87,16 @@ function GalleryInner() {
                 data-testid={`gallery-create-${b.boardId}`}
               >
                 {busyId === b.boardId ? 'Creating…' : 'New game on this board'}
+              </button>
+              <button
+                title="Replaces your current editor draft (Ctrl+Z in the editor restores it). Saving online creates your own new board."
+                onClick={() => {
+                  loadDraft({ ...b.board, name: forkName(b.name) });
+                  navigate('#/editor');
+                }}
+                data-testid={`gallery-fork-${b.boardId}`}
+              >
+                Open a copy in the editor
               </button>
             </div>
           ))}
