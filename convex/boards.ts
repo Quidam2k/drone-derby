@@ -64,7 +64,7 @@ export const remove = mutation({
   },
 });
 
-/** Light summaries of the caller's boards, newest-edited first. */
+/** The caller's boards (with defs for picker thumbnails), newest-edited first. */
 export const myBoards = query({
   args: {},
   handler: async (ctx) => {
@@ -83,6 +83,7 @@ export const myBoards = query({
           width: def.width,
           height: def.height,
           updatedAt: b.updatedAt,
+          board: def,
         };
       })
       .sort((a, b) => b.updatedAt - a.updatedAt);

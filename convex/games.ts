@@ -536,6 +536,8 @@ export const game = query({
     return {
       gameId: game._id,
       boardName: game.boardName,
+      /** Board snapshot for the lobby thumbnail; active games carry it in state. */
+      board: game.status === 'lobby' ? gameBoard(game) : null,
       status: game.status,
       inviteCode: game.inviteCode,
       currentTurn: game.currentTurn,

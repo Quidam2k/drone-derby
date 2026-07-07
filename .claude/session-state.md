@@ -1,26 +1,28 @@
 # Session State
-Updated: 2026-07-06 (Phase 8 DONE — deployed to prod)
+Updated: 2026-07-06 (Phase 10 DONE — deployed to prod)
 
 ## Current Task
 Drone Derby v2 — cascade: cascades/2026-07-05-v2-rewrite.md.
-Phases 1–8 DONE and LIVE at https://drone-derby.pages.dev (Convex prod
-fastidious-dinosaur-923). MVP + editor + custom boards + mobile + 2 boards.
+Phases 1–10 DONE and LIVE at https://drone-derby.pages.dev (Convex prod
+fastidious-dinosaur-923). MVP + editor + custom boards + mobile + 2 boards
++ SVG sprites + thumbnail board pickers.
 
 ## Just Completed
-- Phase 8: second built-in board "Spin Cycle" (12×10 conveyor loop, express
-  on-ramps, corner gears, pit + cp3 inside the ring, crossfire lasers).
-  BUILTIN_BOARDS registry in src/engine/boards.ts shared by client + Convex;
-  createGame({builtin?}) snapshots it; lobby picker always visible
-  (builtin:<key> values); SetupScreen gains a hot-seat board select.
-- Verified: typecheck + 86 tests; Playwright hot-seat @375 + online
-  2-context game on Spin Cycle + desktop + default-board regression.
-  Deployed + prod smoke. Cascade §8 has detail.
+- Phase 10: both <select> board pickers → BoardPicker radio-cards with
+  live BoardThumb mini-renders (new src/components/board/BoardThumb.tsx,
+  boardCellMaps extracted from Board.tsx). Convex additions: myBoards
+  returns board defs; games.game returns board snapshot in lobby status
+  (waiting room now shows a thumb). Mobile ≤700px: cards scroll sideways.
+- Verified: typecheck + 86 tests; Playwright hot-seat/online creates from
+  builtin + saved-board cards, 375px + desktop. Deployed + prod smoke.
+  Cascade §10 has detail.
 
 ## Next Steps
 1. Todd's fun-playtest verdict — rules/pacing tweaks take priority.
-2. Backlog: SVG sprites, Resend/Google auth (needs creds), board
-   gallery/sharing, third board.
+2. Backlog: third board, Resend/Google auth (needs creds), board
+   gallery/sharing.
 
 ## Key Files
-- src/engine/boards.ts (spinCycle + BUILTIN_BOARDS), convex/games.ts
-  (createGame builtin arg), cascades/2026-07-05-v2-rewrite.md (§8 at bottom)
+- src/components/board/BoardThumb.tsx (+Board/LobbyScreen/SetupScreen/
+  OnlineGameScreen, convex/boards.ts, convex/games.ts),
+  cascades/2026-07-05-v2-rewrite.md (§10 at bottom)
