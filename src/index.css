@@ -17,11 +17,8 @@
   --player-3: #9d6bf2;
 }
 
-@media (max-width: 700px) {
-  :root {
-    --tile: 34px;
-  }
-}
+/* The Board sizes --tile itself (inline, fits the viewport, 52px cap);
+   the root value only covers anything rendered outside a board. */
 
 * {
   box-sizing: border-box;
@@ -32,6 +29,17 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: 'Segoe UI', system-ui, sans-serif;
+  /* Installed-PWA notch/home-bar insets; all zero in a normal browser. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+button,
+input,
+select,
+a {
+  /* No double-tap-zoom delay on touch. */
+  touch-action: manipulation;
 }
 
 button {
@@ -85,7 +93,7 @@ select:focus {
 }
 
 .center-screen {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -95,7 +103,7 @@ select:focus {
 }
 
 .title {
-  font-size: 3rem;
+  font-size: clamp(2.1rem, 9vw, 3rem);
   margin: 0;
   letter-spacing: 0.04em;
   background: linear-gradient(90deg, var(--player-0), var(--player-1), var(--player-2), var(--accent));
@@ -975,4 +983,94 @@ button.quiet {
 }
 .validation-warning {
   color: var(--wall);
+}
+
+/* ---- phase 7: mobile layout (game screens; editor stays desktop) --------- */
+
+@media (max-width: 700px) {
+  .screen {
+    padding: 0.75rem 0.75rem 1.5rem;
+  }
+  .game-layout {
+    gap: 0.75rem;
+  }
+
+  /* Player cards go beside each other under the board instead of stacking. */
+  .player-strip {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    min-width: 0;
+    width: 100%;
+    gap: 0.5rem;
+  }
+  .player-card {
+    flex: 1 1 150px;
+    padding: 0.4rem 0.6rem;
+  }
+  .player-stats {
+    font-size: 0.85rem;
+    gap: 0.6rem;
+  }
+
+  /* All five registers in one row; hand cards five per row. */
+  .registers {
+    gap: 0.35rem;
+    margin: 0.8rem 0 0.5rem;
+  }
+  .register-slot {
+    width: calc((100vw - 4.5rem) / 5);
+    height: auto;
+    min-height: 92px;
+    padding: 0.3rem 0.15rem;
+  }
+  .hand {
+    gap: 0.4rem;
+  }
+  .hand-card {
+    width: calc((100vw - 4.5rem) / 5);
+    padding: 0.35rem 0.15rem;
+  }
+  .card-face .card-name {
+    font-size: 0.6rem;
+  }
+
+  .programming-footer {
+    flex-wrap: wrap;
+    gap: 0.6rem;
+  }
+  .taunt-input {
+    flex-basis: 100%;
+    max-width: none;
+    order: -1;
+  }
+  .programming-footer .hint {
+    flex: 1;
+    text-align: left;
+    font-size: 0.8rem;
+  }
+
+  /* Thumb-sized replay + lobby controls. */
+  .replay-controls button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .continue-btn {
+    margin-left: 0.25rem;
+  }
+  .lobby-card button,
+  .lobby-card input,
+  .lobby-card select,
+  .game-row,
+  .invite-box button {
+    min-height: 44px;
+  }
+  .lobby-header {
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+  }
+  .invite-box {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
 }

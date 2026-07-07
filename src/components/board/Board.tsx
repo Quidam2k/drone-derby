@@ -4,7 +4,7 @@
 // transform transitions; transient effects (laser beams, blocked bumps)
 // render as overlays keyed off the current replay event.
 
-import { useRef } from 'react';
+import { useRef, type CSSProperties } from 'react';
 import type { BoardDef, Direction, EngineEvent, PlayerId, Position } from '../../engine';
 import type { RobotVisual, VisualState } from '../replay/visualState';
 import { Tile } from './Tile';
@@ -31,6 +31,15 @@ function useSmoothAngles(robots: RobotVisual[]): Record<PlayerId, number> {
 
 function cellPx(n: number): string {
   return `calc(var(--tile) * ${n})`;
+}
+
+/**
+ * Tile size that fits the whole board in the viewport (52px cap = the
+ * desktop size, unchanged there). Exported so the editor can put the same
+ * value on its wrapper, keeping the hit layer aligned with the tiles.
+ */
+export function tileFit(board: { width: number; height: number }): string {
+  return `min(52px, calc((100vw - 3rem) / ${board.width}), calc((100dvh - 12rem) / ${board.height}))`;
 }
 
 function BeamOverlay({ path }: { path: Position[] }) {
@@ -81,7 +90,12 @@ export function Board({ board, visual, currentEvent, bubbles }: BoardProps) {
   return (
     <div
       className="board"
-      style={{ gridTemplateColumns: `repeat(${board.width}, var(--tile))` }}
+      style={
+        {
+          gridTemplateColumns: `repeat(${board.width}, var(--tile))`,
+          '--tile': tileFit(board),
+        } as CSSProperties
+      }
       data-testid="board"
     >
       {board.tiles.map((row, y) =>
