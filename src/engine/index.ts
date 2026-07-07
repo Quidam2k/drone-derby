@@ -37,7 +37,7 @@ export {
   tileAt,
   wallBlocked,
 } from './board';
-export { provingGrounds } from './boards';
+export { BUILTIN_BOARDS, provingGrounds, spinCycle } from './boards';
 export {
   MAX_BOARD_SIZE,
   MAX_SPAWNS,

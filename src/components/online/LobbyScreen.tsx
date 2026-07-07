@@ -8,8 +8,13 @@ import { useAuthActions } from '@convex-dev/auth/react';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { navigate } from '../../services/route';
+import { BUILTIN_BOARDS } from '../../engine';
 import { errorMessage, SignInGate, useSavedName } from './common';
 import { NotificationsButton } from './NotificationsButton';
+
+/** board-picker option values: 'builtin:<key>' or a saved board's document id. */
+const BUILTIN_PREFIX = 'builtin:';
+const DEFAULT_BOARD = `${BUILTIN_PREFIX}proving-grounds`;
 
 export function LobbyScreen() {
   return (
@@ -53,7 +58,7 @@ function LobbyInner() {
   const createGame = useMutation(api.games.createGame);
   const { signOut } = useAuthActions();
   const [name, setName] = useSavedName();
-  const [boardId, setBoardId] = useState('');
+  const [board, setBoard] = useState(DEFAULT_BOARD);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,7 +66,11 @@ function LobbyInner() {
   const create = () => {
     setBusy(true);
     setError(null);
-    createGame({ name, boardId: boardId ? (boardId as Id<'boards'>) : undefined })
+    createGame(
+      board.startsWith(BUILTIN_PREFIX)
+        ? { name, builtin: board.slice(BUILTIN_PREFIX.length) }
+        : { name, boardId: board as Id<'boards'> },
+    )
       .then(({ gameId }) => navigate(`#/game/${gameId}`))
       .catch((e: unknown) => setError(errorMessage(e)))
       .finally(() => setBusy(false));
@@ -89,21 +98,23 @@ function LobbyInner() {
             onChange={(e) => setName(e.target.value)}
             data-testid="lobby-name"
           />
-          {boards !== undefined && boards.length > 0 && (
-            <select
-              value={boardId}
-              onChange={(e) => setBoardId(e.target.value)}
-              data-testid="board-picker"
-              aria-label="Board"
-            >
-              <option value="">Proving Grounds (built-in)</option>
-              {boards.map((b) => (
-                <option key={b.boardId} value={b.boardId}>
-                  {b.name} — {b.width}×{b.height}
-                </option>
-              ))}
-            </select>
-          )}
+          <select
+            value={board}
+            onChange={(e) => setBoard(e.target.value)}
+            data-testid="board-picker"
+            aria-label="Board"
+          >
+            {Object.entries(BUILTIN_BOARDS).map(([key, b]) => (
+              <option key={key} value={`${BUILTIN_PREFIX}${key}`}>
+                {b.name} (built-in)
+              </option>
+            ))}
+            {(boards ?? []).map((b) => (
+              <option key={b.boardId} value={b.boardId}>
+                {b.name} — {b.width}×{b.height}
+              </option>
+            ))}
+          </select>
           <button
             className="primary"
             disabled={busy || name.trim().length === 0}

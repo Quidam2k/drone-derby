@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { BoardDef, TileDef } from '../types';
 import { emptyBoard, setTile } from '../board';
-import { provingGrounds } from '../boards';
+import { BUILTIN_BOARDS } from '../boards';
 import { validateBoard } from '../validate';
 
 /** Minimal playable board: 2 spawns, 1 checkpoint, one hazard (no warnings). */
@@ -15,8 +15,12 @@ function playable(): BoardDef {
 }
 
 describe('validateBoard', () => {
-  it('passes Proving Grounds with no errors or warnings', () => {
-    expect(validateBoard(provingGrounds())).toEqual({ errors: [], warnings: [] });
+  it('passes every built-in board with no errors or warnings', () => {
+    for (const [key, { name, factory }] of Object.entries(BUILTIN_BOARDS)) {
+      const board = factory();
+      expect(board.name, key).toBe(name);
+      expect(validateBoard(board), key).toEqual({ errors: [], warnings: [] });
+    }
   });
 
   it('passes a minimal hand-built board', () => {
