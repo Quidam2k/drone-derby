@@ -1,15 +1,35 @@
+import type { ReactNode } from 'react';
 import type { Direction } from '../../engine';
+import {
+  CheckpointSprite,
+  ConveyorSprite,
+  EmitterSprite,
+  GearSprite,
+  PitSprite,
+  SpawnSprite,
+} from '../board/sprites';
 import { useEditorStore, type ToolId } from '../../store/editorStore';
 
-const TOOLS: { id: ToolId; glyph: string; label: string }[] = [
-  { id: 'floor', glyph: '▢', label: 'Floor (erase)' },
-  { id: 'pit', glyph: '◉', label: 'Pit' },
-  { id: 'conveyor', glyph: '→', label: 'Conveyor' },
-  { id: 'gear', glyph: '↻', label: 'Gear' },
-  { id: 'checkpoint', glyph: '◎', label: 'Checkpoint' },
-  { id: 'spawn', glyph: '⌂', label: 'Spawn dock' },
-  { id: 'wall', glyph: '▮', label: 'Wall' },
-  { id: 'laser', glyph: '✦', label: 'Laser' },
+const FLOOR_ICON = (
+  <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+    <rect x="7" y="7" width="38" height="38" rx="6" fill="none" stroke="currentColor" strokeWidth="3.5" strokeDasharray="7 5" />
+  </svg>
+);
+const WALL_ICON = (
+  <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+    <rect x="4" y="20" width="44" height="12" rx="3" fill="var(--wall)" />
+  </svg>
+);
+
+const TOOLS: { id: ToolId; icon: ReactNode; label: string }[] = [
+  { id: 'floor', icon: FLOOR_ICON, label: 'Floor (erase)' },
+  { id: 'pit', icon: <PitSprite />, label: 'Pit' },
+  { id: 'conveyor', icon: <ConveyorSprite dir="E" express={false} />, label: 'Conveyor' },
+  { id: 'gear', icon: <GearSprite cw />, label: 'Gear' },
+  { id: 'checkpoint', icon: <CheckpointSprite n={1} />, label: 'Checkpoint' },
+  { id: 'spawn', icon: <SpawnSprite n={1} />, label: 'Spawn dock' },
+  { id: 'wall', icon: WALL_ICON, label: 'Wall' },
+  { id: 'laser', icon: <EmitterSprite facing="E" />, label: 'Laser' },
 ];
 
 const DIR_ARROWS: { dir: Direction; glyph: string }[] = [
@@ -35,7 +55,7 @@ export function ToolPalette() {
           onClick={() => setTool(t.id)}
           data-testid={`tool-${t.id}`}
         >
-          <span className="tool-glyph">{t.glyph}</span>
+          <span className="tool-glyph">{t.icon}</span>
           {t.label}
         </button>
       ))}

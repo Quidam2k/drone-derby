@@ -8,6 +8,7 @@ import { useRef, type CSSProperties } from 'react';
 import type { BoardDef, Direction, EngineEvent, PlayerId, Position } from '../../engine';
 import type { RobotVisual, VisualState } from '../replay/visualState';
 import { Tile } from './Tile';
+import { RobotSprite } from './sprites';
 
 const DIR_ANGLE: Record<Direction, number> = { N: 0, E: 90, S: 180, W: 270 };
 
@@ -128,7 +129,7 @@ export function Board({ board, visual, currentEvent, bubbles }: BoardProps) {
                     background: `var(--player-${seat})`,
                   }}
                 >
-                  <span className="robot-nose">▲</span>
+                  <RobotSprite />
                 </div>
               </div>
             ),

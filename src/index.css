@@ -193,9 +193,12 @@ select:focus {
   overflow: visible;
 }
 
-.tile-glyph {
-  font-size: calc(var(--tile) * 0.5);
-  line-height: 1;
+/* All tile/robot art is inline SVG (src/components/board/sprites.tsx),
+   sized by its container so --tile scaling keeps working. */
+.sprite {
+  width: 100%;
+  height: 100%;
+  display: block;
   user-select: none;
 }
 
@@ -203,49 +206,9 @@ select:focus {
   background: #0a0b11;
   box-shadow: inset 0 0 calc(var(--tile) * 0.3) #000;
 }
-.pit-glyph {
-  color: #05060a;
-}
 
 .tile-conveyor {
   background: #262c3d;
-}
-.conveyor-glyph {
-  color: #7f8db4;
-  letter-spacing: -0.15em;
-}
-.conveyor-glyph.express {
-  color: var(--accent);
-}
-
-.gear-glyph {
-  color: #c88f3c;
-  font-size: calc(var(--tile) * 0.62);
-}
-
-.checkpoint-glyph {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: calc(var(--tile) * 0.62);
-  height: calc(var(--tile) * 0.62);
-  border-radius: 50%;
-  border: 2px solid #43aa8b;
-  color: #6fe3bd;
-  font-weight: 700;
-  font-size: calc(var(--tile) * 0.36);
-}
-
-.spawn-glyph {
-  color: var(--text-dim);
-  font-size: calc(var(--tile) * 0.32);
-  border: 1px dashed var(--line);
-  border-radius: 50%;
-  width: calc(var(--tile) * 0.5);
-  height: calc(var(--tile) * 0.5);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 
 /* Walls sit on cell edges; z-index above tiles, below robots. */
@@ -260,20 +223,21 @@ select:focus {
 .wall-e { right: -2px; top: 1px; bottom: 1px; width: 5px; }
 .wall-w { left: -2px; top: 1px; bottom: 1px; width: 5px; }
 
-/* Board-laser emitter: a red pip mounted on the wall BEHIND the beam
+/* Board-laser emitter: a barrel sprite mounted on the wall BEHIND the beam
    direction (emitter-e fires east, so it sits on the west edge). */
 .emitter {
   position: absolute;
-  width: calc(var(--tile) * 0.22);
-  height: calc(var(--tile) * 0.22);
-  background: var(--danger);
-  box-shadow: 0 0 6px var(--danger);
+  width: calc(var(--tile) * 0.32);
+  height: calc(var(--tile) * 0.32);
   z-index: 2;
 }
-.emitter-e { left: 0; top: 50%; transform: translateY(-50%); border-radius: 0 50% 50% 0; }
-.emitter-w { right: 0; top: 50%; transform: translateY(-50%); border-radius: 50% 0 0 50%; }
-.emitter-s { top: 0; left: 50%; transform: translateX(-50%); border-radius: 0 0 50% 50%; }
-.emitter-n { bottom: 0; left: 50%; transform: translateX(-50%); border-radius: 50% 50% 0 0; }
+.emitter .sprite {
+  filter: drop-shadow(0 0 4px var(--danger));
+}
+.emitter-e { left: 0; top: 50%; transform: translateY(-50%); }
+.emitter-w { right: 0; top: 50%; transform: translateY(-50%); }
+.emitter-s { top: 0; left: 50%; transform: translateX(-50%); }
+.emitter-n { bottom: 0; left: 50%; transform: translateX(-50%); }
 
 /* ---- robots + transient overlays ---------------------------------------- */
 
@@ -299,17 +263,7 @@ select:focus {
   height: 72%;
   border-radius: 22%;
   transition: transform 0.32s ease;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55), inset 0 0 0 2px rgba(255, 255, 255, 0.22);
-}
-
-.robot-nose {
-  font-size: calc(var(--tile) * 0.28);
-  line-height: 1.1;
-  color: rgba(0, 0, 0, 0.6);
-  user-select: none;
 }
 
 .laser-beam {
@@ -894,7 +848,8 @@ button.quiet {
   align-items: center;
   justify-content: center;
   width: 1.4rem;
-  font-size: 1.1rem;
+  height: 1.4rem;
+  flex: none;
 }
 .tool-options {
   display: flex;

@@ -1,6 +1,12 @@
 import type { Direction, TileDef } from '../../engine';
-
-const CONVEYOR_ARROW: Record<Direction, string> = { N: '↑', E: '→', S: '↓', W: '←' };
+import {
+  CheckpointSprite,
+  ConveyorSprite,
+  EmitterSprite,
+  GearSprite,
+  PitSprite,
+  SpawnSprite,
+} from './sprites';
 
 interface TileProps {
   def: TileDef;
@@ -15,20 +21,15 @@ function tileContent(def: TileDef) {
     case 'floor':
       return null;
     case 'pit':
-      return <span className="tile-glyph pit-glyph">◉</span>;
+      return <PitSprite />;
     case 'conveyor':
-      return (
-        <span className={`tile-glyph conveyor-glyph${def.express ? ' express' : ''}`}>
-          {CONVEYOR_ARROW[def.dir]}
-          {def.express ? CONVEYOR_ARROW[def.dir] : ''}
-        </span>
-      );
+      return <ConveyorSprite dir={def.dir} express={def.express} />;
     case 'gear':
-      return <span className="tile-glyph gear-glyph">{def.cw ? '↻' : '↺'}</span>;
+      return <GearSprite cw={def.cw} />;
     case 'checkpoint':
-      return <span className="tile-glyph checkpoint-glyph">{def.n}</span>;
+      return <CheckpointSprite n={def.n} />;
     case 'spawn':
-      return <span className="tile-glyph spawn-glyph">{def.n}</span>;
+      return <SpawnSprite n={def.n} />;
   }
 }
 
@@ -40,7 +41,9 @@ export function Tile({ def, walls, emitterFacings }: TileProps) {
         <div key={side} className={`wall wall-${side.toLowerCase()}`} />
       ))}
       {emitterFacings.map((facing) => (
-        <div key={facing} className={`emitter emitter-${facing.toLowerCase()}`} title="laser emitter" />
+        <div key={facing} className={`emitter emitter-${facing.toLowerCase()}`} title="laser emitter">
+          <EmitterSprite facing={facing} />
+        </div>
       ))}
     </div>
   );
