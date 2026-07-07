@@ -45,6 +45,13 @@ Run `npm run typecheck` and `npm test` before committing.
   edge-based walls, pits, conveyors + express, gears, checkpoints, board +
   robot lasers, damage with locked registers, 3 lives, respawn). Cut from
   MVP: pushers, repair sites, option cards, power-down.
+- **Telemetry**: client crashes and 🐞 playtest notes are captured by
+  `src/services/telemetry.ts` (localStorage ring buffer + fire-and-forget
+  to the `convex/telemetry.ts` sink; read with
+  `npx convex run telemetry:recent [--prod]`). Service layer only — never
+  import it into `src/engine/`.
+- The root `README.md` is the playtest guide (setup, test-everything
+  checklist); keep it current when screens or boards change.
 - **`legacy/` is the archived v1 codebase — reference only.** Never import
   from it or resurrect its stack. `docs/technical_architecture_md.md`
   describes that dead stack and is kept as history.

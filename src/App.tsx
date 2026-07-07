@@ -1,5 +1,6 @@
-import { Component, type ReactNode } from 'react';
+import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { convex } from './services/convex';
+import { logTelemetry } from './services/telemetry';
 import { useRoute } from './services/route';
 import { HotSeatGame } from './components/hotseat/HotSeatGame';
 import { EditorScreen } from './components/editor/EditorScreen';
@@ -13,6 +14,12 @@ class RouteBoundary extends Component<{ children: ReactNode }, { error: Error | 
   state = { error: null as Error | null };
   static getDerivedStateFromError(error: Error) {
     return { error };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    logTelemetry('react-error', error.message, {
+      stack: error.stack,
+      componentStack: info.componentStack,
+    });
   }
   render() {
     if (this.state.error) {
@@ -30,7 +37,27 @@ class RouteBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
-export function App() {
+/**
+ * One-tap playtest note — for gameplay/feel bugs that don't throw. The
+ * current hash (route/gameId) rides along in the telemetry context.
+ */
+function BugButton() {
+  return (
+    <button
+      className="bug-note-btn"
+      type="button"
+      title="Something broken or off? Leave a note"
+      onClick={() => {
+        const text = window.prompt('What went wrong / felt off?');
+        if (text && text.trim()) logTelemetry('note', text.trim());
+      }}
+    >
+      🐞
+    </button>
+  );
+}
+
+function Screen() {
   const route = useRoute();
 
   // The editor works with or without a backend; a boardId in the hash loads
@@ -66,4 +93,13 @@ export function App() {
     case 'gallery':
       return <GalleryScreen />;
   }
+}
+
+export function App() {
+  return (
+    <>
+      <Screen />
+      <BugButton />
+    </>
+  );
 }

@@ -80,6 +80,20 @@ export default defineSchema({
     .index('by_user', ['userId'])
     .index('by_endpoint', ['endpoint']),
 
+  /**
+   * Client crash reports and playtest notes (src/services/telemetry.ts).
+   * Write-only from browsers via telemetry.log; read via the dashboard or
+   * `npx convex run telemetry:recent`. `_creationTime` orders it.
+   */
+  telemetry: defineTable({
+    kind: v.string(),
+    message: v.string(),
+    data: v.optional(v.any()),
+    /** { href, ua, sessionId, ts } captured client-side. */
+    context: v.any(),
+    userId: v.optional(v.id('users')),
+  }),
+
   submissions: defineTable({
     gameId: v.id('games'),
     turn: v.number(),

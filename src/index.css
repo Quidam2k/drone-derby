@@ -1134,3 +1134,26 @@ button.quiet {
     justify-content: center;
   }
 }
+
+/* One-tap playtest note (telemetry). Bottom-LEFT so it stays clear of the
+   programming dock's submit/hint cluster; faded until hovered. */
+.bug-note-btn {
+  position: fixed;
+  bottom: 0.5rem;
+  left: 0.5rem;
+  z-index: 9;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 1.1rem;
+  line-height: 1;
+  opacity: 0.45;
+  cursor: pointer;
+}
+.bug-note-btn:hover,
+.bug-note-btn:focus-visible {
+  opacity: 1;
+}
