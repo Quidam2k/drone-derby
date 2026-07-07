@@ -4,8 +4,10 @@ import { ConvexAuthProvider } from '@convex-dev/auth/react';
 import { App } from './App';
 import { convex } from './services/convex';
 import { listenForSwMessages } from './services/push';
+import { installGlobalTelemetry } from './services/telemetry';
 import './index.css';
 
+installGlobalTelemetry();
 listenForSwMessages();
 
 createRoot(document.getElementById('root')!).render(
