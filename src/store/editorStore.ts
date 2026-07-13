@@ -20,7 +20,8 @@ export type ToolId =
   | 'checkpoint'
   | 'spawn'
   | 'wall'
-  | 'laser';
+  | 'laser'
+  | 'eraser';
 
 /** "Forked from X by Y" byline snapshot; rides beside the draft, not in BoardDef. */
 export interface ForkAttribution {
@@ -202,6 +203,10 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
     paintTile: (x, y) => {
       const { activeTool, conveyorDir, conveyorExpress, gearCw, board } = get();
+      if (activeTool === 'eraser') {
+        get().eraseTile(x, y);
+        return;
+      }
       let tile: TileDef;
       switch (activeTool) {
         case 'floor':
