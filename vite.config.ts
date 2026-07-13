@@ -17,6 +17,11 @@ export default defineConfig({
       injectRegister: 'auto',
       // Keep the plugin out of vitest runs.
       disable: !!process.env.VITEST,
+      injectManifest: {
+        // Default is js/css/html only; include icons + sounds so the
+        // game is fully playable (and audible) offline.
+        globPatterns: ['**/*.{js,css,html,svg,png,mp3}'],
+      },
       manifest: {
         name: 'Drone Derby',
         short_name: 'Drone Derby',

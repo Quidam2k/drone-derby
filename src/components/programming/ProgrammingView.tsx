@@ -3,9 +3,10 @@
 // filled register to take the card back. Locked registers show their held
 // card and cannot be edited.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Card, GameState, Program } from '../../engine';
 import { countCheckpoints, isRegisterLocked } from '../../engine';
+import { play } from '../../services/audio';
 import { Board } from '../board/Board';
 import { PlayerStrip } from '../board/PlayerStrip';
 import { CARD_GLYPH, CARD_LABEL } from '../cards';
@@ -34,6 +35,11 @@ export function ProgrammingView({ game, seat, onSubmit }: ProgrammingViewProps) 
   const [selected, setSelected] = useState<Card | null>(null);
   const [taunt, setTaunt] = useState('');
 
+  // Play card-deal sound when the hand is first rendered.
+  useEffect(() => {
+    play('card-deal');
+  }, []);
+
   const placedIds = new Set(slots.filter((c): c is Card => c !== null).map((c) => c.id));
   const locked = (r: number) => isRegisterLocked(robot.damage, r);
   const ready = slots.every((c, i) => locked(i + 1) || c !== null);
@@ -51,6 +57,7 @@ export function ProgrammingView({ game, seat, onSubmit }: ProgrammingViewProps) 
   };
 
   const submit = () => {
+    play('click');
     // Locked slots are ignored by the engine; send null there.
     onSubmit(
       slots.map((c, i) => (locked(i + 1) ? null : c)),

@@ -8,6 +8,7 @@ import { useAuthActions } from '@convex-dev/auth/react';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { navigate } from '../../services/route';
+import { isMuted, setMuted } from '../../services/audio';
 import type { BoardDef } from '../../engine';
 import { BUILTIN_BOARDS } from '../../engine';
 import { BoardPicker, type BoardOption } from '../board/BoardThumb';
@@ -71,6 +72,7 @@ function LobbyInner() {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [muted, setMutedLocal] = useState(() => isMuted());
 
   const create = () => {
     setBusy(true);
@@ -91,6 +93,17 @@ function LobbyInner() {
         <h1 className="title">Drone Derby</h1>
         <span className="lobby-header-actions">
           <NotificationsButton />
+          <button
+            className="quiet mute-btn"
+            onClick={() => {
+              const newMuted = !muted;
+              setMuted(newMuted);
+              setMutedLocal(newMuted);
+            }}
+            title={muted ? 'unmute' : 'mute'}
+          >
+            {muted ? '🔇' : '🔊'}
+          </button>
           <button className="quiet" onClick={() => void signOut()}>
             Sign out
           </button>

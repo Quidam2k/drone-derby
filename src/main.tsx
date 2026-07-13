@@ -5,9 +5,11 @@ import { App } from './App';
 import { convex } from './services/convex';
 import { listenForSwMessages } from './services/push';
 import { installGlobalTelemetry } from './services/telemetry';
+import { installAudio } from './services/audio';
 import './index.css';
 
 installGlobalTelemetry();
+installAudio();
 listenForSwMessages();
 
 createRoot(document.getElementById('root')!).render(
