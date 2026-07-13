@@ -204,6 +204,93 @@ export function theGauntlet(): BoardDef {
 }
 
 /**
+ * Built-in 11×11 board about one thing: speed — an express-belt whirlpool
+ * circling a pit-guarded core. Riding the ring covers 2 cells per register
+ * (10 a turn); express on-ramps at all four cardinal points feed it. The
+ * core holds checkpoint 3 behind four corner pits, entered through gear
+ * gates on the cardinals that spin whoever passes. The outer floor is
+ * belt-free but lasers sweep rows 1 and 9, grazing the N/S ramp mouths —
+ * walking is slow and taxed, riding is fast and lethal to sloppy timing.
+ * CCW rescue gears sit just off the ring's NE and SW corners, turning
+ * hop-offs toward checkpoints 1 and 2.
+ *
+ * Layout sketch (x → E, y → S):
+ *   y=1    laser (0,1) firing E along row 1; N on-ramp S at (5,1..2)
+ *   y=2    checkpoint 1 at (9,2)
+ *   y=3    ring top: belts E at (3..6,3), corner S at (7,3); rescue gear
+ *          CCW (8,3)
+ *   y=4    ring sides N (3,4) / S (7,4); core pits (4,4), (6,4); gear
+ *          gate CW (5,4)
+ *   y=5    W on-ramp E at (1..2,5); ring N (3,5) / S (7,5); gear gates
+ *          CCW (4,5), (6,5); checkpoint 3 at (5,5); E on-ramp W at (8..9,5)
+ *   y=6    ring sides N (3,6) / S (7,6); core pits (4,6), (6,6); gear
+ *          gate CW (5,6)
+ *   y=7    ring bottom: corner N (3,7), belts W at (4..7,7); rescue gear
+ *          CCW (2,7)
+ *   y=8    checkpoint 2 at (1,8); S on-ramp N at (5,8..9)
+ *   y=9    laser (10,9) firing W along row 9
+ *   y=10   spawns 1–4 at x = 2,4,6,8
+ */
+export function vortexArena(): BoardDef {
+  const board = emptyBoard('Vortex Arena', 11, 11);
+
+  setTile(board, 2, 10, { kind: 'spawn', n: 1 });
+  setTile(board, 4, 10, { kind: 'spawn', n: 2 });
+  setTile(board, 6, 10, { kind: 'spawn', n: 3 });
+  setTile(board, 8, 10, { kind: 'spawn', n: 4 });
+
+  setTile(board, 9, 2, { kind: 'checkpoint', n: 1 });
+  setTile(board, 1, 8, { kind: 'checkpoint', n: 2 });
+  setTile(board, 5, 5, { kind: 'checkpoint', n: 3 });
+
+  // The whirlpool: a clockwise ring of express belts around the 3×3 core.
+  const ring: [number, number, Direction][] = [
+    [3, 3, 'E'], [4, 3, 'E'], [5, 3, 'E'], [6, 3, 'E'], [7, 3, 'S'],
+    [7, 4, 'S'], [7, 5, 'S'], [7, 6, 'S'], [7, 7, 'W'],
+    [6, 7, 'W'], [5, 7, 'W'], [4, 7, 'W'], [3, 7, 'N'],
+    [3, 6, 'N'], [3, 5, 'N'], [3, 4, 'N'],
+  ];
+  for (const [x, y, dir] of ring) {
+    setTile(board, x, y, { kind: 'conveyor', dir, express: true });
+  }
+
+  // Express on-ramps feeding the ring from all four cardinal points.
+  const ramps: [number, number, Direction][] = [
+    [5, 1, 'S'], [5, 2, 'S'],
+    [8, 5, 'W'], [9, 5, 'W'],
+    [5, 9, 'N'], [5, 8, 'N'],
+    [1, 5, 'E'], [2, 5, 'E'],
+  ];
+  for (const [x, y, dir] of ramps) {
+    setTile(board, x, y, { kind: 'conveyor', dir, express: true });
+  }
+
+  // The core: checkpoint 3 behind corner pits, entered via gear gates.
+  setTile(board, 4, 4, { kind: 'pit' });
+  setTile(board, 6, 4, { kind: 'pit' });
+  setTile(board, 4, 6, { kind: 'pit' });
+  setTile(board, 6, 6, { kind: 'pit' });
+  setTile(board, 5, 4, { kind: 'gear', cw: true });
+  setTile(board, 5, 6, { kind: 'gear', cw: true });
+  setTile(board, 4, 5, { kind: 'gear', cw: false });
+  setTile(board, 6, 5, { kind: 'gear', cw: false });
+
+  // Rescue gears off the ring's NE and SW corners: a robot hopping off
+  // toward a checkpoint gets turned its way for free.
+  setTile(board, 8, 3, { kind: 'gear', cw: false });
+  setTile(board, 2, 7, { kind: 'gear', cw: false });
+
+  board.walls = [];
+
+  board.lasers = [
+    { pos: { x: 0, y: 1 }, facing: 'E', strength: 1 },
+    { pos: { x: 10, y: 9 }, facing: 'W', strength: 1 },
+  ];
+
+  return board;
+}
+
+/**
  * Every built-in board, keyed by a stable id shared between the client
  * (pickers) and Convex (createGame's `builtin` arg). Entry order is the
  * display order in pickers.
@@ -212,4 +299,5 @@ export const BUILTIN_BOARDS: Record<string, { name: string; factory: () => Board
   'proving-grounds': { name: 'Proving Grounds', factory: provingGrounds },
   'spin-cycle': { name: 'Spin Cycle', factory: spinCycle },
   'the-gauntlet': { name: 'The Gauntlet', factory: theGauntlet },
+  'vortex-arena': { name: 'Vortex Arena', factory: vortexArena },
 };
