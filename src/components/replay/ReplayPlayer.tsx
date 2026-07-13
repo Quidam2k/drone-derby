@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { EngineEvent, EventLog, GameState } from '../../engine';
 import { countCheckpoints } from '../../engine';
+import { playForEvent, isMuted, setMuted } from '../../services/audio';
 import { Board } from '../board/Board';
 import { PlayerStrip } from '../board/PlayerStrip';
 import { CARD_LABEL } from '../cards';
@@ -113,6 +114,7 @@ export function ReplayPlayer({ prevState, events, taunts, onDone }: ReplayPlayer
   const [cursor, setCursor] = useState(0);
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState<number>(1);
+  const [muted, setMutedLocal] = useState(() => isMuted());
 
   const atEnd = cursor >= events.length;
   const visual = useMemo(() => visualAt(initial, events, cursor), [initial, events, cursor]);
@@ -132,6 +134,13 @@ export function ReplayPlayer({ prevState, events, taunts, onDone }: ReplayPlayer
     );
     return () => clearTimeout(t);
   }, [playing, cursor, speed, events]);
+
+  // Play sound for the current event.
+  useEffect(() => {
+    if (currentEvent) {
+      playForEvent(currentEvent);
+    }
+  }, [cursor]);
 
   return (
     <div className="screen replay-screen">
@@ -199,6 +208,17 @@ export function ReplayPlayer({ prevState, events, taunts, onDone }: ReplayPlayer
             </button>
           ))}
         </span>
+        <button
+          className="mute-btn"
+          onClick={() => {
+            const newMuted = !muted;
+            setMuted(newMuted);
+            setMutedLocal(newMuted);
+          }}
+          title={muted ? 'unmute' : 'mute'}
+        >
+          {muted ? '🔇' : '🔊'}
+        </button>
         <button className="primary continue-btn" disabled={!atEnd} onClick={onDone}>
           Continue
         </button>
