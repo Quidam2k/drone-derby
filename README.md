@@ -48,13 +48,19 @@ Other commands: `npm test` (Vitest), `npm run typecheck`,
 
 ### Screens
 
-- [ ] Lobby: create game, board picker shows 3 built-in thumbnail cards
+- [ ] Lobby: create game, board picker shows 4 built-in thumbnail cards
+- [ ] Sound toggle (🔊/🔇 in lobby header + replay controls): OFF by
+      default; turn it on, reload — it stays on; sounds play in replays
 - [ ] Hot-seat: full game start → programming → replay loop
 - [ ] Online: create → join via invite code from a second browser/phone
 - [ ] Rejoin: close the tab mid-game, reopen the game link, state intact
 - [ ] Programming dock: deal, drag/tap cards into registers, submit, taunt
 - [ ] Turn replay: animations match outcomes; auto-plays for the player
       who was waiting
+- [ ] Visual polish: belts scroll in their travel direction (express
+      visibly faster), each seat's robot has a distinct silhouette +
+      bright nose light, lasers glow/pulse, damaged robots flash
+      (all animation respects OS reduced-motion settings)
 - [ ] Editor (`#/editor`): paint tiles/walls, validation, save online,
       import/export JSON
 - [ ] Gallery: publish a board, see it listed, play it, fork it
@@ -71,6 +77,10 @@ Other commands: `npm test` (Vitest), `npm run typecheck`,
 - [ ] **The Gauntlet** — corridor lasers dealing damage per register-end,
       damage locking registers at 5+, route trade-offs (safe lane vs
       gauntlet vs belts) actually feel like choices
+- [ ] **Vortex Arena** — express whirlpool carries 2 cells/register;
+      Move 2 shoots through a core gear gate, but STOPPING on one spins
+      you every register (u-turn is the escape); core pits punish
+      sloppy hops; does riding vs walking feel like a real choice?
 - [ ] Lives: 3 lives, death → respawn, last life → eliminated
 - [ ] Win: first to tag all checkpoints in order ends the game
 
