@@ -39,6 +39,7 @@ export function PitSprite() {
 export function ConveyorSprite({ dir, express }: { dir: Direction; express: boolean }) {
   const chevronYs = express ? [17, 29, 41] : [23.5, 36.5];
   const color = express ? 'var(--accent)' : '#8ea0c9';
+  const period = express ? 12 : 13;
   return (
     <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
       {/* drawn pointing N, rotated per direction */}
@@ -46,17 +47,47 @@ export function ConveyorSprite({ dir, express }: { dir: Direction; express: bool
         <rect x="10" y="0" width="32" height="52" fill="rgba(0, 0, 0, 0.22)" />
         <rect x="7" y="0" width="3" height="52" fill="rgba(255, 255, 255, 0.14)" />
         <rect x="42" y="0" width="3" height="52" fill="rgba(255, 255, 255, 0.14)" />
-        {chevronYs.map((y) => (
+        {/* Chevron group scrolls upward, clipped to tile */}
+        <defs>
+          <clipPath id={`clip-${dir}-${express ? 'ex' : 'nm'}`}>
+            <rect x="10" y="0" width="32" height="52" />
+          </clipPath>
+        </defs>
+        <g
+          className={`conveyor-chevrons conveyor-${express ? 'express' : 'normal'}`}
+          clipPath={`url(#clip-${dir}-${express ? 'ex' : 'nm'})`}
+          style={{ '--conveyor-period': `${period}px` } as React.CSSProperties}
+        >
+          {/* Extra chevron above for seamless wrap */}
           <polyline
-            key={y}
-            points={`16,${y} 26,${y - 8} 36,${y}`}
+            points={`16,${chevronYs[0] - period} 26,${chevronYs[0] - period - 8} 36,${chevronYs[0] - period}`}
             fill="none"
             stroke={color}
             strokeWidth="4.5"
             strokeLinecap="round"
             strokeLinejoin="round"
           />
-        ))}
+          {chevronYs.map((y) => (
+            <polyline
+              key={y}
+              points={`16,${y} 26,${y - 8} 36,${y}`}
+              fill="none"
+              stroke={color}
+              strokeWidth="4.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          ))}
+          {/* Extra chevron below for seamless wrap */}
+          <polyline
+            points={`16,${chevronYs[chevronYs.length - 1] + period} 26,${chevronYs[chevronYs.length - 1] + period - 8} 36,${chevronYs[chevronYs.length - 1] + period}`}
+            fill="none"
+            stroke={color}
+            strokeWidth="4.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </g>
       </g>
     </svg>
   );
@@ -181,22 +212,78 @@ export function SpawnSprite({ n }: { n: number }) {
 }
 
 /**
- * Facing details drawn over the player-colored .robot-body: nose wedge (up =
- * facing), side treads, visor with eyes. Translucent blacks/whites so it
- * reads on any player color.
+ * Four robot variants by seat (0-3) with distinct silhouettes + bright facing light.
+ * All drawn pointing N; facing rotation is via CSS on .robot-body.
+ * Translucent blacks/whites overlay so any player color works underneath.
  */
-export function RobotSprite() {
-  return (
-    <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
-      <polygon points="26,2 19,10 33,10" fill="rgba(0, 0, 0, 0.55)" />
-      <rect x="3" y="8" width="7" height="36" rx="3" fill="rgba(0, 0, 0, 0.3)" />
-      <rect x="42" y="8" width="7" height="36" rx="3" fill="rgba(0, 0, 0, 0.3)" />
-      <rect x="15" y="12" width="22" height="11" rx="4.5" fill="rgba(0, 0, 0, 0.45)" />
-      <circle cx="21" cy="17.5" r="2.6" fill="rgba(255, 255, 255, 0.92)" />
-      <circle cx="31" cy="17.5" r="2.6" fill="rgba(255, 255, 255, 0.92)" />
-      <rect x="15" y="28" width="22" height="13" rx="3.5" fill="rgba(0, 0, 0, 0.16)" />
-    </svg>
-  );
+export function RobotSprite({ seat = 0 }: { seat?: number }) {
+  const variant = seat % 4;
+
+  if (variant === 0) {
+    // Seat 0: Round dome head
+    return (
+      <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+        <circle cx="26" cy="16" r="11" fill="rgba(0, 0, 0, 0.45)" />
+        {/* Bright nose light (facing cue) */}
+        <circle cx="26" cy="2.5" r="3.5" fill="rgba(76, 201, 240, 0.95)" />
+        <circle cx="26" cy="2.5" r="2" fill="rgba(255, 255, 255, 0.8)" />
+        <rect x="3" y="10" width="7" height="34" rx="3.5" fill="rgba(0, 0, 0, 0.3)" />
+        <rect x="42" y="10" width="7" height="34" rx="3.5" fill="rgba(0, 0, 0, 0.3)" />
+        <circle cx="21" cy="15" r="2.5" fill="rgba(255, 255, 255, 0.88)" />
+        <circle cx="31" cy="15" r="2.5" fill="rgba(255, 255, 255, 0.88)" />
+        <rect x="15" y="30" width="22" height="12" rx="3" fill="rgba(0, 0, 0, 0.16)" />
+      </svg>
+    );
+  } else if (variant === 1) {
+    // Seat 1: Square blocky head
+    return (
+      <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+        <rect x="14" y="6" width="24" height="20" rx="2" fill="rgba(0, 0, 0, 0.45)" />
+        {/* Bright nose light (facing cue) */}
+        <rect x="22.5" y="1" width="7" height="6" rx="1.5" fill="rgba(76, 201, 240, 0.95)" />
+        <rect x="24" y="2" width="4" height="3.5" fill="rgba(255, 255, 255, 0.8)" />
+        <rect x="3" y="10" width="6" height="34" rx="3" fill="rgba(0, 0, 0, 0.3)" />
+        <rect x="43" y="10" width="6" height="34" rx="3" fill="rgba(0, 0, 0, 0.3)" />
+        <circle cx="20" cy="14" r="2.2" fill="rgba(255, 255, 255, 0.88)" />
+        <circle cx="32" cy="14" r="2.2" fill="rgba(255, 255, 255, 0.88)" />
+        <rect x="16" y="30" width="20" height="12" rx="3" fill="rgba(0, 0, 0, 0.16)" />
+      </svg>
+    );
+  } else if (variant === 2) {
+    // Seat 2: Angular wedge head
+    return (
+      <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+        <polygon points="26,5 14,22 38,22" fill="rgba(0, 0, 0, 0.45)" />
+        {/* Bright nose light (facing cue) */}
+        <polygon points="26,2 23,6 29,6" fill="rgba(76, 201, 240, 0.95)" />
+        <polygon points="26,3.5 24,5.5 28,5.5" fill="rgba(255, 255, 255, 0.8)" />
+        <rect x="2" y="12" width="7" height="32" rx="3.5" fill="rgba(0, 0, 0, 0.3)" />
+        <rect x="43" y="12" width="7" height="32" rx="3.5" fill="rgba(0, 0, 0, 0.3)" />
+        <circle cx="19" cy="16" r="2.3" fill="rgba(255, 255, 255, 0.88)" />
+        <circle cx="33" cy="16" r="2.3" fill="rgba(255, 255, 255, 0.88)" />
+        <rect x="16" y="30" width="20" height="12" rx="3" fill="rgba(0, 0, 0, 0.16)" />
+      </svg>
+    );
+  } else {
+    // Seat 3: Twin antenna head
+    return (
+      <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+        <rect x="16" y="8" width="20" height="16" rx="2" fill="rgba(0, 0, 0, 0.45)" />
+        {/* Left antenna */}
+        <line x1="20" y1="8" x2="18" y2="0.5" stroke="rgba(0, 0, 0, 0.55)" strokeWidth="2.5" strokeLinecap="round" />
+        {/* Right antenna */}
+        <line x1="32" y1="8" x2="34" y2="0.5" stroke="rgba(0, 0, 0, 0.55)" strokeWidth="2.5" strokeLinecap="round" />
+        {/* Bright nose light (facing cue) */}
+        <circle cx="26" cy="2" r="3" fill="rgba(76, 201, 240, 0.95)" />
+        <circle cx="26" cy="2" r="1.5" fill="rgba(255, 255, 255, 0.8)" />
+        <rect x="3" y="12" width="7" height="32" rx="3" fill="rgba(0, 0, 0, 0.3)" />
+        <rect x="42" y="12" width="7" height="32" rx="3" fill="rgba(0, 0, 0, 0.3)" />
+        <circle cx="21" cy="16" r="2.3" fill="rgba(255, 255, 255, 0.88)" />
+        <circle cx="31" cy="16" r="2.3" fill="rgba(255, 255, 255, 0.88)" />
+        <rect x="15" y="30" width="22" height="12" rx="3" fill="rgba(0, 0, 0, 0.16)" />
+      </svg>
+    );
+  }
 }
 
 /** Wall-mounted laser barrel, drawn firing E and rotated to the facing. */

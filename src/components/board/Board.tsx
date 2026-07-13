@@ -124,7 +124,7 @@ export function Board({ board, visual, currentEvent, bubbles }: BoardProps) {
             r.visible && (
               <div
                 key={r.player}
-                className="robot"
+                className={`robot ${currentEvent?.type === 'damage' && currentEvent.player === r.player ? 'damage-flash' : ''}`}
                 data-testid={`robot-${r.player}`}
                 data-x={r.pos.x}
                 data-y={r.pos.y}
@@ -137,7 +137,7 @@ export function Board({ board, visual, currentEvent, bubbles }: BoardProps) {
                     background: `var(--player-${seat})`,
                   }}
                 >
-                  <RobotSprite />
+                  <RobotSprite seat={seat} />
                 </div>
               </div>
             ),
