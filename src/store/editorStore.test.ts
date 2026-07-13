@@ -195,4 +195,35 @@ describe('editorStore', () => {
     store().reset();
     expect(store().forkedFrom).toBeNull();
   });
+
+  it('eraser tool can be selected', () => {
+    store().setTool('eraser');
+    expect(store().activeTool).toBe('eraser');
+  });
+
+  it('painting with eraser erases a previously painted tile', () => {
+    store().setTool('pit');
+    store().paintTile(3, 3);
+    expect(store().board.tiles[3][3]).toEqual({ kind: 'pit' });
+
+    store().setTool('eraser');
+    store().paintTile(3, 3);
+    expect(store().board.tiles[3][3]).toEqual({ kind: 'floor' });
+  });
+
+  it('eraser stroke is one undo step', () => {
+    store().setTool('pit');
+    store().paintTile(1, 1);
+    store().paintTile(2, 2);
+
+    store().setTool('eraser');
+    store().beginStroke();
+    store().paintTile(1, 1);
+    store().paintTile(2, 2);
+    store().endStroke();
+
+    store().undo();
+    expect(store().board.tiles[1][1]).toEqual({ kind: 'pit' });
+    expect(store().board.tiles[2][2]).toEqual({ kind: 'pit' });
+  });
 });

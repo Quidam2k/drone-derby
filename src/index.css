@@ -971,13 +971,16 @@ button.quiet {
   width: fit-content;
   user-select: none;
 }
-/* Sits over the Board's tiles (offset past its 3px border). */
+/* Sits over the Board's tiles (offset past its 3px border). Pointer events
+   own painting on every input type, so touches must never scroll the page
+   from here (tileFit keeps the board inside the viewport anyway). */
 .editor-hit-layer {
   position: absolute;
   top: 3px;
   left: 3px;
   display: grid;
   z-index: 5;
+  touch-action: none;
 }
 .hit-cell {
   width: var(--tile);
@@ -1132,6 +1135,111 @@ button.quiet {
   .invite-box {
     flex-wrap: wrap;
     justify-content: center;
+  }
+
+  /* ---- phase 17: mobile editor layout ----------------------------------- */
+  .editor-toolbar {
+    gap: 0.4rem;
+  }
+  .editor-toolbar button,
+  .board-name {
+    min-height: 44px;
+  }
+  .board-name {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 120px;
+    max-width: 200px;
+  }
+  .size-stepper {
+    flex-wrap: wrap;
+    gap: 0.2rem;
+  }
+  .size-stepper button {
+    min-width: 44px;
+    padding: 0.1rem 0.4rem;
+  }
+
+  .editor-layout {
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+    align-items: stretch;
+  }
+
+  .tool-palette {
+    display: flex;
+    flex-direction: row;
+    gap: 0.3rem;
+    min-width: 0;
+    width: 100%;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    padding-bottom: 0.25rem;
+    flex-wrap: nowrap;
+  }
+  .tool-btn {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    min-height: 44px;
+    padding: 0.3rem 0.5rem;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+    white-space: nowrap;
+  }
+  .tool-glyph {
+    width: 1.2rem;
+    height: 1.2rem;
+  }
+  .tool-hint {
+    display: none;
+  }
+  /* Direction / rotation options pin to the row's left edge (sticky) so
+     they're visible the moment a tool that has options is selected. */
+  .tool-options {
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.4rem;
+    order: -1;
+    position: sticky;
+    left: 0;
+    z-index: 2;
+  }
+  .tool-options .tool-option-row button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Center the wrap itself (fit-content) — flex-centering the Board inside
+     would shift it away from the absolutely-positioned hit layer. */
+  .editor-board-wrap {
+    align-self: center;
+  }
+  /* Edge strips thicken with small tiles; the cross axis keeps the desktop
+     span (left/right or top/bottom insets) so the full edge stays tappable. */
+  .hit-edge-n {
+    top: calc(-1 * max(5px, calc(var(--tile) * 0.15)));
+    height: max(10px, calc(var(--tile) * 0.3));
+  }
+  .hit-edge-s {
+    bottom: calc(-1 * max(5px, calc(var(--tile) * 0.15)));
+    height: max(10px, calc(var(--tile) * 0.3));
+  }
+  .hit-edge-e {
+    right: calc(-1 * max(5px, calc(var(--tile) * 0.15)));
+    width: max(10px, calc(var(--tile) * 0.3));
+  }
+  .hit-edge-w {
+    left: calc(-1 * max(5px, calc(var(--tile) * 0.15)));
+    width: max(10px, calc(var(--tile) * 0.3));
+  }
+
+  .validation-panel {
+    width: 100%;
+    max-width: none;
+    min-width: auto;
+    order: 10;
   }
 }
 

@@ -1,28 +1,29 @@
 # Session State
-Updated: 2026-07-13 ~12:10 (Phase A/§16 Node 22 + Vite 7 DONE, committing)
+Updated: 2026-07-13 ~12:25 (Phase 17 editor mobile DONE, committing + deploying)
 
 ## Current Task
-Two-day burn (plan approved): (A) Node 22 + Vite 7 upgrade — DONE;
-(B) editor mobile layout pass ≤700px — next, via Opus subagent.
-Rules/pacing still gated on Todd's playtest.
+Two-day burn: (A/§16) Node 22 + Vite 7 — DONE, committed 5189eab.
+(B/§17) editor mobile pass — implemented + verified, committing then
+`npm run deploy` + prod smoke. Rules/pacing still gated on playtest.
 
 ## Just Completed
-- §16: Node 22.23.1 (nvm; fixed quoted User-scope NVM_HOME/NVM_SYMLINK
-  env vars that broke nvm), vite ^7.3.6 / vitest ^4.1.10 /
-  plugin-react ^5.2.0. Verified: typecheck, 92 tests, build,
-  preview+SW smoke, dev boots, convex CLI OK on 22. Committing next.
+- §17: editor mobile (layout column + scroll-snap palette, layer-level
+  pointer painting w/ elementFromPoint, eraser tool, 44px targets,
+  sticky tool-options). Opus subagent implemented; I fixed 4 findings
+  (double-stroke undo bug, hit-grid misalignment, edge-strip squash,
+  hidden tool-options). Verified: 95 tests + Playwright desktop 1280 &
+  CDP-touch 375. Screenshots in screengrab/.
 
 ## Next Steps
-1. Commit §16 (package.json, lock, cascade, this file).
-2. Phase B: delegate editor mobile pass to Opus agent — spec in plan:
-   layout reflow (index.css), pointer-event painting w/ elementFromPoint
-   (EditorBoard.tsx), eraser tool (editorStore + ToolPalette), edge zones
-   max(10px, .3*tile), touch-action none. Then I verify via Playwright
-   375×667 + 1280×800, commit, cascade §17, deploy + prod smoke.
-3. After both: propose next slate (AI opponent, gallery search, replays,
-   sounds).
+1. Commit §17, then `npm run deploy` (Convex prod + CF Pages), prod
+   smoke incl. editor at 375px.
+2. Propose next slate to Todd: AI opponent, gallery search, replays
+   list, sounds (unpicked candidates from the burn plan).
+
+## Open Questions / Blockers
+- Playtest verdict pending; auth creds pending.
 
 ## Key Files
-- package.json, cascades/2026-07-05-v2-rewrite.md (§16),
-  src/components/editor/EditorBoard.tsx, src/store/editorStore.ts,
-  src/components/editor/ToolPalette.tsx, src/index.css
+- src/components/editor/EditorBoard.tsx, src/store/editorStore.ts,
+  src/components/editor/ToolPalette.tsx, src/index.css,
+  cascades/2026-07-05-v2-rewrite.md (§16–17)

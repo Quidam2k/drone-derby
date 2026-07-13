@@ -20,6 +20,13 @@ const WALL_ICON = (
     <rect x="4" y="20" width="44" height="12" rx="3" fill="var(--wall)" />
   </svg>
 );
+const ERASER_ICON = (
+  <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+    <rect x="8" y="8" width="28" height="28" rx="3" fill="none" stroke="currentColor" strokeWidth="3" />
+    <line x1="16" y1="16" x2="28" y2="28" stroke="currentColor" strokeWidth="2.5" />
+    <line x1="28" y1="16" x2="16" y2="28" stroke="currentColor" strokeWidth="2.5" />
+  </svg>
+);
 
 const TOOLS: { id: ToolId; icon: ReactNode; label: string }[] = [
   { id: 'floor', icon: FLOOR_ICON, label: 'Floor (erase)' },
@@ -30,6 +37,7 @@ const TOOLS: { id: ToolId; icon: ReactNode; label: string }[] = [
   { id: 'spawn', icon: <SpawnSprite n={1} />, label: 'Spawn dock' },
   { id: 'wall', icon: WALL_ICON, label: 'Wall' },
   { id: 'laser', icon: <EmitterSprite facing="E" />, label: 'Laser' },
+  { id: 'eraser', icon: ERASER_ICON, label: 'Eraser' },
 ];
 
 const DIR_ARROWS: { dir: Direction; glyph: string }[] = [
