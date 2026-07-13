@@ -1,28 +1,28 @@
 # Session State
-Updated: 2026-07-07 ~10:00 (Phase 15 DONE — deployed to prod)
+Updated: 2026-07-13 ~12:10 (Phase A/§16 Node 22 + Vite 7 DONE, committing)
 
 ## Current Task
-Drone Derby v2 — cascade: cascades/2026-07-05-v2-rewrite.md.
-Phases 1–15 DONE and LIVE at https://drone-derby.pages.dev (Convex prod
-fastidious-dinosaur-923). Everything is ready for THE fun-playtest.
+Two-day burn (plan approved): (A) Node 22 + Vite 7 upgrade — DONE;
+(B) editor mobile layout pass ≤700px — next, via Opus subagent.
+Rules/pacing still gated on Todd's playtest.
 
 ## Just Completed
-- Phase 15: playtest readiness. Telemetry (convex/telemetry.ts sink +
-  src/services/telemetry.ts client: crash auto-capture, 🐞 note button,
-  localStorage ring buffer, `npx convex run telemetry:recent --prod` to
-  read). Root README.md (playtest guide + test-everything checklist).
-  Tests 88 → 92. Verified local + prod smoke (note read back from prod).
+- §16: Node 22.23.1 (nvm; fixed quoted User-scope NVM_HOME/NVM_SYMLINK
+  env vars that broke nvm), vite ^7.3.6 / vitest ^4.1.10 /
+  plugin-react ^5.2.0. Verified: typecheck, 92 tests, build,
+  preview+SW smoke, dev boots, convex CLI OK on 22. Committing next.
 
 ## Next Steps
-1. THE STANDING GATE: Todd plays on prod. Afterwards, mine
-   `npx convex run telemetry:recent --prod` + his verdict → rules/pacing
-   tweaks become their own phase (informing a Gauntlet re-tune).
-2. Backlog: Resend/Google auth (waiting on creds), gallery
-   search/pagination (when board count warrants).
-
-## Open Questions / Blockers
-- Playtest verdict pending; auth creds pending.
+1. Commit §16 (package.json, lock, cascade, this file).
+2. Phase B: delegate editor mobile pass to Opus agent — spec in plan:
+   layout reflow (index.css), pointer-event painting w/ elementFromPoint
+   (EditorBoard.tsx), eraser tool (editorStore + ToolPalette), edge zones
+   max(10px, .3*tile), touch-action none. Then I verify via Playwright
+   375×667 + 1280×800, commit, cascade §17, deploy + prod smoke.
+3. After both: propose next slate (AI opponent, gallery search, replays,
+   sounds).
 
 ## Key Files
-- src/services/telemetry.ts, convex/telemetry.ts, README.md,
-  cascades/2026-07-05-v2-rewrite.md (§15 at bottom)
+- package.json, cascades/2026-07-05-v2-rewrite.md (§16),
+  src/components/editor/EditorBoard.tsx, src/store/editorStore.ts,
+  src/components/editor/ToolPalette.tsx, src/index.css
