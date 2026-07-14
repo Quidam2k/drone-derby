@@ -629,6 +629,98 @@ button.quiet {
   font-size: 0.85rem;
   color: var(--muted, #8b93a7);
 }
+/* ---- rules (#/rules) ------------------------------------------------------ */
+
+.rules-screen {
+  max-width: 720px;
+}
+.rules-screen section {
+  margin-top: 1.5rem;
+}
+.rules-screen h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.15rem;
+  color: var(--accent);
+}
+.rules-screen p,
+.rules-screen li {
+  line-height: 1.55;
+}
+.rules-steps {
+  padding-left: 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+.rules-cards {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.rules-cards th,
+.rules-cards td {
+  text-align: left;
+  padding: 0.35rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+}
+.rules-cards th {
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.rules-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+.rules-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.rules-legend-row p {
+  margin: 0;
+}
+/* A single board tile at desktop size, matching .tile's floor treatment. */
+.rules-tile {
+  flex: none;
+  width: 52px;
+  height: 52px;
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.045);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rules-tile-pit {
+  background: #0a0b11;
+}
+.rules-tile-conveyor {
+  background: #262c3d;
+}
+.rules-robot-body {
+  width: 72%;
+  height: 72%;
+  border-radius: 22%;
+  background: var(--player-0);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55), inset 0 0 0 2px rgba(255, 255, 255, 0.22);
+}
+.rules-boards {
+  padding-left: 1.3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0.5rem 0;
+}
+.rules-back-bottom {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
 /* ---- board gallery (#/gallery) ------------------------------------------- */
 
 .gallery-grid {
@@ -827,6 +919,10 @@ button.quiet {
   text-decoration: none;
   margin-top: 1rem;
   display: inline-block;
+}
+/* Inline "How to play" link inside the hot-seat setup subtitle. */
+.setup-rules-link {
+  margin-top: 0;
 }
 
 /* ---- phase 5: speech bubbles, nudge, history, stats ----------------------- */

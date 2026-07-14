@@ -8,6 +8,7 @@ import { LobbyScreen } from './components/online/LobbyScreen';
 import { JoinScreen } from './components/online/JoinScreen';
 import { OnlineGameScreen } from './components/online/OnlineGameScreen';
 import { GalleryScreen } from './components/online/GalleryScreen';
+import { RulesScreen } from './components/rules/RulesScreen';
 
 /** Catches render-time errors (e.g. a malformed game id in the hash). */
 class RouteBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -69,6 +70,9 @@ function Screen() {
       </RouteBoundary>
     );
   }
+
+  // Rules are static — no backend, no sign-in, safe from any entry point.
+  if (route.name === 'rules') return <RulesScreen />;
 
   // No backend configured: the game is hot-seat only.
   if (!convex) return <HotSeatGame />;

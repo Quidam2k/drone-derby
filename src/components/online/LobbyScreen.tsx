@@ -187,6 +187,14 @@ function LobbyInner() {
             Browse gallery
           </button>
         </div>
+
+        <div className="lobby-card">
+          <h3>How to play</h3>
+          <p className="lobby-card-note">Registers, priority, lasers — the rules.</p>
+          <button onClick={() => navigate('#/rules')} data-testid="rules-link">
+            Read the rules
+          </button>
+        </div>
       </div>
 
       {error && <p className="error-note">{error}</p>}
