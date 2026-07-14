@@ -27,7 +27,12 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
   return (
     <div className="screen center-screen setup-screen">
       <h1 className="title">Drone Derby</h1>
-      <p className="subtitle">Program your robot. Survive the factory. Hit the checkpoints.</p>
+      <p className="subtitle">
+        Program your robot. Survive the factory. Hit the checkpoints.{' '}
+        <a className="primary-link setup-rules-link" href="#/rules" data-testid="rules-link">
+          How to play
+        </a>
+      </p>
 
       <div className="setup-players">
         {names.map((name, i) => (

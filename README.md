@@ -43,12 +43,17 @@ Other commands: `npm test` (Vitest), `npm run typecheck`,
   your move.
 - **Solo rules-testing**: Hot-seat mode from the lobby — two players, one
   screen, no backend round-trips.
+- **New players**: the in-app rules live at `#/rules` (linked from the
+  lobby, the join screen, and hot-seat setup) — point first-timers there.
 
 ## Test-everything checklist
 
 ### Screens
 
 - [ ] Lobby: create game, board picker shows 4 built-in thumbnail cards
+- [ ] How to play (`#/rules`): opens from the lobby card, the join
+      screen's "First time?" link (back returns to the invite), and
+      hot-seat setup; board-element sprites render in the legend
 - [ ] Sound toggle (🔊/🔇 in lobby header + replay controls): OFF by
       default; turn it on, reload — it stays on; sounds play in replays
 - [ ] Hot-seat: full game start → programming → replay loop

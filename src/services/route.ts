@@ -6,6 +6,7 @@
 //   #/game/<id>   online game screen
 //   #/join/<code> join via invite link
 //   #/gallery     published-board gallery
+//   #/rules       how-to-play (works without a backend)
 
 import { useSyncExternalStore } from 'react';
 
@@ -15,7 +16,8 @@ export type Route =
   | { name: 'editor'; boardId?: string }
   | { name: 'game'; gameId: string }
   | { name: 'join'; code: string }
-  | { name: 'gallery' };
+  | { name: 'gallery' }
+  | { name: 'rules' };
 
 export function parseHash(hash: string): Route {
   const [head, arg] = hash.replace(/^#\/?/, '').split('/');
@@ -24,6 +26,7 @@ export function parseHash(hash: string): Route {
   if (head === 'game' && arg) return { name: 'game', gameId: arg };
   if (head === 'join' && arg) return { name: 'join', code: arg };
   if (head === 'gallery') return { name: 'gallery' };
+  if (head === 'rules') return { name: 'rules' };
   return { name: 'home' };
 }
 
