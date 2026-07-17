@@ -60,6 +60,10 @@ Other commands: `npm test` (Vitest), `npm run typecheck`,
 - [ ] Online: create → join via invite code from a second browser/phone
 - [ ] Rejoin: close the tab mid-game, reopen the game link, state intact
 - [ ] Programming dock: deal, drag/tap cards into registers, submit, taunt
+- [ ] Ghost preview: placing a card plays a translucent ghost through
+      the turn-so-far — belts/gears/lasers/pits previewed, other robots
+      ignored (ghost passes through them); updates on every placement
+      change and rests at the final pose
 - [ ] Turn replay: animations match outcomes; auto-plays for the player
       who was waiting
 - [ ] Visual polish: belts scroll in their travel direction (express

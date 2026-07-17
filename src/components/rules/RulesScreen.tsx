@@ -79,6 +79,10 @@ export function RulesScreen() {
           executes at once and you watch the replay. Nobody sees anyone else's program in advance —
           the fun is everyone's plans colliding.
         </p>
+        <p>
+          While programming, a translucent <strong>ghost</strong> previews your moves — board
+          effects only. Rival robots move unpredictably, so the ghost passes right through them.
+        </p>
       </section>
 
       <section>

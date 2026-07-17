@@ -35,6 +35,24 @@ function cellPx(n: number): string {
 }
 
 /**
+ * Smooth rotation for the single ghost robot. Separate from useSmoothAngles
+ * because the ghost shares its player id with a real robot on the board.
+ */
+function useGhostAngle(ghost: { robot: RobotVisual } | undefined): number {
+  const ref = useRef<number | null>(null);
+  if (!ghost) {
+    ref.current = null;
+    return 0;
+  }
+  const target = DIR_ANGLE[ghost.robot.facing];
+  const prev = ref.current ?? target;
+  let delta = (((target - prev) % 360) + 360) % 360;
+  if (delta > 180) delta -= 360;
+  ref.current = prev + delta;
+  return ref.current;
+}
+
+/**
  * Tile size that fits the whole board in the viewport (52px cap = the
  * desktop size, unchanged there). Exported so the editor can put the same
  * value on its wrapper, keeping the hit layer aligned with the tiles.
@@ -72,6 +90,8 @@ interface BoardProps {
   currentEvent?: EngineEvent | null;
   /** Speech bubbles to draw over robots (replay taunts). */
   bubbles?: { player: PlayerId; text: string }[];
+  /** Translucent programming-preview robot, drawn over the live board. */
+  ghost?: { robot: RobotVisual; seat: number };
 }
 
 /** Walls and laser emitters grouped by `"x,y"` cell key, in Tile-prop shape. */
@@ -92,8 +112,9 @@ export function boardCellMaps(board: BoardDef): {
   return { wallsByCell, emittersByCell };
 }
 
-export function Board({ board, visual, currentEvent, bubbles }: BoardProps) {
+export function Board({ board, visual, currentEvent, bubbles, ghost }: BoardProps) {
   const angles = useSmoothAngles(visual.robots);
+  const ghostAngle = useGhostAngle(ghost);
   const { wallsByCell, emittersByCell } = boardCellMaps(board);
 
   return (
@@ -141,6 +162,28 @@ export function Board({ board, visual, currentEvent, bubbles }: BoardProps) {
                 </div>
               </div>
             ),
+        )}
+
+        {ghost && ghost.robot.visible && (
+          <div
+            className="robot ghost"
+            data-testid="robot-ghost"
+            data-x={ghost.robot.pos.x}
+            data-y={ghost.robot.pos.y}
+            style={{
+              transform: `translate(${cellPx(ghost.robot.pos.x)}, ${cellPx(ghost.robot.pos.y)})`,
+            }}
+          >
+            <div
+              className="robot-body"
+              style={{
+                transform: `rotate(${ghostAngle}deg)`,
+                background: `var(--player-${ghost.seat})`,
+              }}
+            >
+              <RobotSprite seat={ghost.seat} />
+            </div>
+          </div>
         )}
 
         {bubbles?.map((b) => {

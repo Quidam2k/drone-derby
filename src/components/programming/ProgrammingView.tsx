@@ -3,14 +3,17 @@
 // filled register to take the card back. Locked registers show their held
 // card and cannot be edited.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Card, GameState, Program } from '../../engine';
-import { countCheckpoints, isRegisterLocked } from '../../engine';
+import { countCheckpoints, isRegisterLocked, previewProgram } from '../../engine';
 import { play } from '../../services/audio';
 import { Board } from '../board/Board';
 import { PlayerStrip } from '../board/PlayerStrip';
 import { CARD_GLYPH, CARD_LABEL } from '../cards';
-import { initialVisual } from '../replay/visualState';
+import { initialVisual, visualAt } from '../replay/visualState';
+
+/** Fixed cadence for stepping the ghost through its preview events. */
+const GHOST_STEP_MS = 220;
 
 function CardFace({ card, small }: { card: Card; small?: boolean }) {
   return (
@@ -39,6 +42,40 @@ export function ProgrammingView({ game, seat, onSubmit }: ProgrammingViewProps) 
   useEffect(() => {
     play('card-deal');
   }, []);
+
+  // Ghost preview: solo engine sim of the turn-so-far (board effects only —
+  // other robots are excluded, so the ghost may pass through them). Replays
+  // once from the start whenever placements change, then rests at the pose.
+  const previewEvents = useMemo(
+    () => previewProgram(game, robot.player, slots),
+    [game, robot.player, slots],
+  );
+  const [previewCursor, setPreviewCursor] = useState(0);
+  useEffect(() => {
+    if (previewEvents.length === 0) {
+      setPreviewCursor(0);
+      return;
+    }
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setPreviewCursor(previewEvents.length); // jump straight to the final pose
+      return;
+    }
+    setPreviewCursor(0);
+    let i = 0;
+    let timer: number | undefined;
+    const tick = () => {
+      i += 1;
+      setPreviewCursor(i);
+      if (i < previewEvents.length) timer = window.setTimeout(tick, GHOST_STEP_MS);
+    };
+    timer = window.setTimeout(tick, GHOST_STEP_MS);
+    return () => window.clearTimeout(timer);
+  }, [previewEvents]);
+
+  const ghostRobot =
+    previewEvents.length > 0
+      ? visualAt(initialVisual(game), previewEvents, previewCursor).robots[seat]
+      : null;
 
   const placedIds = new Set(slots.filter((c): c is Card => c !== null).map((c) => c.id));
   const locked = (r: number) => isRegisterLocked(robot.damage, r);
@@ -75,7 +112,11 @@ export function ProgrammingView({ game, seat, onSubmit }: ProgrammingViewProps) 
       </header>
 
       <div className="game-layout">
-        <Board board={game.board} visual={initialVisual(game)} />
+        <Board
+          board={game.board}
+          visual={initialVisual(game)}
+          ghost={ghostRobot ? { robot: ghostRobot, seat } : undefined}
+        />
         <PlayerStrip
           visual={initialVisual(game)}
           checkpointTarget={countCheckpoints(game.board)}
