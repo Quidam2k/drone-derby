@@ -1,27 +1,30 @@
 # Session State
-Updated: 2026-07-17 ~13:50
+Updated: 2026-07-17 ~14:00
 
 ## Current Task
-Phase 22 (Pit Archipelago, 5th built-in board) implemented + verified
-locally; committing + deploying now. THEN: plan mode for the
-ghost-preview feature (Todd's new request — see cascade ⚠️ NEXT).
+NONE IN FLIGHT — Phase 22 (Pit Archipelago) committed (3d4a239) AND
+DEPLOYED to prod, smoke-tested (bundle index-85Y88kCF served after SW
+update, 5 boards in picker + rules list, zero console errors).
 
 ## Just Completed
-- §22: pitArchipelago() in boards.ts (12×11 islands/pit channels,
-  causeways vs laser-taxed belt bridges), RulesScreen + README entries.
-  109 tests, typecheck, Playwright 1280+375 hot-seat turn green.
-- Plan premise fixed: Move 2 does NOT jump pits (per-cell); design
-  uses narrow causeways instead.
+- §22: pitArchipelago() 12×11 (pit channels, causeways vs laser-taxed
+  belt bridges), RulesScreen + README entries, 109 tests, Playwright
+  1280+375. Cascade §22 logged (incl. corrected pit-jump premise).
 
 ## Next Steps
-1. Commit §22, `npm run deploy`, prod smoke (5 boards in picker).
-2. Plan mode: ghost preview while programming (deterministic solo
-   executeTurn of registers-so-far; no other robots). Jumps ahead of
-   composition/SFX/docs (old phases 23–25).
+1. GHOST PREVIEW phase (Todd's 2026-07-17 request, jumps queue): while
+   programming, ghost robot replays placed registers via solo
+   executeTurn (deterministic board effects, no other robots). Enter
+   plan mode with this loaded. Scouted: ProgrammingView owns slots;
+   ReplayPlayer/visualAt fold EventLog; Board can grow a ghost layer.
+2. Then: composition (+MAX_BOARD_SIZE 24, mobile tile floor/pan),
+   editor append, softer SFX (default-muted), docs invite walkthrough.
+3. STANDING GATE still open: Todd's friends playtest → mine telemetry.
 
 ## Open Questions / Blockers
-- Port 5173 = Leyline Tycoon app; drone_derby dev = 5175 currently.
+- Port 5173 = Leyline Tycoon; drone_derby dev currently on 5175.
 
 ## Key Files
-- src/engine/boards.ts (pitArchipelago), src/engine/execute.ts
-- cascades/2026-07-05-v2-rewrite.md §22 + ⚠️ NEXT
+- src/components/programming/ProgrammingView.tsx (slots state)
+- src/components/replay/visualState.ts, ReplayPlayer.tsx
+- src/engine/execute.ts (executeTurn, prepareTurn hand validation)
