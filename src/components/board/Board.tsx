@@ -54,11 +54,14 @@ function useGhostAngle(ghost: { robot: RobotVisual } | undefined): number {
 
 /**
  * Tile size that fits the whole board in the viewport (52px cap = the
- * desktop size, unchanged there). Exported so the editor can put the same
- * value on its wrapper, keeping the hit layer aligned with the tiles.
+ * desktop size, unchanged there), floored at 24px so tall composed boards
+ * stay legible on phones — past the floor, the board pans inside
+ * `.board-viewport` instead of shrinking further. Exported so the editor
+ * can put the same value on its wrapper, keeping the hit layer aligned
+ * with the tiles.
  */
 export function tileFit(board: { width: number; height: number }): string {
-  return `min(52px, calc((100vw - 3rem) / ${board.width}), calc((100dvh - 12rem) / ${board.height}))`;
+  return `clamp(24px, min(calc((100vw - 3rem) / ${board.width}), calc((100dvh - 12rem) / ${board.height})), 52px)`;
 }
 
 function BeamOverlay({ path }: { path: Position[] }) {
@@ -118,96 +121,98 @@ export function Board({ board, visual, currentEvent, bubbles, ghost }: BoardProp
   const { wallsByCell, emittersByCell } = boardCellMaps(board);
 
   return (
-    <div
-      className="board"
-      style={
-        {
-          gridTemplateColumns: `repeat(${board.width}, var(--tile))`,
-          '--tile': tileFit(board),
-        } as CSSProperties
-      }
-      data-testid="board"
-    >
-      {board.tiles.map((row, y) =>
-        row.map((def, x) => (
-          <Tile
-            key={`${x},${y}`}
-            def={def}
-            walls={wallsByCell.get(`${x},${y}`) ?? []}
-            emitterFacings={emittersByCell.get(`${x},${y}`) ?? []}
-          />
-        )),
-      )}
-
-      <div className="robots-layer">
-        {visual.robots.map(
-          (r, seat) =>
-            r.visible && (
-              <div
-                key={r.player}
-                className={`robot ${currentEvent?.type === 'damage' && currentEvent.player === r.player ? 'damage-flash' : ''}`}
-                data-testid={`robot-${r.player}`}
-                data-x={r.pos.x}
-                data-y={r.pos.y}
-                style={{ transform: `translate(${cellPx(r.pos.x)}, ${cellPx(r.pos.y)})` }}
-              >
-                <div
-                  className="robot-body"
-                  style={{
-                    transform: `rotate(${angles[r.player]}deg)`,
-                    background: `var(--player-${seat})`,
-                  }}
-                >
-                  <RobotSprite seat={seat} />
-                </div>
-              </div>
-            ),
+    <div className="board-viewport">
+      <div
+        className="board"
+        style={
+          {
+            gridTemplateColumns: `repeat(${board.width}, var(--tile))`,
+            '--tile': tileFit(board),
+          } as CSSProperties
+        }
+        data-testid="board"
+      >
+        {board.tiles.map((row, y) =>
+          row.map((def, x) => (
+            <Tile
+              key={`${x},${y}`}
+              def={def}
+              walls={wallsByCell.get(`${x},${y}`) ?? []}
+              emitterFacings={emittersByCell.get(`${x},${y}`) ?? []}
+            />
+          )),
         )}
 
-        {ghost && ghost.robot.visible && (
-          <div
-            className="robot ghost"
-            data-testid="robot-ghost"
-            data-x={ghost.robot.pos.x}
-            data-y={ghost.robot.pos.y}
-            style={{
-              transform: `translate(${cellPx(ghost.robot.pos.x)}, ${cellPx(ghost.robot.pos.y)})`,
-            }}
-          >
+        <div className="robots-layer">
+          {visual.robots.map(
+            (r, seat) =>
+              r.visible && (
+                <div
+                  key={r.player}
+                  className={`robot ${currentEvent?.type === 'damage' && currentEvent.player === r.player ? 'damage-flash' : ''}`}
+                  data-testid={`robot-${r.player}`}
+                  data-x={r.pos.x}
+                  data-y={r.pos.y}
+                  style={{ transform: `translate(${cellPx(r.pos.x)}, ${cellPx(r.pos.y)})` }}
+                >
+                  <div
+                    className="robot-body"
+                    style={{
+                      transform: `rotate(${angles[r.player]}deg)`,
+                      background: `var(--player-${seat})`,
+                    }}
+                  >
+                    <RobotSprite seat={seat} />
+                  </div>
+                </div>
+              ),
+          )}
+
+          {ghost && ghost.robot.visible && (
             <div
-              className="robot-body"
+              className="robot ghost"
+              data-testid="robot-ghost"
+              data-x={ghost.robot.pos.x}
+              data-y={ghost.robot.pos.y}
               style={{
-                transform: `rotate(${ghostAngle}deg)`,
-                background: `var(--player-${ghost.seat})`,
+                transform: `translate(${cellPx(ghost.robot.pos.x)}, ${cellPx(ghost.robot.pos.y)})`,
               }}
             >
-              <RobotSprite seat={ghost.seat} />
+              <div
+                className="robot-body"
+                style={{
+                  transform: `rotate(${ghostAngle}deg)`,
+                  background: `var(--player-${ghost.seat})`,
+                }}
+              >
+                <RobotSprite seat={ghost.seat} />
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {bubbles?.map((b) => {
-          const robot = visual.robots.find((r) => r.player === b.player);
-          if (!robot || !robot.visible) return null;
-          return (
+          {bubbles?.map((b) => {
+            const robot = visual.robots.find((r) => r.player === b.player);
+            if (!robot || !robot.visible) return null;
+            return (
+              <div
+                key={b.player}
+                className="speech-bubble"
+                data-testid={`bubble-${b.player}`}
+                style={{ left: cellPx(robot.pos.x + 0.5), top: cellPx(robot.pos.y) }}
+              >
+                {b.text}
+              </div>
+            );
+          })}
+
+          {currentEvent?.type === 'laser-fired' && <BeamOverlay path={currentEvent.path} />}
+          {currentEvent?.type === 'robot-blocked' && (
             <div
-              key={b.player}
-              className="speech-bubble"
-              data-testid={`bubble-${b.player}`}
-              style={{ left: cellPx(robot.pos.x + 0.5), top: cellPx(robot.pos.y) }}
-            >
-              {b.text}
-            </div>
-          );
-        })}
-
-        {currentEvent?.type === 'laser-fired' && <BeamOverlay path={currentEvent.path} />}
-        {currentEvent?.type === 'robot-blocked' && (
-          <div
-            className="bump-flash"
-            style={{ left: cellPx(currentEvent.at.x), top: cellPx(currentEvent.at.y) }}
-          />
-        )}
+              className="bump-flash"
+              style={{ left: cellPx(currentEvent.at.x), top: cellPx(currentEvent.at.y) }}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

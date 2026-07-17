@@ -9,7 +9,7 @@ import { Tile } from './Tile';
 
 interface BoardThumbProps {
   board: BoardDef;
-  /** Per-tile pixel cap; shrinks further so the thumb stays within maxPx wide. */
+  /** Per-tile pixel cap; shrinks further so the thumb stays within maxPx on both axes. */
   tilePx?: number;
   maxPx?: number;
 }
@@ -23,7 +23,7 @@ export function BoardThumb({ board, tilePx = 8, maxPx = 160 }: BoardThumbProps) 
       style={
         {
           gridTemplateColumns: `repeat(${board.width}, var(--tile))`,
-          '--tile': `min(${tilePx}px, calc(${maxPx}px / ${board.width}))`,
+          '--tile': `min(${tilePx}px, calc(${maxPx}px / ${board.width}), calc(${maxPx}px / ${board.height}))`,
         } as CSSProperties
       }
     >

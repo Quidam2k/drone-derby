@@ -118,56 +118,61 @@ export function EditorBoard() {
   }
 
   return (
-    <div
-      className="editor-board-wrap"
-      style={{ '--tile': tileFit(board) } as CSSProperties}
-      onContextMenu={(e) => e.preventDefault()}
-    >
-      <Board board={board} visual={EMPTY_VISUAL} />
+    // The editor pans board + hit layer together: this outer viewport is the
+    // scroller, and CSS neutralizes the Board's own nested .board-viewport so
+    // the absolutely-positioned hit layer never drifts from the tiles.
+    <div className="board-viewport">
       <div
-        ref={layerRef}
-        className="editor-hit-layer"
-        style={{ gridTemplateColumns: `repeat(${board.width}, var(--tile))` }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerCancel}
+        className="editor-board-wrap"
+        style={{ '--tile': tileFit(board) } as CSSProperties}
+        onContextMenu={(e) => e.preventDefault()}
       >
-        {board.tiles.map((row, y) =>
-          row.map((_, x) => (
-            <div
-              key={`${x},${y}`}
-              className="hit-cell"
-              data-x={x}
-              data-y={y}
-              data-testid={`cell-${x}-${y}`}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                eraseTile(x, y);
-              }}
-            >
-              {edgeMode &&
-                EDGES.map((side) => (
-                  <div
-                    key={side}
-                    className={`hit-edge hit-edge-${side.toLowerCase()}`}
-                    data-testid={`edge-${x}-${y}-${side}`}
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                      if (e.button !== 0) return;
-                      if (activeTool === 'wall') toggleWall(x, y, side);
-                      else toggleLaser(x, y, side);
-                    }}
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      eraseEdge(x, y, side);
-                    }}
-                  />
-                ))}
-            </div>
-          )),
-        )}
+        <Board board={board} visual={EMPTY_VISUAL} />
+        <div
+          ref={layerRef}
+          className="editor-hit-layer"
+          style={{ gridTemplateColumns: `repeat(${board.width}, var(--tile))` }}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
+        >
+          {board.tiles.map((row, y) =>
+            row.map((_, x) => (
+              <div
+                key={`${x},${y}`}
+                className="hit-cell"
+                data-x={x}
+                data-y={y}
+                data-testid={`cell-${x}-${y}`}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  eraseTile(x, y);
+                }}
+              >
+                {edgeMode &&
+                  EDGES.map((side) => (
+                    <div
+                      key={side}
+                      className={`hit-edge hit-edge-${side.toLowerCase()}`}
+                      data-testid={`edge-${x}-${y}-${side}`}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        if (e.button !== 0) return;
+                        if (activeTool === 'wall') toggleWall(x, y, side);
+                        else toggleLaser(x, y, side);
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        eraseEdge(x, y, side);
+                      }}
+                    />
+                  ))}
+              </div>
+            )),
+          )}
+        </div>
       </div>
     </div>
   );

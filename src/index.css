@@ -172,6 +172,20 @@ select:focus {
 
 /* ---- board -------------------------------------------------------------- */
 
+/* Pan window for boards taller/wider than tileFit's 24px floor allows on
+   screen (composed boards on phones). Sized to the same viewport terms as
+   tileFit, so nothing scrolls until the floor actually kicks in. */
+.board-viewport {
+  width: fit-content;
+  /* tileFit budgets these viewport terms for the tiles alone; the +6px
+     absorbs the .board's 3px borders so a height-fitted board doesn't
+     grow a pointless 6px scrollbar. */
+  max-width: calc(100vw - 3rem + 6px);
+  max-height: calc(100dvh - 12rem + 6px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .board {
   display: grid;
   position: relative;
@@ -1095,6 +1109,41 @@ button.quiet {
   flex-wrap: wrap;
 }
 
+/* ---- append-board modal (phase 24) -------------------------------------- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 1rem;
+}
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  max-width: min(680px, 94vw);
+  max-height: 85dvh;
+  overflow-y: auto;
+}
+.modal h3 {
+  margin-top: 0;
+}
+.modal-hint {
+  color: var(--text-dim);
+  font-size: 0.85rem;
+  max-width: 48ch;
+}
+.modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+}
+
 .tool-palette {
   display: flex;
   flex-direction: column;
@@ -1147,6 +1196,14 @@ button.quiet {
   position: relative;
   width: fit-content;
   user-select: none;
+}
+/* The editor's own outer .board-viewport scrolls board + hit layer as one;
+   the Board's nested viewport must not become a second scroller (the hit
+   layer is absolutely positioned against the wrap, not the tiles). */
+.editor-board-wrap .board-viewport {
+  max-width: none;
+  max-height: none;
+  overflow: visible;
 }
 /* Sits over the Board's tiles (offset past its 3px border). Pointer events
    own painting on every input type, so touches must never scroll the page
@@ -1388,10 +1445,11 @@ button.quiet {
     min-height: 44px;
   }
 
-  /* Center the wrap itself (fit-content) — flex-centering the Board inside
-     would shift it away from the absolutely-positioned hit layer. */
-  .editor-board-wrap {
+  /* Center the viewport itself (fit-content) — flex-centering the Board
+     inside would shift it away from the absolutely-positioned hit layer. */
+  .editor-layout > .board-viewport {
     align-self: center;
+    max-width: 100%;
   }
   /* Edge strips thicken with small tiles; the cross axis keeps the desktop
      span (left/right or top/bottom insets) so the full edge stays tappable. */

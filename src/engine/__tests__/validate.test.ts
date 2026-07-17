@@ -30,7 +30,7 @@ describe('validateBoard', () => {
   it('rejects out-of-range dimensions', () => {
     const small = emptyBoard('s', 5, 8);
     expect(validateBoard(small).errors.some((e) => e.includes('between'))).toBe(true);
-    const big = emptyBoard('b', 8, 17);
+    const big = emptyBoard('b', 8, 25);
     expect(validateBoard(big).errors.some((e) => e.includes('between'))).toBe(true);
   });
 
