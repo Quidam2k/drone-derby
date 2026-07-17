@@ -86,6 +86,13 @@ Other commands: `npm test` (Vitest), `npm run typecheck`,
       Move 2 shoots through a core gear gate, but STOPPING on one spins
       you every register (u-turn is the escape); core pits punish
       sloppy hops; does riding vs walking feel like a real choice?
+- [ ] **Pit Archipelago** — islands split by 1-wide pit channels; the
+      floor causeways are free but demand exact programs (one wrong
+      column is a life, and loitering on a shore invites a shove into
+      the channel); belt bridges carry you over hands-free but the
+      south one is swept by a laser (≈2 damage per crossing); gears on
+      the causeway landings spin you on arrival — do both crossings
+      see real use?
 - [ ] Lives: 3 lives, death → respawn, last life → eliminated
 - [ ] Win: first to tag all checkpoints in order ends the game
 

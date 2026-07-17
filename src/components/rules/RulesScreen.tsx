@@ -222,6 +222,10 @@ export function RulesScreen() {
             <strong>Vortex Arena</strong> — an express whirlpool around a gear-gated core. Ride
             the current, or thread the middle and hope.
           </li>
+          <li>
+            <strong>Pit Archipelago</strong> — islands split by pit channels. Thread the narrow
+            causeways (one push is a life) or ride the laser-taxed bridges.
+          </li>
         </ul>
       </section>
 
