@@ -1,29 +1,29 @@
 # Session State
-Updated: 2026-07-17 ~15:15
+Updated: 2026-07-17 ~15:40
 
 ## Current Task
-NONE IN FLIGHT — Phase 23 (ghost preview while programming) committed
-(96b59a5) AND DEPLOYED (bundle index-BTgYzc2j, prod hot-seat ghost
-smoke-tested, zero console errors).
+NONE IN FLIGHT — Phase 24 (multi-board composition) committed (1e89367)
+AND DEPLOYED (prod smoke: 6 built-ins in picker, Grand Circuit hot-seat
+renders 12×17 at 375, zero console errors).
 
 ## Just Completed
-- §23: previewProgram() solo engine sim (rivals excluded), Board ghost
-  layer, 220ms stepper in ProgrammingView, reduced-motion jump. Caught
-  + fixed live: online redacted state (decks:{}) crashed the sim.
-  109 tests. Cascade §23 logged.
+- §24: composeBoards() (docks-bottom spawn ownership, bottom-up
+  checkpoint renumber, centered pad), MAX_BOARD_SIZE 24, dockyard() +
+  Grand Circuit built-in, editor "⬆ Append" modal (one undo step,
+  alert past 24 tall), 24px tile floor + .board-viewport pan (editor
+  scrolls board+hit-layer together), thumbs scale both axes.
+  117 tests. Cascade §24 logged.
 
 ## Next Steps
-1. Multi-board composition phase: compose helper stitching BoardDefs
-   edge-to-edge (offset tiles/walls/lasers, renumber checkpoints,
-   spawns from docks board), MAX_BOARD_SIZE 16→24, mobile tile floor +
-   pan, editor append, taller picker thumbnails. Backlog notes in
-   cascade under "Backlog: multi-board composition".
-2. Then: softer SFX pack (default-muted), docs invite walkthrough.
-3. STANDING GATE still open: Todd's friends playtest → mine telemetry.
+1. Phase 25: softer SFX pack — gentler sounds in src/services/sound.ts,
+   keep OFF-by-default + persisted toggle.
+2. Then: docs "invite friends" walkthrough.
+3. STANDING GATE still open: Todd's friends playtest → mine telemetry
+   (`npx convex run telemetry:recent --prod`).
 
 ## Open Questions / Blockers
-- Port 5173 = Leyline Tycoon; drone_derby dev currently on 5175.
+- Ports 5173–5175 busy this session; drone_derby dev landed on 5176.
 
 ## Key Files
-- src/engine/boards.ts (+future compose helper), validate.ts (MAX 16)
-- src/components/board/Board.tsx (tileFit), editor screens
+- src/engine/compose.ts, boards.ts (§24 core), src/services/sound.ts
+  (next phase), cascades/2026-07-05-v2-rewrite.md (see ⚠️ NEXT)
