@@ -1,29 +1,27 @@
 # Session State
-Updated: 2026-07-14 ~12:20
+Updated: 2026-07-17 ~13:50
 
 ## Current Task
-NONE IN FLIGHT — Phase 21 (in-app How to Play at #/rules) committed
-(3640646) AND DEPLOYED to prod, smoke-tested (new SW bundle
-index-C65HKPXE served after update, all 8 sections + 8 legend
-sprites render, zero console errors).
+Phase 22 (Pit Archipelago, 5th built-in board) implemented + verified
+locally; committing + deploying now. THEN: plan mode for the
+ghost-preview feature (Todd's new request — see cascade ⚠️ NEXT).
 
 ## Just Completed
-- §21: `#/rules` route (renders WITHOUT backend), RulesScreen
-  (player-facing rewrite of mechanics doc, legend reuses real
-  sprites.tsx SVGs), links from lobby card / join screen (back
-  returns to invite — verified) / hot-seat setup. route.test.ts new;
-  101 tests, typecheck, build, local + prod Playwright smoke green.
-- Board audit: 4 built-ins are a good playtest spread — no changes.
-- Backlog logged in cascade: multi-board composition design sketch
-  (BoardDef stitching, no engine change) — future phase.
+- §22: pitArchipelago() in boards.ts (12×11 islands/pit channels,
+  causeways vs laser-taxed belt bridges), RulesScreen + README entries.
+  109 tests, typecheck, Playwright 1280+375 hot-seat turn green.
+- Plan premise fixed: Move 2 does NOT jump pits (per-cell); design
+  uses narrow causeways instead.
 
 ## Next Steps
-1. THE STANDING GATE: Todd's prod playtest with friends (rules screen
-   now live for invitees) → mine
-   `npx convex run telemetry:recent --prod` → rules/pacing phase.
-2. Backlog: multi-board composition, softer SFX pack, Pit
-   Archipelago + banked boards, auth creds (Resend/Google) pending.
+1. Commit §22, `npm run deploy`, prod smoke (5 boards in picker).
+2. Plan mode: ghost preview while programming (deterministic solo
+   executeTurn of registers-so-far; no other robots). Jumps ahead of
+   composition/SFX/docs (old phases 23–25).
+
+## Open Questions / Blockers
+- Port 5173 = Leyline Tycoon app; drone_derby dev = 5175 currently.
 
 ## Key Files
-- src/components/rules/RulesScreen.tsx (edit rules copy here)
-- cascades/2026-07-05-v2-rewrite.md (§21 + composition backlog logged)
+- src/engine/boards.ts (pitArchipelago), src/engine/execute.ts
+- cascades/2026-07-05-v2-rewrite.md §22 + ⚠️ NEXT

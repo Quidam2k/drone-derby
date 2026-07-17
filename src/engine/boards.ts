@@ -291,6 +291,79 @@ export function vortexArena(): BoardDef {
 }
 
 /**
+ * Built-in 12×11 board about one thing: pits — floor islands split by
+ * 1-wide pit channels. Every crossing is a choice: narrow floor causeways
+ * are free and direct but 1-wide (a push or a sloppy program is a life),
+ * while conveyor bridges carry you across hands-free — the south one under
+ * a laser that taxes every rider. The middle band is two islands split by
+ * a pit gate; one laser sweeps that row into the gate. Checkpoints sit one
+ * per island so every leg forces a crossing; spawns line a south mainland
+ * clear of both beams.
+ *
+ * Layout sketch (x → E, y → S):
+ *   y=0..3 north island; checkpoint 3 at (5,1); gear CCW (9,3) above the
+ *          east causeway's landing
+ *   y=4    north channel: pits x=0..11 except belt bridge N at (2,4) and
+ *          floor causeway at (9,4)
+ *   y=5..7 middle band: west island x=0..5 with checkpoint 1 at (1,5) and
+ *          the north bridge on-ramp N at (2,5); pit gate column x=6 (pits
+ *          (6,5),(6,7), floor gate (6,6)); east island x=7..11 with
+ *          checkpoint 2 at (10,6); laser (0,6) firing E along row 6 into
+ *          the gate, stopped by a wall E of (7,6); gear CW (3,7) above the
+ *          west causeway's landing
+ *   y=8    south channel: pits x=0..11 except floor causeway at (3,8) and
+ *          belt bridge N at (8,8)
+ *   y=9..10 mainland; south bridge on-ramp N at (8,9); laser (8,10) firing
+ *          N up the bridge, stopped by a wall N of (8,7) — riders take the
+ *          beam both bridge registers; spawns 1–4 at x = 2,4,7,9 on y=10
+ */
+export function pitArchipelago(): BoardDef {
+  const board = emptyBoard('Pit Archipelago', 12, 11);
+
+  setTile(board, 2, 10, { kind: 'spawn', n: 1 });
+  setTile(board, 4, 10, { kind: 'spawn', n: 2 });
+  setTile(board, 7, 10, { kind: 'spawn', n: 3 });
+  setTile(board, 9, 10, { kind: 'spawn', n: 4 });
+
+  setTile(board, 1, 5, { kind: 'checkpoint', n: 1 });
+  setTile(board, 10, 6, { kind: 'checkpoint', n: 2 });
+  setTile(board, 5, 1, { kind: 'checkpoint', n: 3 });
+
+  // South channel (y=8) and north channel (y=4): full-width pit moats,
+  // each pierced by one floor causeway and one belt bridge.
+  for (let x = 0; x < 12; x++) {
+    if (x !== 3 && x !== 8) setTile(board, x, 8, { kind: 'pit' });
+    if (x !== 2 && x !== 9) setTile(board, x, 4, { kind: 'pit' });
+  }
+  // Middle divider: pit gate column between the west and east islands.
+  setTile(board, 6, 5, { kind: 'pit' });
+  setTile(board, 6, 7, { kind: 'pit' });
+
+  // Belt bridges: a mainland/island on-ramp feeding the cell that spans
+  // the channel, dumping onto the far shore.
+  setTile(board, 8, 9, { kind: 'conveyor', dir: 'N', express: false });
+  setTile(board, 8, 8, { kind: 'conveyor', dir: 'N', express: false });
+  setTile(board, 2, 5, { kind: 'conveyor', dir: 'N', express: false });
+  setTile(board, 2, 4, { kind: 'conveyor', dir: 'N', express: false });
+
+  // Spinners on the causeway landings: crossing on foot costs a facing.
+  setTile(board, 3, 7, { kind: 'gear', cw: true });
+  setTile(board, 9, 3, { kind: 'gear', cw: false });
+
+  board.walls = [
+    { x: 7, y: 6, side: 'E' }, // stops the row-6 beam at the east island's shore
+    { x: 8, y: 7, side: 'N' }, // stops the bridge beam; the landing sidesteps
+  ];
+
+  board.lasers = [
+    { pos: { x: 0, y: 6 }, facing: 'E', strength: 1 },
+    { pos: { x: 8, y: 10 }, facing: 'N', strength: 1 },
+  ];
+
+  return board;
+}
+
+/**
  * Every built-in board, keyed by a stable id shared between the client
  * (pickers) and Convex (createGame's `builtin` arg). Entry order is the
  * display order in pickers.
@@ -300,4 +373,5 @@ export const BUILTIN_BOARDS: Record<string, { name: string; factory: () => Board
   'spin-cycle': { name: 'Spin Cycle', factory: spinCycle },
   'the-gauntlet': { name: 'The Gauntlet', factory: theGauntlet },
   'vortex-arena': { name: 'Vortex Arena', factory: vortexArena },
+  'pit-archipelago': { name: 'Pit Archipelago', factory: pitArchipelago },
 };
