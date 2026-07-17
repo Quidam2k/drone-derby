@@ -272,6 +272,14 @@ select:focus {
   justify-content: center;
 }
 
+/* Programming-preview ghost: same sprite, translucent, drawn over the live
+   robots. Inherits .robot's transform transition so steps glide. */
+.robot.ghost {
+  opacity: 0.45;
+  filter: saturate(0.75);
+  z-index: 1;
+}
+
 .robot-body {
   width: 72%;
   height: 72%;
