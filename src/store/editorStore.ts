@@ -7,6 +7,7 @@ import type { BoardDef, BoardValidation, Direction, TileDef } from '../engine';
 import {
   MAX_BOARD_SIZE,
   MIN_BOARD_SIZE,
+  composeBoards,
   emptyBoard,
   opposite,
   validateBoard,
@@ -115,6 +116,8 @@ interface EditorStore {
   /** Remove any wall and laser on the given cell edge (right-click erase). */
   eraseEdge: (x: number, y: number, side: Direction) => void;
   resizeBoard: (width: number, height: number) => void;
+  /** Stack `source` ABOVE the current draft (the draft keeps its docks). */
+  appendBoard: (source: BoardDef) => void;
 
   /** Group the paints of one drag into a single undo step. */
   beginStroke: () => void;
@@ -307,6 +310,17 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           .map((l) => ({ ...l, pos: { ...l.pos } })),
       };
       commit(next);
+    },
+
+    appendBoard: (source) => {
+      // Compose [source, current]: the draft stays the bottom part, so its
+      // spawns/docks survive and the run extends northward. One undo step.
+      const { board } = get();
+      try {
+        commit(composeBoards([source, board], board.name));
+      } catch (e) {
+        if (typeof alert === 'function') alert(e instanceof Error ? e.message : String(e));
+      }
     },
 
     beginStroke: () => {

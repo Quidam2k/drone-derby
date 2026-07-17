@@ -50,7 +50,8 @@ Other commands: `npm test` (Vitest), `npm run typecheck`,
 
 ### Screens
 
-- [ ] Lobby: create game, board picker shows 4 built-in thumbnail cards
+- [ ] Lobby: create game, board picker shows 6 built-in thumbnail cards
+      (Grand Circuit's tall 12×17 thumb stays inside its card)
 - [ ] How to play (`#/rules`): opens from the lobby card, the join
       screen's "First time?" link (back returns to the invite), and
       hot-seat setup; board-element sprites render in the legend
@@ -72,6 +73,12 @@ Other commands: `npm test` (Vitest), `npm run typecheck`,
       (all animation respects OS reduced-motion settings)
 - [ ] Editor (`#/editor`): paint tiles/walls, validation, save online,
       import/export JSON
+- [ ] Editor append: ⬆ Append stacks a picked board ABOVE the draft
+      (draft keeps its spawn docks, checkpoints renumber from the
+      bottom up, one undo step; >24 tall is refused with an alert)
+- [ ] Tall boards on a phone: Grand Circuit's tiles never shrink below
+      legible — the board pans inside its frame instead (page itself
+      never scrolls sideways)
 - [ ] Gallery: publish a board, see it listed, play it, fork it
       ("forked from X by Y" appears on the fork's card once published)
 - [ ] Push notifications: installed PWA, allow → nudge arrives when the
@@ -97,6 +104,10 @@ Other commands: `npm test` (Vitest), `npm run typecheck`,
       south one is swept by a laser (≈2 damage per crossing); gears on
       the causeway landings spin you on arrival — do both crossings
       see real use?
+- [ ] **Grand Circuit** — Spin Cycle stacked on a dockyard staging
+      board (12×17, the composed one): launch from the south docks
+      through the baffle walls, then the whole Spin Cycle race above;
+      Spin Cycle's old spawn row is plain floor
 - [ ] Lives: 3 lives, death → respawn, last life → eliminated
 - [ ] Win: first to tag all checkpoints in order ends the game
 

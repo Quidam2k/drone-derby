@@ -7,7 +7,7 @@ import type { BoardDef, Direction, Position, TileDef } from './types';
 import { DIRECTIONS, inBounds, opposite, step, wallBlocked } from './board';
 
 export const MIN_BOARD_SIZE = 6;
-export const MAX_BOARD_SIZE = 16;
+export const MAX_BOARD_SIZE = 24;
 export const MIN_SPAWNS = 2;
 export const MAX_SPAWNS = 4;
 

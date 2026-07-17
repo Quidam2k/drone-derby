@@ -158,7 +158,7 @@ describe('editorStore', () => {
   it('clamps resize to the legal range', () => {
     store().resizeBoard(3, 40);
     expect(store().board.width).toBe(6);
-    expect(store().board.height).toBe(16);
+    expect(store().board.height).toBe(24);
   });
 
   it('recomputes validation on every change', () => {

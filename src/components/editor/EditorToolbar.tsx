@@ -10,6 +10,7 @@ import { navigate } from '../../services/route';
 import { useEditorStore } from '../../store/editorStore';
 import { useGameStore } from '../../store/gameStore';
 import { errorMessage, useSavedName } from '../online/common';
+import { AppendBoardModal } from './AppendBoardModal';
 import { markBoardHydrated } from './EditorScreen';
 
 function Stepper({
@@ -207,6 +208,7 @@ export function EditorToolbar({ boardId }: { boardId?: string }) {
 
   const fileInput = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [showAppend, setShowAppend] = useState(false);
 
   const hasErrors = validation.errors.length > 0;
 
@@ -258,6 +260,13 @@ export function EditorToolbar({ boardId }: { boardId?: string }) {
 
       <Stepper label="W" value={board.width} onChange={(w) => resizeBoard(w, board.height)} />
       <Stepper label="H" value={board.height} onChange={(h) => resizeBoard(board.width, h)} />
+      <button
+        onClick={() => setShowAppend(true)}
+        title="Stack another board above this one (your draft keeps its spawn docks)"
+        data-testid="append-board"
+      >
+        ⬆ Append
+      </button>
 
       <span className="toolbar-group">
         <button onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)" data-testid="undo">
@@ -302,6 +311,7 @@ export function EditorToolbar({ boardId }: { boardId?: string }) {
       </button>
 
       {importError && <span className="error-note">{importError}</span>}
+      {showAppend && <AppendBoardModal onClose={() => setShowAppend(false)} />}
     </div>
   );
 }

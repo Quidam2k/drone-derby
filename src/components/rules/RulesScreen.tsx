@@ -230,6 +230,10 @@ export function RulesScreen() {
             <strong>Pit Archipelago</strong> — islands split by pit channels. Thread the narrow
             causeways (one push is a life) or ride the laser-taxed bridges.
           </li>
+          <li>
+            <strong>Grand Circuit</strong> — the long haul: launch from a walled dockyard, then
+            run the whole Spin Cycle factory floor above it. Twice the board, same five cards.
+          </li>
         </ul>
       </section>
 

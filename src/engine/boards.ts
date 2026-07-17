@@ -1,5 +1,6 @@
 import type { BoardDef, Direction } from './types';
 import { emptyBoard, setTile } from './board';
+import { composeBoards } from './compose';
 
 /**
  * Built-in 10×10 board exercising every element: 4 spawn docks, 3 checkpoints,
@@ -364,9 +365,45 @@ export function pitArchipelago(): BoardDef {
 }
 
 /**
+ * 12×7 staging yard meant to sit UNDER a factory floor via `composeBoards`:
+ * 4 spawn docks behind baffle walls, no checkpoints. Deliberately not a
+ * playable board on its own — it only exists as the docks half of a
+ * composed board (see Grand Circuit).
+ *
+ * Layout sketch (x → E, y → S):
+ *   y=2   baffle walls N of x=3,4 and x=7,8 — the outer docks launch
+ *         straight, the inner docks sidestep through the center gap
+ *   y=6   spawns 1–4 at x = 2,4,7,9; bay-divider walls E of (3,6) and
+ *         W of (8,6) split the pairs
+ */
+export function dockyard(): BoardDef {
+  const board = emptyBoard('Dockyard', 12, 7);
+
+  setTile(board, 2, 6, { kind: 'spawn', n: 1 });
+  setTile(board, 4, 6, { kind: 'spawn', n: 2 });
+  setTile(board, 7, 6, { kind: 'spawn', n: 3 });
+  setTile(board, 9, 6, { kind: 'spawn', n: 4 });
+
+  board.walls = [
+    { x: 3, y: 6, side: 'E' },
+    { x: 8, y: 6, side: 'W' },
+    { x: 3, y: 2, side: 'N' },
+    { x: 4, y: 2, side: 'N' },
+    { x: 7, y: 2, side: 'N' },
+    { x: 8, y: 2, side: 'N' },
+  ];
+
+  return board;
+}
+
+/**
  * Every built-in board, keyed by a stable id shared between the client
  * (pickers) and Convex (createGame's `builtin` arg). Entry order is the
  * display order in pickers.
+ *
+ * Grand Circuit is the composed one: Spin Cycle stacked on the Dockyard
+ * staging yard (12×17) — Spin Cycle's own spawns are stripped, the race
+ * launches from the docks.
  */
 export const BUILTIN_BOARDS: Record<string, { name: string; factory: () => BoardDef }> = {
   'proving-grounds': { name: 'Proving Grounds', factory: provingGrounds },
@@ -374,4 +411,8 @@ export const BUILTIN_BOARDS: Record<string, { name: string; factory: () => Board
   'the-gauntlet': { name: 'The Gauntlet', factory: theGauntlet },
   'vortex-arena': { name: 'Vortex Arena', factory: vortexArena },
   'pit-archipelago': { name: 'Pit Archipelago', factory: pitArchipelago },
+  'grand-circuit': {
+    name: 'Grand Circuit',
+    factory: () => composeBoards([spinCycle(), dockyard()], 'Grand Circuit'),
+  },
 };
