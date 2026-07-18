@@ -57,6 +57,7 @@ Other commands: `npm test` (Vitest), `npm run typecheck`,
       hot-seat setup; board-element sprites render in the legend
 - [ ] Sound toggle (🔊/🔇 in lobby header + replay controls): OFF by
       default; turn it on, reload — it stays on; sounds play in replays
+      (phase 25: gentler clip set, loudness-normalized — worth an unmute)
 - [ ] Hot-seat: full game start → programming → replay loop
 - [ ] Online: create → join via invite code from a second browser/phone
 - [ ] Rejoin: close the tab mid-game, reopen the game link, state intact
