@@ -63,6 +63,27 @@ export function RulesScreen() {
       </header>
 
       <section>
+        <h2>Your first game</h2>
+        <p>Got an invite link? You're two minutes from your first turn:</p>
+        <ol className="rules-steps">
+          <li>Open the link, type a name, and hit <strong>Join game</strong>. No account, no sign-up.</li>
+          <li>
+            You'll get a hand of movement cards. Drag (or tap) 5 of them into the numbered
+            registers — that's your robot's next 5 moves, locked in order.
+          </li>
+          <li>
+            Hit <strong>Submit</strong>. Once <em>everyone</em> has submitted, the turn plays out
+            and you watch the replay of all the plans colliding.
+          </li>
+        </ol>
+        <p className="setup-hint">
+          This is an async game — closing the tab and coming back later is normal. Reopen the same
+          game link and everything's where you left it. Install it as an app and allow 🔔
+          notifications to get nudged when it's your move. Sound is off until you tap 🔊.
+        </p>
+      </section>
+
+      <section>
         <h2>The goal</h2>
         <p>
           You pilot a robot on a hazardous factory floor. Tag the numbered checkpoints{' '}

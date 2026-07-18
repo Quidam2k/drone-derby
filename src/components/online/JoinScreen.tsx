@@ -95,7 +95,7 @@ function JoinInner({ code }: { code: string }) {
           </button>
           {error && <p className="error-note">{error}</p>}
           <a className="quiet-link" href="#/rules" data-testid="rules-link">
-            First time? How to play
+            First time? Read <em>Your first game</em> — 2 minutes
           </a>
         </>
       )}
