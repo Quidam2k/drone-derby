@@ -46,6 +46,31 @@ Other commands: `npm test` (Vitest), `npm run typecheck`,
 - **New players**: the in-app rules live at `#/rules` (linked from the
   lobby, the join screen, and hot-seat setup) — point first-timers there.
 
+## Inviting friends
+
+The friend-facing walkthrough lives **in the app** (join screen → "First
+time?" → the *Your first game* section at the top of `#/rules`), so an
+invite link is all a first-timer needs. The host-side flow:
+
+1. **Create game** on https://drone-derby.pages.dev, pick a board
+   (Proving Grounds is the gentlest first track).
+2. In the game lobby, **copy the invite link** and send it however you
+   like. Each friend opens it, types a name, joins — no account.
+3. Program and submit your own turn. The turn executes when everyone has
+   submitted; if someone stalls, an installed PWA with 🔔 notifications
+   nudges them, or just ping them yourself.
+4. **Feedback lands in telemetry**: crashes upload automatically, and the
+   🐞 button (bottom-left, every screen) files their notes. Mine it with
+   `npx convex run telemetry:recent --prod`.
+
+Paste-ready invite message:
+
+> Wanna playtest my robot-programming game? It's like RoboRally in the
+> browser — plan 5 moves, submit, watch everyone's plans collide.
+> Turns are async, so play whenever. No account needed, ~2 min to learn
+> (there's a "First time?" link when you join). If anything feels broken
+> or confusing, smash the 🐞 button and tell me. → LINK
+
 ## Test-everything checklist
 
 ### Screens
@@ -54,7 +79,11 @@ Other commands: `npm test` (Vitest), `npm run typecheck`,
       (Grand Circuit's tall 12×17 thumb stays inside its card)
 - [ ] How to play (`#/rules`): opens from the lobby card, the join
       screen's "First time?" link (back returns to the invite), and
-      hot-seat setup; board-element sprites render in the legend
+      hot-seat setup; "Your first game" walkthrough sits on top;
+      board-element sprites render in the legend
+- [ ] Invite self-serve: a first-time friend can get from the invite
+      link to a submitted turn using only the join screen + rules
+      walkthrough (no host hand-holding)
 - [ ] Sound toggle (🔊/🔇 in lobby header + replay controls): OFF by
       default; turn it on, reload — it stays on; sounds play in replays
       (phase 25: gentler clip set, loudness-normalized — worth an unmute)
