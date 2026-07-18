@@ -1,29 +1,26 @@
 # Session State
-Updated: 2026-07-17 ~15:40
+Updated: 2026-07-17 ~18:55
 
 ## Current Task
-NONE IN FLIGHT — Phase 24 (multi-board composition) committed (1e89367)
-AND DEPLOYED (prod smoke: 6 built-ins in picker, Grand Circuit hot-seat
-renders 12×17 at 375, zero console errors).
+NONE IN FLIGHT — Phase 25 (softer SFX) committed (fd2e30d) AND DEPLOYED
+(prod smoke: 18 new mp3s fetch+decode, fresh default 🔇, zero console
+errors). Awaiting Todd's ear-check verdict (veto ⇒ re-curate).
 
 ## Just Completed
-- §24: composeBoards() (docks-bottom spawn ownership, bottom-up
-  checkpoint renumber, centered pad), MAX_BOARD_SIZE 24, dockyard() +
-  Grand Circuit built-in, editor "⬆ Append" modal (one undo step,
-  alert past 24 tall), 24px tile floor + .board-viewport pan (editor
-  scrolls board+hit-layer together), thumbs scale both axes.
-  117 tests. Cascade §24 logged.
+- §25: 13/18 clips re-curated (Kenney Interface/UI/Digital), all 18
+  trimmed+faded+loudnorm'd to −23 LUFS (winget Gyan ffmpeg), mono MP3,
+  same filenames. CLIP_VOLUMES = explicit 18-clip mix in audio.ts.
+  CREDITS.md rewritten. 117 tests + typecheck + Playwright dev & prod.
 
 ## Next Steps
-1. Phase 25: softer SFX pack — gentler sounds in src/services/sound.ts,
-   keep OFF-by-default + persisted toggle.
-2. Then: docs "invite friends" walkthrough.
-3. STANDING GATE still open: Todd's friends playtest → mine telemetry
-   (`npx convex run telemetry:recent --prod`).
+1. Todd's ear-check: unmute 🔊, run a replay (sounds stay opt-in either way).
+2. Phase 26: docs "invite friends" walkthrough (see cascade ⚠️ NEXT) —
+   goal is unblocking THE STANDING GATE (friends playtest → mine
+   telemetry via `npx convex run telemetry:recent --prod`).
 
 ## Open Questions / Blockers
-- Ports 5173–5175 busy this session; drone_derby dev landed on 5176.
+- Ear-check verdict pending. Auth creds still pending.
 
 ## Key Files
-- src/engine/compose.ts, boards.ts (§24 core), src/services/sound.ts
-  (next phase), cascades/2026-07-05-v2-rewrite.md (see ⚠️ NEXT)
+public/sounds/*.mp3 + CREDITS.md, src/services/audio.ts,
+cascades/2026-07-05-v2-rewrite.md (§25 + ⚠️ NEXT)
