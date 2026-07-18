@@ -51,15 +51,29 @@ export const EVENT_SOUND = {
   'turn-ended': null,
 } as const satisfies Record<EngineEvent['type'], SoundName | null>;
 
-/** Optional per-clip volume adjustments (0–1, relative to master gain). */
+/** Per-clip volume adjustments (0–1, relative to master gain).
+ * All clips are loudness-normalized to a common −23 LUFS (phase 25), so
+ * these set the relative mix: frequent per-register sounds sit lowest,
+ * notifications mid, one-off jingles highest. */
 const CLIP_VOLUMES: Partial<Record<SoundName, number>> = {
-  'card-flip': 0.5,
+  'card-flip': 0.8, // peak-capped quieter than −23 during normalization
   'card-deal': 0.6,
-  'move': 0.4,
-  'click': 0.6,
-  'servo': 0.7,
-  'belt': 0.5,
+  'move': 0.55, // peak-capped quieter than −23
+  'bump': 0.45,
+  'thud': 0.45,
+  'servo': 0.35,
+  'belt': 0.45,
+  'gear': 0.35,
+  'laser': 0.4,
+  'hit': 0.55,
+  'lock': 0.6,
+  'explosion': 0.65,
+  'life-lost': 0.7,
+  'eliminated': 0.7,
+  'respawn': 0.65,
   'checkpoint': 0.8,
+  'fanfare': 0.9,
+  'click': 0.9, // peak-capped quieter than −23
 };
 
 const MUTE_KEY = 'dd-muted';
