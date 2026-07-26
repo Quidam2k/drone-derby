@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Card, GameState, Program } from '../../engine';
 import { countCheckpoints, isRegisterLocked, previewProgram } from '../../engine';
 import { play } from '../../services/audio';
+import { setFocusPlayer } from '../../services/viewSettings';
 import { Board } from '../board/Board';
 import { Board3D, board3dEnabled } from '../board3d/Board3D';
 import { PlayerStrip } from '../board/PlayerStrip';
@@ -46,6 +47,16 @@ export function ProgrammingView({ game, seat, onSubmit }: ProgrammingViewProps) 
   useEffect(() => {
     play('card-deal');
   }, []);
+
+  // Whoever is programming is "me" for the 3D camera's My-robot lock — true
+  // in hot-seat and online alike. Cleared on the way out so a pass-and-play
+  // replay, which has no single local player, doesn't inherit the last seat;
+  // OnlineGameScreen re-publishes its own seat every render, so the online
+  // lock survives this component unmounting.
+  useEffect(() => {
+    setFocusPlayer(robot.player);
+    return () => setFocusPlayer(null);
+  }, [robot.player]);
 
   // Ghost preview: solo engine sim of the turn-so-far (board effects only —
   // other robots are excluded, so the ghost may pass through them). Replays

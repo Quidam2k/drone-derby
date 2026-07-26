@@ -1,43 +1,47 @@
 # Session State
-Updated: 2026-07-26 (Phase 3D-1 built, awaiting Todd's look gate)
+Updated: 2026-07-26 (Phase 3D-2 built + verified, awaiting Todd's drive-it gate)
 
 ## Current Task
-Phase 3D-1 `Board3D` spike is **BUILT and verified** — real-time 3D board
-behind `?render=3d`, DOM board untouched and still the default. Waiting on
-Todd's eyeball on the side-by-side screengrabs.
+Phase 3D-2 **player camera control** is BUILT and browser-verified: drag to
+orbit, tilt, wheel/pinch zoom, pan, and an Action / My robot / Free follow
+toggle, all persisted. Waiting on Todd actually driving it. Nothing committed.
 
 ## Just Completed
-- `src/components/board3d/{Board3D,scene,boardMesh,robots,camera}`, props
-  derived from `Board` so they can't drift. `three` only via
-  `await import('./scene')`. Flag = one line at each of 3 call sites.
-- `robots.py --export-glb` (reuses `build(seat)`), 4 `.glb` in public/models.
-- Numbers: main JS +1.0 KB gz (114.90); lazy chunk **171 KB gz** (the
-  analysis note's 38 KB was 4.5x low); precache 709 KiB → **2126 KiB**;
-  **60 fps at 1x/4x/6x CPU throttle** on the 12x17 composed board, with a
-  busy-loop calibration proving the throttle applied. CDP throttles CPU,
-  not GPU — a real phone is still the honest test.
-- 99-step replay walk: zero off-grid/out-of-bounds/diagonal. Zero console
-  errors or warnings. Editor + thumbnails still DOM and still hit-test
-  with the flag ON, and never fetch three.js or any .glb.
-- typecheck clean, **120 tests green, unchanged**. Nothing committed yet.
+- Design that the phase turns on: **director owns the subject, player owns the
+  viewpoint** — they compose; only panning takes the subject (→ `free` mode).
+- New: `board3d/viewMath.ts` (+24 tests), `board3d/controls.ts` (hand-rolled
+  Pointer Events, not OrbitControls), `services/viewSettings.ts`. Changed:
+  `camera.ts` (composes, `refit()` gone), `scene.ts`, `Board3D.tsx` overlay,
+  ProgrammingView/OnlineGameScreen publish the seat, ReplayPlayer ↺ Watch
+  again, `index.css` `.board-3d-controls`.
+- Numbers: main JS 114.90 → **116.15 KB gz**, scene chunk 171 → 173.33,
+  precache 2126 → 2134.75 KiB. **144 tests green** (120 unchanged + 24 new).
+  60.2 fps dragging, 58.8 fps under a calibrated 7.19× CPU throttle. Zero
+  console errors/warnings.
+- Two real bugs found in-browser and fixed: overlay read the focus player
+  during render (hot-seat replay wrongly offered the lock); pinch-zoom flipped
+  follow to `free` (deadzone now measures net centre displacement).
+- Side fix: `dev:vivid-cat-177` Convex deployment was older than the code
+  (no `expectedTurn`, no `grand-circuit`) — resynced with `npx convex dev --once`.
 
 ## Next Steps
-1. Show Todd `screengrab/3d1-compare-1280.png` + `3d1-compare-375.png`.
-   Good → 3D-2 (Blender board assets). Bad → delete `board3d/` + the dep.
-2. If green: 3D-2 board assets, 3D-3 rigging (hexapod walk = risk item),
-   3D-4 event parity, 3D-5 camera director (seed interest scoring from
-   `eventDuration`), 3D-6 reels, 3D-7 cutover.
-3. Rules work, independent: phase 30 repair economy (repair MUST run
-   before `cleanUpCards`), 31 curved conveyors, 32 respawn facing, 33
-   power-down.
+1. Todd drives `?render=3d` and judges the composition. If keeping the
+   player's angle while the director flies reads as disorienting, the
+   alternative is "any drag suspends auto-follow until ↺" — one line.
+2. Then 3D-3 Blender board assets (instanced; also where mesh compression
+   gets measured, precache is 2134 KiB). Then 3D-4 event parity, 3D-5 real
+   director, 3D-6 reels, 3D-7 cutover.
+3. Rules work, independent: phase 30 repair economy (repair MUST run before
+   `cleanUpCards`), 31 curved conveyors, 32 respawn facing, 33 power-down.
 
 ## Open Questions / Blockers
-- Precache more than tripled (2126 KiB). Draco/meshopt on the .glb is the
-  untried lever if that's too much for an offline PWA.
+- Precache 2134 KiB for an offline PWA; Draco/meshopt still untried.
+- Verifying anything online needs the dev Convex deployment in sync with the
+  code — it silently wasn't.
 - Standing gates (external): invite links → phase 27 telemetry mining;
   phase-25 SFX ear-check; auth creds.
 
 ## Key Files
-src/components/board3d/*, scripts/blender/robots.py (--export-glb),
-notes/2026-07-26-session.md, cascades/2026-07-05-v2-rewrite.md (§3D-1),
-screengrab/3d1-compare-*.png
+src/components/board3d/{viewMath,controls,camera,scene,Board3D}*,
+src/services/viewSettings.ts, notes/2026-07-26-session.md,
+cascades/2026-07-05-v2-rewrite.md (§3D-2), screengrab/3d2-*.png

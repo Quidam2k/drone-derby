@@ -201,6 +201,19 @@ export function ReplayPlayer({ prevState, events, taunts, onDone }: ReplayPlayer
         >
           ⏩
         </button>
+        {/* Online can re-watch older turns from HistoryBrowser; hot-seat had
+            no way back at all. With the 3D camera persisting yaw/tilt/zoom,
+            watching the same turn again from a different angle is the point. */}
+        <button
+          onClick={() => {
+            setCursor(0);
+            setPlaying(true);
+          }}
+          title="watch again"
+          data-testid="watch-again"
+        >
+          ↺
+        </button>
         <span className="speed-buttons">
           {SPEEDS.map((s) => (
             <button

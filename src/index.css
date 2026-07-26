@@ -186,6 +186,78 @@ select:focus {
   -webkit-overflow-scrolling: touch;
 }
 
+/* ---- 3D camera overlay (phase 3D-2) -------------------------------------
+   Plain DOM layered over the WebGL canvas — the same trick 3D-4 will use for
+   speech bubbles. The strip itself is transparent to the pointer so it never
+   eats an orbit drag; only the buttons take input. */
+.board-3d-controls {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  pointer-events: none;
+  z-index: 2;
+}
+.board-3d-controls .follow-seg {
+  display: inline-flex;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.board-3d-controls button {
+  pointer-events: auto;
+  /* Dark and half-transparent so it reads as an overlay on any board art
+     that 3D-3 lands, rather than a panel bolted to the screen. */
+  background: rgb(20 22 31 / 72%);
+  color: var(--text-dim);
+  border: 1px solid rgb(255 255 255 / 12%);
+  font-size: 0.7rem;
+  line-height: 1;
+  padding: 0.35rem 0.5rem;
+  cursor: pointer;
+}
+.board-3d-controls .follow-seg button {
+  border-radius: 0;
+  border-right-width: 0;
+}
+.board-3d-controls .follow-seg button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+.board-3d-controls .follow-seg button:last-child {
+  border-radius: 0 6px 6px 0;
+  border-right-width: 1px;
+}
+.board-3d-controls button:hover:not(:disabled) {
+  color: var(--text);
+}
+.board-3d-controls button.selected {
+  color: var(--accent);
+  background: rgb(20 22 31 / 92%);
+  font-weight: 700;
+}
+.board-3d-controls button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.board-3d-controls .reset-view {
+  border-radius: 6px;
+  font-size: 0.85rem;
+  padding: 0.25rem 0.45rem;
+}
+@media (max-width: 600px) {
+  /* Touch targets, and the strip must never crowd a narrow board. */
+  .board-3d-controls {
+    top: 0.25rem;
+    right: 0.25rem;
+    gap: 0.25rem;
+  }
+  .board-3d-controls button {
+    min-height: 32px;
+    padding: 0.35rem 0.45rem;
+  }
+}
+
 .board {
   display: grid;
   position: relative;
