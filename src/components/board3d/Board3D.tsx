@@ -12,8 +12,21 @@
 // Not yet rendered (3D-4 owns event parity): speech bubbles, the bump flash,
 // fall/respawn animation and the checkpoint pop. Damage flashes and laser
 // beams are here so the side-by-side look comparison is fair.
+//
+// Phase 3D-2 adds the camera overlay: plain DOM buttons layered over the
+// canvas, which is also the pattern 3D-4 needs for speech bubbles projected
+// from world coordinates. The gestures themselves live in ./controls and
+// never come near React.
 
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import {
+  getFocusPlayer,
+  getView,
+  resetView,
+  setView,
+  subscribe,
+  type FollowMode,
+} from '../../services/viewSettings';
 import { tileFit, type Board } from '../board/Board';
 import type { BoardScene, BoardSceneInput } from './scene';
 
@@ -36,6 +49,73 @@ const HEADROOM = 1.5;
 export function board3dEnabled(): boolean {
   if (typeof window === 'undefined') return false;
   return /[?&]render=3d(?:$|[&#/])/.test(window.location.href);
+}
+
+const FOLLOW_LABELS: { mode: FollowMode; label: string; title: string }[] = [
+  { mode: 'action', label: 'Action', title: 'Follow whatever is happening' },
+  { mode: 'robot', label: 'My robot', title: "Lock the view to your robot's area" },
+  { mode: 'free', label: 'Free', title: 'Leave the camera where you put it' },
+];
+
+/**
+ * The follow toggle Todd asked for, plus a way back to the default view.
+ * Only `follow` and the local player can change what this renders, so it
+ * subscribes rather than re-rendering on every frame of a drag — the yaw and
+ * tilt a gesture writes 60 times a second never reach React at all.
+ */
+function ViewControls() {
+  const [follow, setFollow] = useState<FollowMode>(() => getView().follow);
+  const [me, setMe] = useState(() => getFocusPlayer());
+
+  useEffect(() => {
+    const sync = () => {
+      setFollow(getView().follow);
+      setMe(getFocusPlayer());
+    };
+    // Re-read before subscribing. The useState initialisers ran during render,
+    // and the screen we are replacing clears its seat in its effect *cleanup*
+    // — which lands between the two. Without this catch-up, a hot-seat replay
+    // inherits the last programmer as "me" and wrongly offers the lock.
+    sync();
+    return subscribe(sync);
+  }, []);
+
+  return (
+    <div className="board-3d-controls" data-testid="board-3d-controls">
+      <div className="follow-seg" role="group" aria-label="Camera follow">
+        {FOLLOW_LABELS.map(({ mode, label, title }) => {
+          // Pass-and-play has no single local player during a replay, so
+          // there is no "my robot" to lock onto. Say why rather than
+          // following someone arbitrary.
+          const noLocal = mode === 'robot' && !me;
+          return (
+            <button
+              key={mode}
+              type="button"
+              className={follow === mode ? 'selected' : ''}
+              aria-pressed={follow === mode}
+              disabled={noLocal}
+              title={noLocal ? 'No local player on this screen (pass-and-play replay)' : title}
+              data-testid={`follow-${mode}`}
+              onClick={() => setView({ follow: mode })}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      <button
+        type="button"
+        className="reset-view"
+        title="Reset the view"
+        aria-label="Reset the view"
+        data-testid="reset-view"
+        onClick={() => resetView()}
+      >
+        ↺
+      </button>
+    </div>
+  );
 }
 
 export function Board3D({ board, visual, currentEvent, ghost }: BoardProps) {
@@ -92,15 +172,25 @@ export function Board3D({ board, visual, currentEvent, ghost }: BoardProps) {
     width: `calc(${tile} * ${board.width})`,
     height: `calc(${tile} * ${rows})`,
     overflow: 'hidden',
+    // The overlay positions against this box.
+    position: 'relative',
   };
 
   return (
     <div className="board-viewport" style={style} data-testid="board-3d">
       <canvas
         ref={canvasRef}
-        style={{ width: '100%', height: '100%', display: 'block' }}
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'block',
+          // Without this a one-finger orbit scrolls the page out from under
+          // the gesture on a phone — the browser claims the touch first.
+          touchAction: 'none',
+        }}
         aria-hidden="true"
       />
+      <ViewControls />
     </div>
   );
 }

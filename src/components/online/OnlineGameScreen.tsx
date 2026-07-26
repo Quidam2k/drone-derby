@@ -11,6 +11,7 @@ import type { Id } from '../../../convex/_generated/dataModel';
 import type { EventLog, GameState, Program } from '../../engine';
 import { countCheckpoints } from '../../engine';
 import { inviteUrl, navigate } from '../../services/route';
+import { setFocusPlayer } from '../../services/viewSettings';
 import { Board } from '../board/Board';
 import { Board3D, board3dEnabled } from '../board3d/Board3D';
 import { BoardThumb } from '../board/BoardThumb';
@@ -41,6 +42,17 @@ function GameInner({ gameId }: { gameId: Id<'games'> }) {
   const submitProgram = useMutation(api.games.submitProgram);
   const [error, setError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+
+  // Online always has a local player, so the 3D camera's My-robot lock works
+  // on every screen here — replays and the waiting view included. Deliberately
+  // re-asserted on every render rather than on a dependency: ProgrammingView
+  // clears the seat as it unmounts (for hot-seat's sake) and this has to put
+  // it straight back, which only happens if the effect runs every commit.
+  const mySeat = g && g.status !== 'lobby' ? g.mySeat : null;
+  useEffect(() => {
+    if (mySeat === null || !g) return;
+    setFocusPlayer((g.state as GameState | null)?.robots[mySeat]?.player ?? null);
+  });
 
   if (g === undefined) return <CenterNote>Loading game…</CenterNote>;
   if (g === null) {

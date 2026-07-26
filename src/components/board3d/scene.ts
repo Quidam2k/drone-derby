@@ -13,9 +13,18 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { BoardDef, EngineEvent, PlayerId } from '../../engine';
 import type { RobotVisual, VisualState } from '../replay/visualState';
+import {
+  getFocusPlayer,
+  getView,
+  resetView,
+  setView,
+  subscribe,
+} from '../../services/viewSettings';
 import { buildBoard, type BoardMeshes } from './boardMesh';
-import { CameraDirector, eventFocus } from './camera';
+import { CameraDirector, eventFocus, ROBOT_RADIUS } from './camera';
+import { attachViewControls } from './controls';
 import { loadChassis, RobotRig } from './robots';
+import type { FollowMode } from './viewMath';
 
 export interface BoardSceneInput {
   board: BoardDef;
@@ -35,6 +44,13 @@ export interface BoardScene {
    */
   probe(): { player: PlayerId; x: number; y: number; visible: boolean }[];
   settled(): boolean;
+  /**
+   * The live camera state, so a Playwright drag can assert the camera moved
+   * rather than trusting a screenshot. `subject` is in board coordinates and
+   * is clamped to keep the framing over the board, so near an edge it lags
+   * the followed cell by design.
+   */
+  view(): { yaw: number; tilt: number; zoom: number; follow: FollowMode; subject: { x: number; y: number } };
 }
 
 const DANGER = 0xf25c54;
@@ -107,6 +123,8 @@ export async function createBoardScene(
   let ghostRig: { rig: RobotRig; seat: number } | null = null;
   let lastEvent: EngineEvent | null | undefined;
   let settled = false;
+  /** Last input seen, so the follow rule can be re-applied on a mode change. */
+  let current = first;
 
   function aspect(): number {
     const w = canvas.clientWidth || 1;
@@ -219,7 +237,65 @@ export async function createBoardScene(
   const observer = new ResizeObserver(resize);
   observer.observe(canvas);
 
+  // ------------------------------------------------------- who owns the subject
+  /**
+   * Point the director at whatever the current follow mode says. Idempotent,
+   * so it is safe to call on every update as well as on a mode change — and
+   * in `free` mode it deliberately does nothing at all, which is what keeps a
+   * panned camera where the player left it.
+   */
+  function refocus(): void {
+    const mode = getView().follow;
+    if (mode === 'free') return;
+    if (mode === 'robot') {
+      const me = getFocusPlayer();
+      const robot = me ? current.visual.robots.find((r) => r.player === me) : undefined;
+      // A wider radius than a single event: "my bot's area" has to keep the
+      // pushes and the incoming lasers in frame, not just the chassis.
+      if (robot?.visible) {
+        director.focus(robot.pos, ROBOT_RADIUS);
+        return;
+      }
+      // Destroyed, eliminated, or no local player: fall back to the action
+      // rather than freezing on an empty cell.
+    }
+    director.focus(eventFocus(current.currentEvent, current.visual));
+  }
+
+  const controls = attachViewControls(canvas, {
+    orbit(dYaw, dTilt) {
+      const v = getView();
+      setView({ yaw: v.yaw + dYaw, tilt: v.tilt + dTilt });
+      requestFrame();
+    },
+    zoom(factor) {
+      setView({ zoom: getView().zoom * factor });
+      requestFrame();
+    },
+    pan(dx, dy) {
+      director.pan(dx, dy);
+      // Panning is the one gesture that takes the subject off the director,
+      // so say so out loud instead of leaving a mysteriously stuck camera.
+      setView({ follow: 'free' });
+      requestFrame();
+    },
+    reset() {
+      resetView();
+      requestFrame();
+    },
+  });
+
+  // The overlay's follow buttons and ↺ write to the same service the gestures
+  // do, so this is the single path from settings to camera.
+  const unsubscribe = subscribe(() => {
+    director.setView(getView());
+    refocus();
+    requestFrame();
+  });
+  director.setView(getView());
+
   function update(next: BoardSceneInput): void {
+    current = next;
     if (next.board !== board) rebuildBoard(next.board);
 
     next.visual.robots.forEach((r, seat) => {
@@ -252,13 +328,14 @@ export async function createBoardScene(
     const e = next.currentEvent;
     if (e !== lastEvent) {
       lastEvent = e;
-      // The director is deliberately dumb here: fly to wherever this event
-      // happened. Interest scoring seeded from eventDuration is 3D-5.
-      director.focus(eventFocus(e, next.visual));
       if (e?.type === 'damage') rigs.get(e.player)?.hit();
       updateBeam(e);
     }
 
+    // The director is deliberately dumb here: fly to wherever this event
+    // happened, unless the player has taken the subject. Interest scoring
+    // seeded from eventDuration is 3D-5.
+    refocus();
     requestFrame();
   }
 
@@ -274,9 +351,19 @@ export async function createBoardScene(
         player,
         ...rig.cell(),
       })),
+    // Angles come from the camera itself, not the settings, so this reports
+    // where the camera *is* — mid-ease it lags the player's input and settles
+    // onto it exactly, which is what makes it worth asserting on.
+    view: () => ({
+      ...director.currentView(),
+      follow: getView().follow,
+      subject: director.subject(),
+    }),
     dispose() {
       disposed = true;
       if (raf) cancelAnimationFrame(raf);
+      controls.dispose();
+      unsubscribe();
       observer.disconnect();
       for (const rig of rigs.values()) rig.dispose();
       ghostRig?.rig.dispose();

@@ -46,6 +46,31 @@ Other commands: `npm test` (Vitest), `npm run typecheck`,
 - **New players**: the in-app rules live at `#/rules` (linked from the
   lobby, the join screen, and hot-seat setup) — point first-timers there.
 
+## The 3D board (experimental)
+
+Add `?render=3d` to the URL — e.g. `.../?render=3d#/hotseat` — and the
+player-facing board renders in WebGL instead of DOM. Off by default; the
+DOM board is still the real one, and the editor and thumbnails stay DOM
+whatever the flag says. The board art is a placeholder.
+
+Camera, on both the programming screen and the replay:
+
+| Gesture | Does |
+|---|---|
+| drag / one finger | orbit and tilt |
+| wheel / pinch | zoom |
+| right-drag / two fingers | pan — this parks the camera (*Free*) |
+| double-click / double-tap | back to the default view and auto-follow |
+
+The overlay in the board's corner picks who the camera follows: **Action**
+(whatever is happening — the default), **My robot** (locks onto your
+robot's area; disabled in a pass-and-play replay, which has no single
+local player), **Free**. **↺** resets the view.
+
+Your angle, tilt and zoom are remembered across turns and reloads, so ↺
+**Watch again** in the replay controls re-runs the turn from wherever you
+have parked the camera.
+
 ## Inviting friends
 
 The friend-facing walkthrough lives **in the app** (join screen → "First
