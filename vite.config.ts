@@ -19,8 +19,10 @@ export default defineConfig({
       disable: !!process.env.VITEST,
       injectManifest: {
         // Default is js/css/html only; include icons + sounds so the
-        // game is fully playable (and audible) offline.
-        globPatterns: ['**/*.{js,css,html,svg,png,mp3}'],
+        // game is fully playable (and audible) offline. `glb` covers the
+        // robot meshes the 3D board loads — without it they'd silently miss
+        // the precache and the board would come up empty offline.
+        globPatterns: ['**/*.{js,css,html,svg,png,mp3,glb}'],
       },
       manifest: {
         name: 'Drone Derby',

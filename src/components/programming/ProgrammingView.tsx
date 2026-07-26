@@ -8,9 +8,13 @@ import type { Card, GameState, Program } from '../../engine';
 import { countCheckpoints, isRegisterLocked, previewProgram } from '../../engine';
 import { play } from '../../services/audio';
 import { Board } from '../board/Board';
+import { Board3D, board3dEnabled } from '../board3d/Board3D';
 import { PlayerStrip } from '../board/PlayerStrip';
 import { CARD_GLYPH, CARD_LABEL } from '../cards';
 import { initialVisual, visualAt } from '../replay/visualState';
+
+/** ?render=3d swaps the WebGL board in; the DOM board is the default. */
+const BoardView = board3dEnabled() ? Board3D : Board;
 
 /** Fixed cadence for stepping the ghost through its preview events. */
 const GHOST_STEP_MS = 220;
@@ -112,7 +116,7 @@ export function ProgrammingView({ game, seat, onSubmit }: ProgrammingViewProps) 
       </header>
 
       <div className="game-layout">
-        <Board
+        <BoardView
           board={game.board}
           visual={initialVisual(game)}
           ghost={ghostRobot ? { robot: ghostRobot, seat } : undefined}

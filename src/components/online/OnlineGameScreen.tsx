@@ -12,6 +12,7 @@ import type { EventLog, GameState, Program } from '../../engine';
 import { countCheckpoints } from '../../engine';
 import { inviteUrl, navigate } from '../../services/route';
 import { Board } from '../board/Board';
+import { Board3D, board3dEnabled } from '../board3d/Board3D';
 import { BoardThumb } from '../board/BoardThumb';
 import { PlayerStrip } from '../board/PlayerStrip';
 import { initialVisual } from '../replay/visualState';
@@ -21,6 +22,9 @@ import { ReplayPlayer } from '../replay/ReplayPlayer';
 import { CenterNote, errorMessage, SignInGate } from './common';
 import { HistoryBrowser } from './HistoryBrowser';
 import { NotificationsButton } from './NotificationsButton';
+
+/** ?render=3d swaps the WebGL board in; the DOM board is the default. */
+const BoardView = board3dEnabled() ? Board3D : Board;
 
 export function OnlineGameScreen({ gameId }: { gameId: string }) {
   return (
@@ -280,7 +284,7 @@ function WaitingView({
         </h2>
       </header>
       <div className="game-layout">
-        <Board board={state.board} visual={visual} />
+        <BoardView board={state.board} visual={visual} />
         <PlayerStrip visual={visual} checkpointTarget={countCheckpoints(state.board)} />
       </div>
       <p className="waiting-note" data-testid="waiting-note">

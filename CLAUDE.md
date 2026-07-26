@@ -38,9 +38,20 @@ Run `npm run typecheck` and `npm test` before committing.
   replay player consumes only the EventLog; never derive animations from
   state diffs. Changing the event union is a breaking change to replay —
   extend, don't reshape.
-- **Rendering is DOM/CSS grid**, not canvas — including the level editor
-  (Phase 6a), which reuses the game's `Board`/`Tile` renderer under a
-  transparent hit layer. No canvas anywhere.
+- **The editor and thumbnails are DOM/CSS grid, never canvas.** The level
+  editor (Phase 6a) reuses the game's `Board`/`Tile` renderer under a
+  transparent hit layer and finds cells with `document.elementFromPoint` +
+  `data-x`/`data-y`; that cannot work over a tilted 3D canvas, and
+  raycasting would be a rewrite of the authoring tool for zero player
+  benefit. `BoardThumb` stays DOM/SVG too. Both are permanent.
+- **The player-facing board may be WebGL** (Phase 3D-1 onward,
+  `src/components/board3d/`, behind `?render=3d`). Mesh animation — rolling
+  treads, a hexapod walk cycle, spinning wheels — is not expressible in CSS
+  3D, which can only tilt and fly DOM planes, so the dynamic camera and
+  animated robots need three.js. `three` is reached only through
+  `await import('./scene')` so no other screen pays for it. **The DOM
+  `Board` is never deleted**: the editor needs it anyway, which makes
+  keeping it as the low-end fallback renderer close to free.
 - **Rules source**: `docs/game_mechanics_md.md` (MVP scope: moves, pushing,
   edge-based walls, pits, conveyors + express, gears, checkpoints, board +
   robot lasers, damage with locked registers, 3 lives, respawn). Cut from
