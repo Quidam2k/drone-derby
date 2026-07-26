@@ -4,6 +4,14 @@ Run headless (never opens a window):
 
     blender --background --python scripts/blender/robots.py -- --all
     blender --background --python scripts/blender/robots.py -- --seat 1 --view hero
+    blender --background --python scripts/blender/robots.py -- --export-glb
+
+(or `npm run art` for the sprites, `npm run art -- --glb` for the meshes.)
+
+`--export-glb` writes public/models/robot-<seat>.glb for the WebGL board
+(Phase 3D-1). It runs the SAME `build(seat)` the renders use, then strips the
+render scaffolding -- so the mesh in the browser is the mesh in the sprite, and
+there is only ever one place a chassis is defined.
 
 CPU ONLY. Todd's standing rule is to ask before using the GPU, so
 `cycles.device` is pinned to CPU and the compute_device_type preference is
@@ -388,7 +396,35 @@ def render(seat, path):
     print('DD_WROTE %s' % out)
 
 
-if flag('--all'):
+def export_glb(seat, path):
+    """Chassis meshes only, as a .glb for three.js. Static -- rigging is 3D-3."""
+    build(seat)
+
+    # Lights, the camera and the TRACK_TO aim empty are render scaffolding.
+    # Baked into the .glb they'd fight the WebGL scene's own lighting, so the
+    # only things that travel are the meshes.
+    for ob in list(bpy.data.objects):
+        if ob.type != 'MESH':
+            bpy.data.objects.remove(ob, do_unlink=True)
+
+    out = path if os.path.isabs(path) else os.path.join(os.getcwd(), path)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    bpy.ops.export_scene.gltf(
+        filepath=out,
+        export_format='GLB',
+        use_selection=False,
+        # Bevels live in modifiers. Without this every chassis exports with the
+        # raw 90-degree edges the bevels exist to get rid of.
+        export_apply=True,
+    )
+    print('DD_WROTE %s' % out)
+
+
+if flag('--export-glb'):
+    glb_dir = arg('--out-dir', 'public/models')
+    for seat in range(4):
+        export_glb(seat, os.path.join(glb_dir, 'robot-%d.glb' % seat))
+elif flag('--all'):
     for seat in range(4):
         render(seat, os.path.join(OUT_DIR, 'robot-%d.png' % seat))
 else:

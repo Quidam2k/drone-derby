@@ -1,4 +1,6 @@
 // Drives the Blender robot renders: `npm run art`.
+// With --glb it exports the same chassis as meshes for the WebGL board
+// instead: `npm run art -- --glb` -> public/models/robot-<seat>.glb.
 //
 // Blender isn't an npm dependency and isn't on PATH on a default Windows
 // install, so this locates it, then hands off to scripts/blender/robots.py.
@@ -29,11 +31,15 @@ if (!blender) {
   process.exit(1);
 }
 
-console.log(`using ${blender}`);
+const glb = process.argv.includes('--glb');
+const mode = glb
+  ? ['--export-glb', '--out-dir', path.join(root, 'public/models')]
+  : ['--all', '--out-dir', path.join(root, 'public/robots')];
+
+console.log(`using ${blender}${glb ? ' (glb export)' : ''}`);
 const res = spawnSync(
   blender,
-  ['--background', '--python', path.join(root, 'scripts/blender/robots.py'), '--', '--all',
-   '--out-dir', path.join(root, 'public/robots')],
+  ['--background', '--python', path.join(root, 'scripts/blender/robots.py'), '--', ...mode],
   { stdio: 'inherit', cwd: root },
 );
 process.exit(res.status ?? 1);

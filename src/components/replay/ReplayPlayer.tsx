@@ -7,10 +7,14 @@ import type { EngineEvent, EventLog, GameState } from '../../engine';
 import { countCheckpoints } from '../../engine';
 import { playForEvent, isMuted, setMuted } from '../../services/audio';
 import { Board } from '../board/Board';
+import { Board3D, board3dEnabled } from '../board3d/Board3D';
 import { PlayerStrip } from '../board/PlayerStrip';
 import { CARD_LABEL } from '../cards';
 import { tauntWindows, visibleTaunts } from './taunts';
 import { initialVisual, visualAt } from './visualState';
+
+/** ?render=3d swaps the WebGL board in; the DOM board is the default. */
+const BoardView = board3dEnabled() ? Board3D : Board;
 
 const SPEEDS = [0.5, 1, 2, 4] as const;
 
@@ -152,7 +156,7 @@ export function ReplayPlayer({ prevState, events, taunts, onDone }: ReplayPlayer
       </header>
 
       <div className="game-layout">
-        <Board
+        <BoardView
           board={prevState.board}
           visual={visual}
           currentEvent={currentEvent}

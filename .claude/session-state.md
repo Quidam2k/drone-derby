@@ -1,50 +1,43 @@
 # Session State
-Updated: 2026-07-26 (four Blender chassis shipped; camera work is next)
+Updated: 2026-07-26 (Phase 3D-1 built, awaiting Todd's look gate)
 
 ## Current Task
-Robot art is **DONE**. Four Blender/Cycles-rendered chassis, distinct by
-silhouette not just colour, wired in and verified. Next direction is
-Todd's **dynamic camera** (flies/zooms to frame the action) plus
-**highlight reels**.
+Phase 3D-1 `Board3D` spike is **BUILT and verified** — real-time 3D board
+behind `?render=3d`, DOM board untouched and still the default. Waiting on
+Todd's eyeball on the side-by-side screengrabs.
 
 ## Just Completed
-- `scripts/blender/robots.py` + `scripts/render-robots.mjs` (`npm run art`).
-  Seats 0-3 = tracked scout / hexapod walker / hovercraft / quad buggy.
-  4 renders only (chassis pairs 1:1 with seat, palette is fixed).
-  **CPU only — ask before using the GPU.**
-- Wiring simplified: `usesBakedChassis`, the `.baked` modifier and the
-  `--seat` property all deleted; `RobotSprite` is one `<img>`. JS shrank
-  115.50 → 113.88 KB gz. Contact shadow is CSS on the non-rotating
-  `.robot` so it can't swing as the robot turns. 192px renders = 207 KB.
-- Deleted the dead SVG baker (`scripts/bake-robots.mjs`,
-  `robotArt.generated.tsx`) — superseded, not salvageable.
-- typecheck + 120 tests green; Playwright 1280 + 375, all facings, ghost,
-  `#/rules`, zero console errors. `screengrab/robots-compare.png`.
+- `src/components/board3d/{Board3D,scene,boardMesh,robots,camera}`, props
+  derived from `Board` so they can't drift. `three` only via
+  `await import('./scene')`. Flag = one line at each of 3 call sites.
+- `robots.py --export-glb` (reuses `build(seat)`), 4 `.glb` in public/models.
+- Numbers: main JS +1.0 KB gz (114.90); lazy chunk **171 KB gz** (the
+  analysis note's 38 KB was 4.5x low); precache 709 KiB → **2126 KiB**;
+  **60 fps at 1x/4x/6x CPU throttle** on the 12x17 composed board, with a
+  busy-loop calibration proving the throttle applied. CDP throttles CPU,
+  not GPU — a real phone is still the honest test.
+- 99-step replay walk: zero off-grid/out-of-bounds/diagonal. Zero console
+  errors or warnings. Editor + thumbnails still DOM and still hit-test
+  with the flag ON, and never fetch three.js or any .glb.
+- typecheck clean, **120 tests green, unchanged**. Nothing committed yet.
 
 ## Next Steps
-1. Decide the camera architecture. Opus subagent analysis is in
-   `notes/2026-07-26-webgl-analysis.md` — recommends **CSS 3D transforms
-   over WebGL** (keeps DOM hit-testing/text/testability, zero bundle).
-   **Its numbers are unverified** — the three.js size figure (38 KB gz)
-   looks several times too low, and its FPS/battery figures were never
-   measured. Verify before acting; the architectural argument stands
-   independently.
-2. Then build the camera director as an EventLog consumer (interest
-   scoring; live play frames a bounding box to keep the local robot on
-   screen, highlight reels hard-cut to the single best beat).
+1. Show Todd `screengrab/3d1-compare-1280.png` + `3d1-compare-375.png`.
+   Good → 3D-2 (Blender board assets). Bad → delete `board3d/` + the dep.
+2. If green: 3D-2 board assets, 3D-3 rigging (hexapod walk = risk item),
+   3D-4 event parity, 3D-5 camera director (seed interest scoring from
+   `eventDuration`), 3D-6 reels, 3D-7 cutover.
 3. Rules work, independent: phase 30 repair economy (repair MUST run
-   before `cleanUpCards`), 31 curved conveyors, 32 respawn facing,
-   33 power-down.
+   before `cleanUpCards`), 31 curved conveyors, 32 respawn facing, 33
+   power-down.
 
 ## Open Questions / Blockers
-- Real-time 3D would need `CLAUDE.md`'s "no canvas anywhere" rule changed.
-  CSS 3D would not — that's a large part of its appeal.
-- Nothing committed yet this session.
-- Standing gates (external): invite links → unblocks phase 27 telemetry
-  mining; phase-25 SFX ear-check; auth creds.
+- Precache more than tripled (2126 KiB). Draco/meshopt on the .glb is the
+  untried lever if that's too much for an offline PWA.
+- Standing gates (external): invite links → phase 27 telemetry mining;
+  phase-25 SFX ear-check; auth creds.
 
 ## Key Files
-scripts/blender/robots.py, scripts/render-robots.mjs, public/robots/*.png,
-src/components/board/sprites.tsx, src/components/board/Board.tsx,
-src/index.css (.robot / .robot-body), notes/2026-07-26-webgl-analysis.md,
-cascades/2026-07-05-v2-rewrite.md (§29b + camera backlog)
+src/components/board3d/*, scripts/blender/robots.py (--export-glb),
+notes/2026-07-26-session.md, cascades/2026-07-05-v2-rewrite.md (§3D-1),
+screengrab/3d1-compare-*.png
