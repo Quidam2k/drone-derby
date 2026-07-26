@@ -35,6 +35,14 @@ function cellPx(n: number): string {
 }
 
 /**
+ * Robots are Blender renders with the seat colour baked into the image, so
+ * the wrapper carries nothing but the facing rotation now.
+ */
+function robotBodyStyle(angle: number): CSSProperties {
+  return { transform: `rotate(${angle}deg)` };
+}
+
+/**
  * Smooth rotation for the single ghost robot. Separate from useSmoothAngles
  * because the ghost shares its player id with a real robot on the board.
  */
@@ -155,13 +163,7 @@ export function Board({ board, visual, currentEvent, bubbles, ghost }: BoardProp
                   data-y={r.pos.y}
                   style={{ transform: `translate(${cellPx(r.pos.x)}, ${cellPx(r.pos.y)})` }}
                 >
-                  <div
-                    className="robot-body"
-                    style={{
-                      transform: `rotate(${angles[r.player]}deg)`,
-                      background: `var(--player-${seat})`,
-                    }}
-                  >
+                  <div className="robot-body" style={robotBodyStyle(angles[r.player])}>
                     <RobotSprite seat={seat} />
                   </div>
                 </div>
@@ -178,13 +180,7 @@ export function Board({ board, visual, currentEvent, bubbles, ghost }: BoardProp
                 transform: `translate(${cellPx(ghost.robot.pos.x)}, ${cellPx(ghost.robot.pos.y)})`,
               }}
             >
-              <div
-                className="robot-body"
-                style={{
-                  transform: `rotate(${ghostAngle}deg)`,
-                  background: `var(--player-${ghost.seat})`,
-                }}
-              >
+              <div className="robot-body" style={robotBodyStyle(ghostAngle)}>
                 <RobotSprite seat={ghost.seat} />
               </div>
             </div>

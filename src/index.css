@@ -284,6 +284,15 @@ select:focus {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Contact shadow. Deliberately here and not baked into the render: .robot
+     never rotates (only .robot-body does), so the shadow stays put under the
+     robot instead of swinging around it as the robot turns. */
+  background: radial-gradient(
+    ellipse 30% 20% at 50% 63%,
+    rgba(0, 0, 0, 0.5),
+    rgba(0, 0, 0, 0.22) 45%,
+    rgba(0, 0, 0, 0) 72%
+  );
 }
 
 /* Programming-preview ghost: same sprite, translucent, drawn over the live
@@ -294,12 +303,15 @@ select:focus {
   z-index: 1;
 }
 
+/* Robots are Blender renders (scripts/blender/robots.py) with the seat colour
+   baked in, so there is no coloured square, rim or box-shadow here any more --
+   the art brings its own. Bigger box than the old flat sprites' 72%: a
+   three-quarter view spends part of its height on the robot's actual height.
+   Still under 100%, so a rotating robot can't reach into a neighbouring tile. */
 .robot-body {
-  width: 72%;
-  height: 72%;
-  border-radius: 22%;
+  width: 88%;
+  height: 88%;
   transition: transform 0.32s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55), inset 0 0 0 2px rgba(255, 255, 255, 0.22);
 }
 
 .laser-beam {
@@ -722,11 +734,14 @@ button.quiet {
   background: #262c3d;
 }
 .rules-robot-body {
-  width: 72%;
-  height: 72%;
-  border-radius: 22%;
-  background: var(--player-0);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55), inset 0 0 0 2px rgba(255, 255, 255, 0.22);
+  width: 92%;
+  height: 92%;
+  background: radial-gradient(
+    ellipse 30% 20% at 50% 63%,
+    rgba(0, 0, 0, 0.5),
+    rgba(0, 0, 0, 0.22) 45%,
+    rgba(0, 0, 0, 0) 72%
+  );
 }
 .rules-boards {
   padding-left: 1.3rem;

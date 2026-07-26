@@ -218,78 +218,20 @@ export function SpawnSprite({ n }: { n: number }) {
 }
 
 /**
- * Four robot variants by seat (0-3) with distinct silhouettes + bright facing light.
- * All drawn pointing N; facing rotation is via CSS on .robot-body.
- * Translucent blacks/whites overlay so any player color works underneath.
+ * Robot chassis, rendered in Blender and baked to a transparent PNG.
+ * See scripts/blender/robots.py; regenerate with `npm run art`.
+ *
+ * Each seat has its OWN chassis as well as its own colour -- tracked scout,
+ * hexapod walker, hovercraft, quad buggy -- so the four are told apart by
+ * silhouette, which is the only cue that survives the 24px mobile tile.
+ * Colour is baked in, so there is no `--seat` custom property here.
+ *
+ * All are modelled facing N; facing rotation is CSS on .robot-body. The
+ * contact shadow deliberately is NOT baked in -- it lives on the
+ * non-rotating .robot wrapper so it can't swing around as the robot turns.
  */
 export function RobotSprite({ seat = 0 }: { seat?: number }) {
-  const variant = seat % 4;
-
-  if (variant === 0) {
-    // Seat 0: Round dome head
-    return (
-      <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
-        <circle cx="26" cy="16" r="11" fill="rgba(0, 0, 0, 0.45)" />
-        {/* Bright nose light (facing cue) */}
-        <circle cx="26" cy="2.5" r="3.5" fill="rgba(76, 201, 240, 0.95)" />
-        <circle cx="26" cy="2.5" r="2" fill="rgba(255, 255, 255, 0.8)" />
-        <rect x="3" y="10" width="7" height="34" rx="3.5" fill="rgba(0, 0, 0, 0.3)" />
-        <rect x="42" y="10" width="7" height="34" rx="3.5" fill="rgba(0, 0, 0, 0.3)" />
-        <circle cx="21" cy="15" r="2.5" fill="rgba(255, 255, 255, 0.88)" />
-        <circle cx="31" cy="15" r="2.5" fill="rgba(255, 255, 255, 0.88)" />
-        <rect x="15" y="30" width="22" height="12" rx="3" fill="rgba(0, 0, 0, 0.16)" />
-      </svg>
-    );
-  } else if (variant === 1) {
-    // Seat 1: Square blocky head
-    return (
-      <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
-        <rect x="14" y="6" width="24" height="20" rx="2" fill="rgba(0, 0, 0, 0.45)" />
-        {/* Bright nose light (facing cue) */}
-        <rect x="22.5" y="1" width="7" height="6" rx="1.5" fill="rgba(76, 201, 240, 0.95)" />
-        <rect x="24" y="2" width="4" height="3.5" fill="rgba(255, 255, 255, 0.8)" />
-        <rect x="3" y="10" width="6" height="34" rx="3" fill="rgba(0, 0, 0, 0.3)" />
-        <rect x="43" y="10" width="6" height="34" rx="3" fill="rgba(0, 0, 0, 0.3)" />
-        <circle cx="20" cy="14" r="2.2" fill="rgba(255, 255, 255, 0.88)" />
-        <circle cx="32" cy="14" r="2.2" fill="rgba(255, 255, 255, 0.88)" />
-        <rect x="16" y="30" width="20" height="12" rx="3" fill="rgba(0, 0, 0, 0.16)" />
-      </svg>
-    );
-  } else if (variant === 2) {
-    // Seat 2: Angular wedge head
-    return (
-      <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
-        <polygon points="26,5 14,22 38,22" fill="rgba(0, 0, 0, 0.45)" />
-        {/* Bright nose light (facing cue) */}
-        <polygon points="26,2 23,6 29,6" fill="rgba(76, 201, 240, 0.95)" />
-        <polygon points="26,3.5 24,5.5 28,5.5" fill="rgba(255, 255, 255, 0.8)" />
-        <rect x="2" y="12" width="7" height="32" rx="3.5" fill="rgba(0, 0, 0, 0.3)" />
-        <rect x="43" y="12" width="7" height="32" rx="3.5" fill="rgba(0, 0, 0, 0.3)" />
-        <circle cx="19" cy="16" r="2.3" fill="rgba(255, 255, 255, 0.88)" />
-        <circle cx="33" cy="16" r="2.3" fill="rgba(255, 255, 255, 0.88)" />
-        <rect x="16" y="30" width="20" height="12" rx="3" fill="rgba(0, 0, 0, 0.16)" />
-      </svg>
-    );
-  } else {
-    // Seat 3: Twin antenna head
-    return (
-      <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
-        <rect x="16" y="8" width="20" height="16" rx="2" fill="rgba(0, 0, 0, 0.45)" />
-        {/* Left antenna */}
-        <line x1="20" y1="8" x2="18" y2="0.5" stroke="rgba(0, 0, 0, 0.55)" strokeWidth="2.5" strokeLinecap="round" />
-        {/* Right antenna */}
-        <line x1="32" y1="8" x2="34" y2="0.5" stroke="rgba(0, 0, 0, 0.55)" strokeWidth="2.5" strokeLinecap="round" />
-        {/* Bright nose light (facing cue) */}
-        <circle cx="26" cy="2" r="3" fill="rgba(76, 201, 240, 0.95)" />
-        <circle cx="26" cy="2" r="1.5" fill="rgba(255, 255, 255, 0.8)" />
-        <rect x="3" y="12" width="7" height="32" rx="3" fill="rgba(0, 0, 0, 0.3)" />
-        <rect x="42" y="12" width="7" height="32" rx="3" fill="rgba(0, 0, 0, 0.3)" />
-        <circle cx="21" cy="16" r="2.3" fill="rgba(255, 255, 255, 0.88)" />
-        <circle cx="31" cy="16" r="2.3" fill="rgba(255, 255, 255, 0.88)" />
-        <rect x="15" y="30" width="22" height="12" rx="3" fill="rgba(0, 0, 0, 0.16)" />
-      </svg>
-    );
-  }
+  return <img className="sprite" src={`/robots/robot-${seat % 4}.png`} alt="" aria-hidden="true" />;
 }
 
 /** Wall-mounted laser barrel, drawn firing E and rotated to the facing. */
