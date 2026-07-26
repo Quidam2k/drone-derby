@@ -1,35 +1,50 @@
 # Session State
-Updated: 2026-07-25 (phase 28 done, phase 29 planned)
+Updated: 2026-07-26 (four Blender chassis shipped; camera work is next)
 
 ## Current Task
-New cascade "review fixes → tabletop parity → robot art" = phases 28–34,
-appended to `cascades/2026-07-05-v2-rewrite.md`. **Phase 28 is DONE and
-committed.** Next up: phase 29 (robot art baker, chassis 0 — a GATE).
+Robot art is **DONE**. Four Blender/Cycles-rendered chassis, distinct by
+silhouette not just colour, wired in and verified. Next direction is
+Todd's **dynamic camera** (flies/zooms to frame the action) plus
+**highlight reels**.
 
 ## Just Completed
-- Phase 28: six review fixes (conveyor clipPath `useId`, `archive` object
-  aliasing, unconditional `cleanUpCards` on mid-register win, Convex
-  `expectedTurn` stale-drop, lobby `seats` from board spawns, nudge
-  cooldown re-render) + new `src/engine/__tests__/invariants.test.ts`
-  (220 seeded fuzz games; tripwire verified against the reverted fix).
-- typecheck (root + convex) + 120 tests green; Playwright hot-seat on
-  Spin Cycle: 20/20 unique clip ids, 0 unresolved, zero console errors.
+- `scripts/blender/robots.py` + `scripts/render-robots.mjs` (`npm run art`).
+  Seats 0-3 = tracked scout / hexapod walker / hovercraft / quad buggy.
+  4 renders only (chassis pairs 1:1 with seat, palette is fixed).
+  **CPU only — ask before using the GPU.**
+- Wiring simplified: `usesBakedChassis`, the `.baked` modifier and the
+  `--seat` property all deleted; `RobotSprite` is one `<img>`. JS shrank
+  115.50 → 113.88 KB gz. Contact shadow is CSS on the non-rotating
+  `.robot` so it can't swing as the robot turns. 192px renders = 207 KB.
+- Deleted the dead SVG baker (`scripts/bake-robots.mjs`,
+  `robotArt.generated.tsx`) — superseded, not salvageable.
+- typecheck + 120 tests green; Playwright 1280 + 375, all facings, ghost,
+  `#/rules`, zero console errors. `screengrab/robots-compare.png`.
 
 ## Next Steps
-1. Phase 29 — `scripts/bake-robots.mjs` (3D→SVG baker) → chassis 0 only,
-   `npm run art`, Playwright screenshots desktop + 52px. **Gate: Todd's
-   eyeball.** Good → phase 34; ugly → hand-authored SVG, drop generator.
-2. Phase 30 — repair economy (flag + wrench tiles). Repair MUST run
-   before `cleanUpCards` so unlocked registers return cards to the deck.
-3. Phases 31–33: curved conveyors, respawn facing, power-down.
+1. Decide the camera architecture. Opus subagent analysis is in
+   `notes/2026-07-26-webgl-analysis.md` — recommends **CSS 3D transforms
+   over WebGL** (keeps DOM hit-testing/text/testability, zero bundle).
+   **Its numbers are unverified** — the three.js size figure (38 KB gz)
+   looks several times too low, and its FPS/battery figures were never
+   measured. Verify before acting; the architectural argument stands
+   independently.
+2. Then build the camera director as an EventLog consumer (interest
+   scoring; live play frames a bounding box to keep the local robot on
+   screen, highlight reels hard-cut to the single best beat).
+3. Rules work, independent: phase 30 repair economy (repair MUST run
+   before `cleanUpCards`), 31 curved conveyors, 32 respawn facing,
+   33 power-down.
 
 ## Open Questions / Blockers
-- Standing gates (external, unchanged): Todd sends invite links → unblocks
-  phase 27 telemetry mining; Todd's phase-25 SFX ear-check; auth creds.
-- Untracked junk file at repo root with a mangled name
-  (`C:UsersTodd.claudeplans...md`) — left alone, safe to delete.
+- Real-time 3D would need `CLAUDE.md`'s "no canvas anywhere" rule changed.
+  CSS 3D would not — that's a large part of its appeal.
+- Nothing committed yet this session.
+- Standing gates (external): invite links → unblocks phase 27 telemetry
+  mining; phase-25 SFX ear-check; auth creds.
 
 ## Key Files
-cascades/2026-07-05-v2-rewrite.md (§28 + ⚠️ NEXT → phase 29),
-notes/2026-07-25-session.md, src/engine/__tests__/invariants.test.ts,
-src/engine/execute.ts, src/components/board/sprites.tsx, convex/games.ts
+scripts/blender/robots.py, scripts/render-robots.mjs, public/robots/*.png,
+src/components/board/sprites.tsx, src/components/board/Board.tsx,
+src/index.css (.robot / .robot-body), notes/2026-07-26-webgl-analysis.md,
+cascades/2026-07-05-v2-rewrite.md (§29b + camera backlog)
