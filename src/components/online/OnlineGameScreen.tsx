@@ -4,7 +4,7 @@
 //   replay appears reactively. ProgrammingView and ReplayPlayer are the
 //   same components hot-seat uses — here they run on server state.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
@@ -103,8 +103,11 @@ function GameInner({ gameId }: { gameId: Id<'games'> }) {
 
   const submit = (program: Program, taunt?: string) => {
     setError(null);
-    submitProgram({ gameId: g.gameId, program, taunt }).catch((e: unknown) =>
-      setError(errorMessage(e)),
+    // expectedTurn: if the server has already moved on (OCC retry after someone
+    // else's submission executed the turn), the result comes back stale and we
+    // drop it silently — the reactive query is already rendering the new turn.
+    submitProgram({ gameId: g.gameId, program, taunt, expectedTurn: g.currentTurn }).catch(
+      (e: unknown) => setError(errorMessage(e)),
     );
   };
 
@@ -120,7 +123,10 @@ function GameLobby({ g }: { g: GameView }) {
   const startGame = useMutation(api.games.startGame);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const openSeats = Array.from({ length: 4 - g.players.length }, (_, i) => g.players.length + i);
+  // Seats come from the board's spawn docks (2–4), not a hardcoded 4.
+  const openSeats = Array.from({ length: Math.max(0, g.seats - g.players.length) }, (_, i) =>
+    g.players.length + i,
+  );
 
   return (
     <div className="screen center-screen game-lobby">
@@ -217,7 +223,17 @@ function TurnReplay({ gameId, turn }: { gameId: Id<'games'>; turn: number }) {
 function NudgeButton({ g }: { g: GameView }) {
   const nudge = useMutation(api.games.nudge);
   const [note, setNote] = useState<string | null>(null);
-  const coolingDown = Date.now() < g.nudgeAvailableAt;
+  // Nothing else re-renders this component when the cooldown lapses, so tick
+  // it ourselves the moment it expires (the query only changes on a new nudge).
+  const [now, setNow] = useState(() => Date.now());
+  const coolingDown = now < g.nudgeAvailableAt;
+
+  useEffect(() => {
+    const remaining = g.nudgeAvailableAt - Date.now();
+    if (remaining <= 0) return;
+    const t = setTimeout(() => setNow(Date.now()), remaining);
+    return () => clearTimeout(t);
+  }, [g.nudgeAvailableAt]);
 
   return (
     <span className="nudge-box">
