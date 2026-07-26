@@ -96,9 +96,12 @@ export function executeTurn(
     if (gameEnded(ctx)) break;
   }
 
+  // Card cleanup runs even when the game ended mid-register: the 84-card
+  // invariant has to hold for the final state too. Only the next turn's
+  // respawn/deal is gated on the game continuing.
+  if (!gameEnded(ctx)) respawnRobots(ctx);
+  cleanUpCards(ctx);
   if (!gameEnded(ctx)) {
-    respawnRobots(ctx);
-    cleanUpCards(ctx);
     s.turn += 1;
     s.startPlayerIndex = (s.startPlayerIndex + 1) % s.robots.length;
     dealHands(s, createRng(seed));

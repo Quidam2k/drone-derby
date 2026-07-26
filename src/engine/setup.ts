@@ -27,7 +27,7 @@ export function createGame(board: BoardDef, playerIds: PlayerId[], seed: number)
       damage: 0,
       lives: STARTING_LIVES,
       checkpoints: 0,
-      archive: pos,
+      archive: { ...pos }, // distinct object: pos and archive must never alias
       lockedRegisters: [null, null, null, null, null],
       destroyed: false,
       eliminated: false,

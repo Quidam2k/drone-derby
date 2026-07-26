@@ -295,15 +295,30 @@ export const submitProgram = mutation({
     program: programValidator,
     /** Optional speech-bubble line shown over the robot in the replay. */
     taunt: v.optional(v.string()),
+    /**
+     * The turn the client built this program for. Convex retries a mutation
+     * that loses an OCC race, and the retry re-runs against whatever state is
+     * current — which after a concurrent execute is turn T+1 with a brand new
+     * hand, so the card ids no longer validate. Reporting `stale` lets the
+     * client drop the submission instead of surfacing a bogus card error.
+     */
+    expectedTurn: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
     const game = await ctx.db.get(args.gameId);
     if (!game || game.status !== 'active' || !game.state) {
+      if (args.expectedTurn !== undefined && game && game.status === 'finished') {
+        return { stale: true as const };
+      }
       throw new Error('Game is not accepting programs');
     }
     const me = await playerFor(ctx, game._id, userId);
     if (!me) throw new Error('You are not in this game');
+
+    if (args.expectedTurn !== undefined && args.expectedTurn !== game.currentTurn) {
+      return { stale: true as const };
+    }
 
     const state = game.state as GameState;
     const robot = state.robots.find((r) => r.player === me.name);
@@ -347,7 +362,7 @@ export const submitProgram = mutation({
     // Last active player in? Execute the turn authoritatively.
     const players = await gamePlayers(ctx, game._id);
     const submissions = await turnSubmissions(ctx, game._id, turn);
-    if (waitingOnNames(state, players, submissions).length > 0) return;
+    if (waitingOnNames(state, players, submissions).length > 0) return { stale: false as const };
 
     const byPlayerId = new Map(players.map((p) => [p._id, p.name]));
     const programs: Record<PlayerId, Program> = {};
@@ -385,6 +400,7 @@ export const submitProgram = mutation({
           : 'Game over — everyone was scrapped. Watch the final turn.'
         : `Turn ${turn} executed — watch the replay and program your move!`,
     );
+    return { stale: false as const };
   },
 });
 
@@ -541,6 +557,8 @@ export const game = query({
       boardName: game.boardName,
       /** Board snapshot for the lobby thumbnail; active games carry it in state. */
       board: game.status === 'lobby' ? gameBoard(game) : null,
+      /** Seats on this game's board — 2–4, one per spawn dock (see gameByInvite). */
+      seats: maxSeats(gameBoard(game)),
       status: game.status,
       inviteCode: game.inviteCode,
       currentTurn: game.currentTurn,

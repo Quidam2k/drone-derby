@@ -4,6 +4,8 @@
 // changes here. Colors come from the existing CSS palette / custom
 // properties so themes keep working. No external assets, no canvas.
 
+import { useId } from 'react';
+
 import type { Direction } from '../../engine';
 
 const DIR_ANGLE: Record<Direction, number> = { N: 0, E: 90, S: 180, W: 270 };
@@ -40,6 +42,10 @@ export function ConveyorSprite({ dir, express }: { dir: Direction; express: bool
   const chevronYs = express ? [17, 29, 41] : [23.5, 36.5];
   const color = express ? 'var(--accent)' : '#8ea0c9';
   const period = express ? 12 : 13;
+  // Per-instance id: a shared id would make every belt on the board resolve
+  // url(#…) to whichever tile rendered first, and break when it unmounts.
+  // useId's raw value carries punctuation that isn't URL-fragment safe.
+  const clipId = `conveyor-clip${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   return (
     <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
       {/* drawn pointing N, rotated per direction */}
@@ -49,13 +55,13 @@ export function ConveyorSprite({ dir, express }: { dir: Direction; express: bool
         <rect x="42" y="0" width="3" height="52" fill="rgba(255, 255, 255, 0.14)" />
         {/* Chevron group scrolls upward, clipped to tile */}
         <defs>
-          <clipPath id={`clip-${dir}-${express ? 'ex' : 'nm'}`}>
+          <clipPath id={clipId}>
             <rect x="10" y="0" width="32" height="52" />
           </clipPath>
         </defs>
         <g
           className={`conveyor-chevrons conveyor-${express ? 'express' : 'normal'}`}
-          clipPath={`url(#clip-${dir}-${express ? 'ex' : 'nm'})`}
+          clipPath={`url(#${clipId})`}
           style={{ '--conveyor-period': `${period}px` } as React.CSSProperties}
         >
           {/* Extra chevron above for seamless wrap */}

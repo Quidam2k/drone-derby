@@ -17,7 +17,8 @@
       "Bash(npm:*)",
       "Bash(node:*)",
       "Bash(docker-compose up:*)",
-      "Bash(start H:Developmentdrone_derbytest-game.html)"
+      "Bash(start H:Developmentdrone_derbytest-game.html)",
+      "PowerShell(Get-ChildItem -Path \"Q:\\\\Development\\\\drone_derby\\\\public\\\\sounds\" -File | Select-Object Name, @{Name='Size';Expression={$_.Length}} | Format-Table -AutoSize)"
     ],
     "deny": []
   }
