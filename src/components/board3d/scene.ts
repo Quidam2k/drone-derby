@@ -24,6 +24,7 @@ import { buildBoard, type BoardMeshes } from './boardMesh';
 import { CameraDirector, eventFocus, ROBOT_RADIUS } from './camera';
 import { attachViewControls } from './controls';
 import { loadChassis, RobotRig } from './robots';
+import { loadTileKit } from './tileKit';
 import type { FollowMode } from './viewMath';
 
 export interface BoardSceneInput {
@@ -73,31 +74,38 @@ export async function createBoardScene(
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
   // PCFSoftShadowMap is deprecated in r185 and silently falls back to PCF.
   renderer.shadowMap.type = THREE.PCFShadowMap;
 
   const scene = new THREE.Scene();
 
-  // Metal parts (the chassis have metalness-1 steel) render black without
-  // something to reflect. A generated room is cheaper than shipping an HDRI.
+  // Metal parts render black without something to reflect. A generated room
+  // is cheaper than shipping an HDRI.
+  //
+  // The balance below is the tile kit's, not the flat panels': a metal
+  // surface has no diffuse response, so the environment — not the lamps —
+  // is what a deck plate actually shows you. Hence a much stronger env and a
+  // quieter hemisphere than the primitives were lit with. The key stays hot
+  // because it is doing two other jobs: specular streaks along the decking,
+  // and every shadow on the board.
   const pmrem = new THREE.PMREMGenerator(renderer);
   const roomScene = new RoomEnvironment();
   const envRT = pmrem.fromScene(roomScene, 0.04);
   scene.environment = envRT.texture;
-  scene.environmentIntensity = 0.3;
+  scene.environmentIntensity = 0.6;
   pmrem.dispose();
   roomScene.dispose?.();
 
-  scene.add(new THREE.HemisphereLight(0x9fb4ff, 0x0a0c12, 0.55));
+  scene.add(new THREE.HemisphereLight(0x9fb4ff, 0x0a0c12, 0.4));
   const key = new THREE.DirectionalLight(0xfff2dc, 2.4);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
   key.shadow.bias = -0.0015;
   key.shadow.normalBias = 0.02;
   scene.add(key, key.target);
-  const rim = new THREE.DirectionalLight(0x7fd6ff, 0.9);
+  const rim = new THREE.DirectionalLight(0x7fd6ff, 0.75);
   scene.add(rim, rim.target);
 
   const beamGeom = new THREE.CylinderGeometry(0.05, 0.05, 1, 8).rotateZ(Math.PI / 2);
@@ -112,10 +120,12 @@ export async function createBoardScene(
   beam.visible = false;
   scene.add(beam);
 
-  const chassis = await loadChassis();
+  // Both fetches are in flight together: the kit is one file, and the board
+  // can't be built until it has resolved either way.
+  const [chassis, kit] = await Promise.all([loadChassis(), loadTileKit()]);
 
   let board = first.board;
-  let meshes: BoardMeshes = buildBoard(board);
+  let meshes: BoardMeshes = buildBoard(board, kit);
   scene.add(meshes.group);
 
   const director = new CameraDirector(board, aspect());
@@ -156,7 +166,7 @@ export async function createBoardScene(
     scene.remove(meshes.group);
     meshes.dispose();
     board = next;
-    meshes = buildBoard(board);
+    meshes = buildBoard(board, kit);
     scene.add(meshes.group);
     director.setBoard(board);
     aimLights();
@@ -368,6 +378,7 @@ export async function createBoardScene(
       for (const rig of rigs.values()) rig.dispose();
       ghostRig?.rig.dispose();
       meshes.dispose();
+      kit?.dispose();
       beamGeom.dispose();
       beamMat.dispose();
       envRT.dispose();

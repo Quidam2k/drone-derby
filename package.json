@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.sw.json",
     "icons": "node scripts/generate-icons.mjs",
     "art": "node scripts/render-robots.mjs",
+    "art:tiles": "node scripts/render-tiles.mjs",
     "deploy": "convex deploy --yes --cmd \"npm run build\" --cmd-url-env-var-name VITE_CONVEX_URL && npx -y wrangler pages deploy dist --project-name drone-derby"
   },
   "dependencies": {
