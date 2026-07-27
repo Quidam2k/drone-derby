@@ -187,7 +187,7 @@ select:focus {
 }
 
 /* ---- 3D camera overlay (phase 3D-2) -------------------------------------
-   Plain DOM layered over the WebGL canvas — the same trick 3D-4 will use for
+   Plain DOM layered over the WebGL canvas — the same trick 3D-4 uses for
    speech bubbles. The strip itself is transparent to the pointer so it never
    eats an orbit drag; only the buttons take input. */
 .board-3d-controls {
@@ -256,6 +256,26 @@ select:focus {
     min-height: 32px;
     padding: 0.35rem 0.45rem;
   }
+}
+
+/* ---- 3D speech bubbles (phase 3D-4) -------------------------------------
+   A canvas can't draw DOM text, so taunts stay DOM over the WebGL board. This
+   is only a positioning layer: the bubble body reuses `.speech-bubble` further
+   down, which is already absolute + left/top + translate(-50%, -100%), so the
+   screen-space pixels the scene projects each frame drop straight in. */
+.board-3d-bubbles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+.board-3d-bubbles .speech-bubble {
+  /* The DOM board's max-width rides on --tile, which only `.board` sets. The
+     percentage is the same idea against the canvas box: on a phone a bubble
+     that is half the board wide has to be clamped so far from the rim that it
+     detaches from its robot. `scene.ts`'s BUBBLE_MARGIN tracks this. */
+  max-width: min(11rem, 34%);
 }
 
 .board {
