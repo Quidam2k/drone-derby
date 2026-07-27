@@ -9,14 +9,14 @@
 // imperative three.js in ./scene, reached through a dynamic import so `three`
 // lands in its own chunk and the lobby/editor/gallery never download it.
 //
-// Not yet rendered (3D-4 owns event parity): speech bubbles, the bump flash,
-// fall/respawn animation and the checkpoint pop. Damage flashes and laser
-// beams are here so the side-by-side look comparison is fair.
-//
 // Phase 3D-2 adds the camera overlay: plain DOM buttons layered over the
-// canvas, which is also the pattern 3D-4 needs for speech bubbles projected
-// from world coordinates. The gestures themselves live in ./controls and
-// never come near React.
+// canvas. The gestures themselves live in ./controls and never come near React.
+//
+// Phase 3D-4 closes the event-parity hole the spike shipped with, and reuses
+// that overlay pattern for speech bubbles: a canvas cannot draw DOM text, so the
+// bubbles stay DOM and the scene reports each robot's screen-space anchor once
+// per frame. Those numbers are written STRAIGHT ONTO REFS — no React state per
+// frame, the same discipline ViewControls follows for the camera.
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
@@ -118,13 +118,15 @@ function ViewControls() {
   );
 }
 
-export function Board3D({ board, visual, currentEvent, ghost }: BoardProps) {
+export function Board3D({ board, visual, currentEvent, bubbles, ghost }: BoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<BoardScene | null>(null);
   // The scene loads asynchronously (four .glb fetches); props that arrive
   // before it is ready are held here and applied the moment it exists.
   const inputRef = useRef<BoardSceneInput>({ board, visual, currentEvent, ghost });
   inputRef.current = { board, visual, currentEvent, ghost };
+  /** Live bubble elements by player, written to by the scene's frame callback. */
+  const bubbleRefs = useRef(new Map<string, HTMLDivElement>());
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -136,7 +138,23 @@ export function Board3D({ board, visual, currentEvent, ghost }: BoardProps) {
       try {
         const { createBoardScene } = await import('./scene');
         if (cancelled) return;
-        scene = await createBoardScene(canvas, inputRef.current);
+        scene = await createBoardScene(canvas, inputRef.current, {
+          // Once per rendered frame. Deliberately imperative: a setState here
+          // would re-render the whole board on every frame of a camera fly-in.
+          onAnchors(list) {
+            for (const a of list) {
+              const el = bubbleRefs.current.get(a.player);
+              if (!el) continue;
+              if (!a.visible) {
+                el.style.visibility = 'hidden';
+                continue;
+              }
+              el.style.left = `${a.x}px`;
+              el.style.top = `${a.y}px`;
+              el.style.visibility = 'visible';
+            }
+          },
+        });
         if (cancelled) {
           scene.dispose();
           return;
@@ -190,6 +208,25 @@ export function Board3D({ board, visual, currentEvent, ghost }: BoardProps) {
         }}
         aria-hidden="true"
       />
+      {/* Bubbles start hidden and are positioned by the first frame after this
+          commit (scene.update() always requests one). Rendering them at 0,0 for
+          that one frame would be a visible flash in the corner. */}
+      <div className="board-3d-bubbles" data-testid="board-3d-bubbles">
+        {bubbles?.map((b) => (
+          <div
+            key={b.player}
+            className="speech-bubble"
+            data-testid={`bubble-${b.player}`}
+            style={{ visibility: 'hidden' }}
+            ref={(el) => {
+              if (el) bubbleRefs.current.set(b.player, el);
+              else bubbleRefs.current.delete(b.player);
+            }}
+          >
+            {b.text}
+          </div>
+        ))}
+      </div>
       <ViewControls />
     </div>
   );

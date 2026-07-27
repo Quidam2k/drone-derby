@@ -13,7 +13,7 @@
 // is a game rule rather than art — belt speed class, checkpoint, laser.
 
 import * as THREE from 'three';
-import type { BoardDef, Direction, TileDef } from '../../engine';
+import type { BoardDef, Direction, Position, TileDef } from '../../engine';
 import type { KitPiece, TileKit } from './tileKit';
 
 /** index.css custom properties, as hex. Keep in sync with :root there. */
@@ -51,6 +51,29 @@ export const DIR_YAW: Record<Direction, number> = {
   S: Math.PI,
   W: Math.PI / 2,
 };
+
+/** Height of a board emitter's barrel and lens above the deck. */
+const LASER_Y = 0.16;
+/**
+ * Where the barrel sits relative to its cell's centre, along the facing. The
+ * emitter is mounted on the wall BEHIND its beam, matching the DOM emitter
+ * sprite: an emitter facing E sits on its cell's west edge.
+ */
+const BARREL_ALONG = -0.38;
+/** The lens, forward of the barrel's back plate. */
+const LENS_ALONG = BARREL_ALONG + 0.19;
+
+/**
+ * World position of a board emitter's lens — the ONE definition of where a
+ * board laser's beam starts. `buildBoard` places the modelled `laser_lens` here
+ * and scene.ts starts the beam here, so the beam cannot drift off the muzzle.
+ */
+export function laserMuzzle(l: { pos: Position; facing: Direction }): THREE.Vector3 {
+  return new THREE.Vector3(l.pos.x + 0.5, LASER_Y, l.pos.y + 0.5).addScaledVector(
+    DIR_VEC[l.facing],
+    LENS_ALONG,
+  );
+}
 
 interface Placement {
   pos: THREE.Vector3;
@@ -156,6 +179,13 @@ export interface BoardMeshes {
   /** True when something on this board animates on its own (scrolling belts). */
   animated: boolean;
   tick(elapsed: number): void;
+  /**
+   * The checkpoint ring drawn on a cell: its geometry (whichever of the kit
+   * piece or the primitive won) and the exact matrix it was instanced with, so
+   * the claimed-checkpoint pop can flare THAT ring rather than a guess at where
+   * it is. Null for a cell with no checkpoint.
+   */
+  checkpointRing(x: number, y: number): { geometry: THREE.BufferGeometry; matrix: THREE.Matrix4 } | null;
   dispose(): void;
 }
 
@@ -200,6 +230,8 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   const gearTeeth = new Batch();
   const gearArrows = new Batch();
   const rings = new Batch();
+  /** Cell key -> its instance index in the checkpoint ring batch. */
+  const ringIndex = new Map<string, number>();
   const spawns = new Batch();
   const labels: THREE.Mesh[] = [];
   const walls = new Batch();
@@ -273,6 +305,7 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
         }
         break;
       case 'checkpoint':
+        ringIndex.set(`${x},${y}`, rings.count);
         rings.add({ pos: centre(x, y, 0.05) });
         addLabel(x, y, def.n, '#6fe3bd', 0.44);
         break;
@@ -307,14 +340,13 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   }
 
   for (const l of board.lasers) {
-    // The barrel is mounted on the wall BEHIND the beam, matching the DOM
-    // emitter sprite: an emitter facing E sits on its cell's west edge.
-    const back = DIR_VEC[l.facing].clone().multiplyScalar(-0.38);
-    emitterBodies.add({ pos: centre(l.pos.x, l.pos.y, 0.16).add(back), yaw: DIR_YAW[l.facing] });
-    emitterLenses.add({
-      pos: centre(l.pos.x, l.pos.y, 0.16).add(back).addScaledVector(DIR_VEC[l.facing], 0.19),
+    emitterBodies.add({
+      pos: centre(l.pos.x, l.pos.y, LASER_Y).addScaledVector(DIR_VEC[l.facing], BARREL_ALONG),
       yaw: DIR_YAW[l.facing],
     });
+    // Placed by the same function scene.ts starts the beam from, so the two
+    // cannot disagree about where the muzzle is.
+    emitterLenses.add({ pos: laserMuzzle(l), yaw: DIR_YAW[l.facing] });
   }
 
   // -------------------------------------------------------------- materials
@@ -427,15 +459,14 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   }
   // Checkpoint and laser lens take the kit's geometry but keep their own
   // emissive materials: those two colours mean something in the rules.
-  add(
-    rings.build(
-      pieceGeom(kit?.checkpoint, () =>
-        new THREE.TorusGeometry(0.33, 0.05, 8, 26).rotateX(Math.PI / 2),
-      ),
-      checkMat,
-      { cast: true },
+  const ringMesh = rings.build(
+    pieceGeom(kit?.checkpoint, () =>
+      new THREE.TorusGeometry(0.33, 0.05, 8, 26).rotateX(Math.PI / 2),
     ),
+    checkMat,
+    { cast: true },
   );
+  add(ringMesh);
   add(
     spawns.build(
       pieceGeom(kit?.spawn, () => new THREE.BoxGeometry(0.62, 0.05, 0.07)),
@@ -523,6 +554,15 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
     group,
     animated: chevMeshes.length > 0,
     tick,
+    checkpointRing(x, y) {
+      const i = ringIndex.get(`${x},${y}`);
+      if (i === undefined || !ringMesh) return null;
+      // The group sits at the origin and is never transformed, so an instance's
+      // local matrix IS its world matrix.
+      const matrix = new THREE.Matrix4();
+      ringMesh.getMatrixAt(i, matrix);
+      return { geometry: ringMesh.geometry, matrix };
+    },
     dispose() {
       for (const g of geometries) g.dispose();
       for (const m of materials) {
