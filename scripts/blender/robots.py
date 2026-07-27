@@ -33,26 +33,22 @@ robot as it turns.
 
 Units: 1.0 = one board tile. Every chassis is modelled facing +Y (north).
 Deterministic: no randomness, no clock.
+
+The primitives (`box`, `frustum`, `cylinder`, `dome`, `strut`, the bevel
+`finish`) live in `common.py`, shared with the board tile kit in `tiles.py`.
 """
 
 import bpy
 import math
 import sys
 import os
-from mathutils import Vector
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from common import (  # noqa: E402  (Blender needs the path set first)
+    arg, flag, srgb, mat, frustum, box, cylinder, dome, strut,
+)
 
 # --------------------------------------------------------------------- args
-
-argv = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
-
-
-def arg(name, default):
-    return argv[argv.index(name) + 1] if name in argv else default
-
-
-def flag(name):
-    return name in argv
-
 
 OUT_DIR = arg('--out-dir', 'public/robots')
 VIEW = arg('--view', 'game')
@@ -69,26 +65,6 @@ SEAT_COLORS = ['#f94144', '#f9c74f', '#43aa8b', '#9d6bf2']
 # ------------------------------------------------------------------- colors
 
 
-def srgb(h):
-    """Hex string -> linear RGB. Blender's colour sockets are linear."""
-    c = [int(h[i:i + 2], 16) / 255 for i in (1, 3, 5)]
-    return tuple(v / 12.92 if v <= 0.04045 else ((v + 0.055) / 1.055) ** 2.4 for v in c)
-
-
-def mat(name, base, metallic=0.0, rough=0.4, emit=None, emit_strength=0.0, coat=0.0):
-    m = bpy.data.materials.new(name)
-    m.use_nodes = True
-    b = m.node_tree.nodes['Principled BSDF']
-    b.inputs['Base Color'].default_value = (*base, 1)
-    b.inputs['Metallic'].default_value = metallic
-    b.inputs['Roughness'].default_value = rough
-    b.inputs['Clearcoat'].default_value = coat
-    if emit:
-        b.inputs['Emission'].default_value = (*emit, 1)
-        b.inputs['Emission Strength'].default_value = emit_strength
-    return m
-
-
 class Mats:
     def __init__(self, body_hex):
         self.BODY = mat('body', srgb(body_hex), metallic=0.15, rough=0.34, coat=0.35)
@@ -98,87 +74,6 @@ class Mats:
         self.GLASS = mat('glass', srgb('#0e1420'), metallic=0.6, rough=0.16, coat=1.0)
         self.LAMP = mat('lamp', srgb('#4cc9f0'), emit=srgb('#4cc9f0'), emit_strength=5.0)
         self.THRUST = mat('thrust', srgb('#ff7a3d'), emit=srgb('#ff7a3d'), emit_strength=7.0)
-
-
-# ------------------------------------------------------------------ geometry
-
-
-def _finish(ob, material, bevel, segments):
-    ob.data.materials.append(material)
-    b = ob.modifiers.new('bevel', 'BEVEL')
-    b.width = bevel
-    b.segments = segments
-    b.limit_method = 'ANGLE'
-    b.angle_limit = math.radians(30)
-    b.harden_normals = True
-    ob.data.use_auto_smooth = True
-    ob.data.auto_smooth_angle = math.radians(40)
-    for p in ob.data.polygons:
-        p.use_smooth = True
-    return ob
-
-
-def frustum(name, bc, bs, bz, tc, ts, tz, material, bevel=0.02, segments=4):
-    """Hexahedron from a bottom ring and a top ring, then bevelled.
-
-    Sharp 90-degree edges are the single biggest tell that something was
-    modelled rather than manufactured -- everything gets a bevel.
-    """
-    def ring(c, s, z):
-        return [
-            (c[0] - s[0] / 2, c[1] - s[1] / 2, z),
-            (c[0] + s[0] / 2, c[1] - s[1] / 2, z),
-            (c[0] + s[0] / 2, c[1] + s[1] / 2, z),
-            (c[0] - s[0] / 2, c[1] + s[1] / 2, z),
-        ]
-    me = bpy.data.meshes.new(name)
-    me.from_pydata(ring(bc, bs, bz) + ring(tc, ts, tz), [], [
-        (0, 3, 2, 1), (4, 5, 6, 7),
-        (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7),
-    ])
-    me.validate()
-    ob = bpy.data.objects.new(name, me)
-    bpy.context.collection.objects.link(ob)
-    return _finish(ob, material, bevel, segments)
-
-
-def box(name, center, size, material, bevel=0.014, segments=3):
-    return frustum(name,
-                   (center[0], center[1]), (size[0], size[1]), center[2] - size[2] / 2,
-                   (center[0], center[1]), (size[0], size[1]), center[2] + size[2] / 2,
-                   material, bevel, segments)
-
-
-def cylinder(name, center, radius, depth, axis, material, verts=28, bevel=0.008):
-    bpy.ops.mesh.primitive_cylinder_add(vertices=verts, radius=radius,
-                                        depth=depth, location=center)
-    ob = bpy.context.active_object
-    ob.name = name
-    if axis == 'x':
-        ob.rotation_euler = (0, math.radians(90), 0)
-    elif axis == 'y':
-        ob.rotation_euler = (math.radians(90), 0, 0)
-    return _finish(ob, material, bevel, 2)
-
-
-def dome(name, center, radii, material):
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=16, location=center)
-    ob = bpy.context.active_object
-    ob.name = name
-    ob.scale = radii
-    ob.data.materials.append(material)
-    bpy.ops.object.shade_smooth()
-    return ob
-
-
-def strut(name, p0, p1, r, material, bevel=0.01):
-    """Box spanning two 3D points -- legs, roll bars, arms."""
-    v = Vector(p1) - Vector(p0)
-    ob = box(name, (0, 0, 0), (r * 2, r * 2, v.length), material, bevel=bevel, segments=2)
-    ob.location = (Vector(p0) + Vector(p1)) / 2
-    ob.rotation_mode = 'QUATERNION'
-    ob.rotation_quaternion = v.to_track_quat('Z', 'Y')
-    return ob
 
 
 # ------------------------------------------------------- chassis 0: tracked

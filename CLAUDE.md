@@ -52,6 +52,13 @@ Run `npm run typecheck` and `npm test` before committing.
   `await import('./scene')` so no other screen pays for it. **The DOM
   `Board` is never deleted**: the editor needs it anyway, which makes
   keeping it as the low-end fallback renderer close to free.
+- **Blender is the art pipeline for both robots and board tiles.**
+  `scripts/blender/common.py` holds the shared primitives;
+  `robots.py` → `public/models/robot-*.glb` (`npm run art -- --glb`) and
+  `tiles.py` → `public/models/tiles.glb` (`npm run art:tiles`). Every piece
+  is modelled in the local frame of the three.js primitive it replaces, so
+  `boardMesh.ts` placements never move and a missing `.glb` falls back to
+  that primitive piece by piece — keep both paths working.
 - **Rules source**: `docs/game_mechanics_md.md` (MVP scope: moves, pushing,
   edge-based walls, pits, conveyors + express, gears, checkpoints, board +
   robot lasers, damage with locked registers, 3 lives, respawn). Cut from

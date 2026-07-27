@@ -1,13 +1,20 @@
-// BoardDef -> three.js geometry. Procedural on purpose: the point of the 3D-1
-// spike is to prove the pipeline before anyone models board art (that's 3D-2).
+// BoardDef -> three.js geometry.
 //
 // Everything is instanced and shares a handful of materials, so a 12x17
 // composed board is ~15 draw calls regardless of how many belts it has.
-// The palette is lifted from index.css custom properties so the 3D board reads
-// as the same game as the DOM one rather than a different product.
+//
+// Geometry comes from the Blender tile kit (3D-3, `tileKit.ts`) when it
+// loaded, and from the primitives below when it didn't — piece by piece, the
+// way `placeholder()` backs the robot chassis. The primitives are the low-end
+// path, not dead code: keep them working.
+//
+// The `C` palette is lifted from index.css custom properties. It still drives
+// the fallback in full, and in the kit path it drives everything whose colour
+// is a game rule rather than art — belt speed class, checkpoint, laser.
 
 import * as THREE from 'three';
 import type { BoardDef, Direction, TileDef } from '../../engine';
+import type { KitPiece, TileKit } from './tileKit';
 
 /** index.css custom properties, as hex. Keep in sync with :root there. */
 const C = {
@@ -152,7 +159,7 @@ export interface BoardMeshes {
   dispose(): void;
 }
 
-export function buildBoard(board: BoardDef): BoardMeshes {
+export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   const group = new THREE.Group();
   const geometries: THREE.BufferGeometry[] = [];
   const materials: THREE.Material[] = [];
@@ -169,11 +176,23 @@ export function buildBoard(board: BoardDef): BoardMeshes {
     if (mesh) group.add(mesh);
   }
 
+  /**
+   * The kit piece's geometry, or the primitive it stands in for. The fallback
+   * is a thunk so a loaded kit doesn't build — and then have to dispose —
+   * geometry nothing ever draws.
+   */
+  function pieceGeom(piece: KitPiece | null | undefined, fallback: () => THREE.BufferGeometry) {
+    return piece?.geometry ?? geom(fallback());
+  }
+
   const centre = (x: number, y: number, h = 0) => new THREE.Vector3(x + 0.5, h, y + 0.5);
 
   // ---------------------------------------------------------------- batches
   const bodies = new Batch();
-  const caps = new Batch();
+  // Two deck batches, not one tinted batch: a modelled belt bed is different
+  // geometry from a floor plate, and it has to face the way the belt runs.
+  const floorDecks = new Batch();
+  const beltDecks = new Batch();
   const pitFloors = new Batch();
   const pitRims = new Batch();
   const chevrons: Chevron[] = [];
@@ -181,7 +200,7 @@ export function buildBoard(board: BoardDef): BoardMeshes {
   const gearTeeth = new Batch();
   const gearArrows = new Batch();
   const rings = new Batch();
-  const spawnBars = new Batch();
+  const spawns = new Batch();
   const labels: THREE.Mesh[] = [];
   const walls = new Batch();
   const emitterBodies = new Batch();
@@ -214,10 +233,8 @@ export function buildBoard(board: BoardDef): BoardMeshes {
       return;
     }
     bodies.add({ pos: centre(x, y, -SLAB / 2) });
-    caps.add({
-      pos: centre(x, y, -0.015),
-      color: def.kind === 'conveyor' ? C.conveyorFloor : C.panel,
-    });
+    if (def.kind === 'conveyor') beltDecks.add({ pos: centre(x, y, -0.015), yaw: DIR_YAW[def.dir] });
+    else floorDecks.add({ pos: centre(x, y, -0.015) });
 
     switch (def.kind) {
       case 'conveyor': {
@@ -237,7 +254,9 @@ export function buildBoard(board: BoardDef): BoardMeshes {
       }
       case 'gear':
         gearDiscs.add({ pos: centre(x, y, 0.04) });
-        for (let i = 0; i < 8; i++) {
+        // The kit's gear is one toothed wheel; the primitive disc needs its
+        // eight teeth bolted on as their own instances.
+        for (let i = 0; !kit?.gear && i < 8; i++) {
           const a = (i / 8) * Math.PI * 2;
           gearTeeth.add({
             pos: new THREE.Vector3(x + 0.5 + Math.sin(a) * 0.42, 0.04, y + 0.5 - Math.cos(a) * 0.42),
@@ -258,11 +277,16 @@ export function buildBoard(board: BoardDef): BoardMeshes {
         addLabel(x, y, def.n, '#6fe3bd', 0.44);
         break;
       case 'spawn':
-        for (const d of ['N', 'E', 'S', 'W'] as Direction[]) {
-          spawnBars.add({
-            pos: centre(x, y, 0.02).addScaledVector(DIR_VEC[d], 0.33),
-            yaw: DIR_YAW[d],
-          });
+        // The kit's dock is the whole frame in one piece; the primitive is a
+        // single bar, so it takes four placements to draw the same square.
+        if (kit?.spawn) spawns.add({ pos: centre(x, y, 0.02) });
+        else {
+          for (const d of ['N', 'E', 'S', 'W'] as Direction[]) {
+            spawns.add({
+              pos: centre(x, y, 0.02).addScaledVector(DIR_VEC[d], 0.33),
+              yaw: DIR_YAW[d],
+            });
+          }
         }
         addLabel(x, y, def.n, '#9aa0b8', 0.34);
         break;
@@ -294,8 +318,17 @@ export function buildBoard(board: BoardDef): BoardMeshes {
   }
 
   // -------------------------------------------------------------- materials
+  // The kit ships two materials of its own — one PBR, one emissive — and they
+  // win for every piece whose colour is art. These stay for two jobs: the
+  // whole fallback board, and the pieces whose colour is a game rule (belt
+  // speed class, checkpoint, laser) even when the kit did load.
   const slabMat = mat(new THREE.MeshStandardMaterial({ color: C.base, roughness: 0.95 }));
-  const capMat = mat(new THREE.MeshStandardMaterial({ roughness: 0.82, metalness: 0.06 }));
+  const floorMat = mat(
+    new THREE.MeshStandardMaterial({ color: C.panel, roughness: 0.82, metalness: 0.06 }),
+  );
+  const beltFloorMat = mat(
+    new THREE.MeshStandardMaterial({ color: C.conveyorFloor, roughness: 0.82, metalness: 0.06 }),
+  );
   const pitMat = mat(new THREE.MeshStandardMaterial({ color: C.pit, roughness: 1 }));
   const rimMat = mat(
     new THREE.MeshStandardMaterial({ color: C.wall, roughness: 0.55, metalness: 0.25 }),
@@ -345,46 +378,89 @@ export function buildBoard(board: BoardDef): BoardMeshes {
   );
 
   // ------------------------------------------------------------------ build
+  // The slab under every tile is sized to the grid, not modelled, so it is
+  // always the primitive — as is the board rim further down.
   add(bodies.build(geom(new THREE.BoxGeometry(1, SLAB, 1)), slabMat, { receive: true }));
-  add(caps.build(geom(new THREE.BoxGeometry(0.94, 0.05, 0.94)), capMat, { receive: true }));
-  add(pitFloors.build(geom(new THREE.BoxGeometry(1, 0.08, 1)), pitMat, { receive: true }));
+  const deckPrimitive = () => new THREE.BoxGeometry(0.94, 0.05, 0.94);
+  add(
+    floorDecks.build(pieceGeom(kit?.floor, deckPrimitive), kit?.floor?.material ?? floorMat, {
+      receive: true,
+    }),
+  );
+  add(
+    beltDecks.build(
+      pieceGeom(kit?.conveyor, deckPrimitive),
+      kit?.conveyor?.material ?? beltFloorMat,
+      { receive: true },
+    ),
+  );
+  add(
+    pitFloors.build(
+      pieceGeom(kit?.pit_shaft, () => new THREE.BoxGeometry(1, 0.08, 1)),
+      kit?.pit_shaft?.material ?? pitMat,
+      { receive: true },
+    ),
+  );
   add(
     pitRims.build(
-      geom(new THREE.TorusGeometry(0.44, 0.035, 6, 20).rotateX(Math.PI / 2)),
-      rimMat,
+      pieceGeom(kit?.pit_rim, () => new THREE.TorusGeometry(0.44, 0.035, 6, 20).rotateX(Math.PI / 2)),
+      kit?.pit_rim?.material ?? rimMat,
       { cast: true },
     ),
   );
   add(
-    walls.build(geom(new THREE.BoxGeometry(0.98, 0.34, 0.12)), wallMat, {
-      cast: true,
-      receive: true,
-    }),
+    walls.build(
+      pieceGeom(kit?.wall, () => new THREE.BoxGeometry(0.98, 0.34, 0.12)),
+      kit?.wall?.material ?? wallMat,
+      { cast: true, receive: true },
+    ),
   );
   add(
-    gearDiscs.build(geom(new THREE.CylinderGeometry(0.38, 0.38, 0.1, 20)), gearMat, {
-      cast: true,
-      receive: true,
-    }),
+    gearDiscs.build(
+      pieceGeom(kit?.gear, () => new THREE.CylinderGeometry(0.38, 0.38, 0.1, 20)),
+      kit?.gear?.material ?? gearMat,
+      { cast: true, receive: true },
+    ),
   );
-  add(gearTeeth.build(geom(new THREE.BoxGeometry(0.14, 0.09, 0.13)), gearMat, { cast: true }));
+  if (gearTeeth.count) {
+    add(gearTeeth.build(geom(new THREE.BoxGeometry(0.14, 0.09, 0.13)), gearMat, { cast: true }));
+  }
+  // Checkpoint and laser lens take the kit's geometry but keep their own
+  // emissive materials: those two colours mean something in the rules.
   add(
     rings.build(
-      geom(new THREE.TorusGeometry(0.33, 0.05, 8, 26).rotateX(Math.PI / 2)),
+      pieceGeom(kit?.checkpoint, () =>
+        new THREE.TorusGeometry(0.33, 0.05, 8, 26).rotateX(Math.PI / 2),
+      ),
       checkMat,
       { cast: true },
     ),
   );
-  add(spawnBars.build(geom(new THREE.BoxGeometry(0.62, 0.05, 0.07)), lineMat, { receive: true }));
+  add(
+    spawns.build(
+      pieceGeom(kit?.spawn, () => new THREE.BoxGeometry(0.62, 0.05, 0.07)),
+      kit?.spawn?.material ?? lineMat,
+      { receive: true },
+    ),
+  );
   for (const label of labels) group.add(label);
   add(
-    emitterBodies.build(geom(new THREE.BoxGeometry(0.2, 0.16, 0.34)), emitterMat, { cast: true }),
+    emitterBodies.build(
+      pieceGeom(kit?.laser_body, () => new THREE.BoxGeometry(0.2, 0.16, 0.34)),
+      kit?.laser_body?.material ?? emitterMat,
+      { cast: true },
+    ),
   );
-  add(emitterLenses.build(geom(new THREE.SphereGeometry(0.06, 10, 8)), lensMat));
+  add(
+    emitterLenses.build(
+      pieceGeom(kit?.laser_lens, () => new THREE.SphereGeometry(0.06, 10, 8)),
+      lensMat,
+    ),
+  );
 
   // Chevrons: one instanced mesh per speed class so express keeps its accent
   // colour, both re-placed every frame by tick().
-  const chevGeom = geom(chevronGeometry());
+  const chevGeom = pieceGeom(kit?.chevron, chevronGeometry);
   add(gearArrows.build(chevGeom, gearDarkMat, {}));
 
   const normal = chevrons.filter((c) => c.speed < 0.2);

@@ -51,7 +51,14 @@ Other commands: `npm test` (Vitest), `npm run typecheck`,
 Add `?render=3d` to the URL — e.g. `.../?render=3d#/hotseat` — and the
 player-facing board renders in WebGL instead of DOM. Off by default; the
 DOM board is still the real one, and the editor and thumbnails stay DOM
-whatever the flag says. The board art is a placeholder.
+whatever the flag says.
+
+The 3D board's tiles are modelled — an industrial factory floor, from
+`public/models/tiles.glb` (rebuild with `npm run art:tiles`, which needs
+Blender). It deliberately does **not** match the DOM board's flat palette,
+so the setup-screen thumbnails and the editor will look like a different
+game to the one you play. That is expected. If the `.glb` is missing the
+board falls back to the old procedural primitives and logs one warning.
 
 Camera, on both the programming screen and the replay:
 
