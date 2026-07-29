@@ -4,7 +4,8 @@ import { authTables } from '@convex-dev/auth/server';
 
 // GameState / EventLog / Program are the engine's JSON types; they're stored
 // opaquely (v.any) — the engine is the schema authority, and queries are
-// responsible for stripping secrets (hands/decks) before returning state.
+// responsible for stripping secrets (hands, the shared deck) before
+// returning state.
 export default defineSchema({
   ...authTables,
 
@@ -102,6 +103,20 @@ export default defineSchema({
     program: v.any(),
     /** Optional speech-bubble line, shown over the robot in the turn replay. */
     taunt: v.optional(v.string()),
+    /**
+     * Re-entry facing chosen by a just-respawned robot's player; applied by
+     * the engine at the start of the turn. The engine ignores it for robots
+     * that didn't just respawn, so no extra validation here.
+     */
+    respawnFacing: v.optional(
+      v.union(v.literal('N'), v.literal('E'), v.literal('S'), v.literal('W')),
+    ),
+    /**
+     * True = announce a power-down for next turn (or, from an already
+     * powered-down robot's one-tap turn, stay down). The engine gates it on
+     * the robot's state, so no extra validation here either.
+     */
+    powerDown: v.optional(v.boolean()),
   })
     .index('by_game_turn', ['gameId', 'turn'])
     .index('by_game_turn_player', ['gameId', 'turn', 'playerId']),

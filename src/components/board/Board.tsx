@@ -5,7 +5,7 @@
 // render as overlays keyed off the current replay event.
 
 import { useRef, type CSSProperties } from 'react';
-import type { BoardDef, Direction, EngineEvent, PlayerId, Position } from '../../engine';
+import type { BoardDef, Direction, EngineEvent, EventLog, PlayerId, Position } from '../../engine';
 import type { RobotVisual, VisualState } from '../replay/visualState';
 import { Tile } from './Tile';
 import { RobotSprite } from './sprites';
@@ -103,12 +103,35 @@ interface BoardProps {
   bubbles?: { player: PlayerId; text: string }[];
   /** Translucent programming-preview robot, drawn over the live board. */
   ghost?: { robot: RobotVisual; seat: number };
+  /**
+   * Replay look-ahead: the whole turn's log and the cursor into it. THIS board
+   * ignores both — it is declared here because Board3D's props are derived from
+   * this type, and its camera director needs to know what is about to happen so
+   * it can be framed on the laser before the beam appears rather than setting
+   * off toward it as the beam ends (see board3d/directorMath.ts).
+   *
+   * Optional, and only ReplayPlayer passes them: the live views have no future
+   * to look at.
+   */
+  events?: EventLog;
+  cursor?: number;
+  /**
+   * Highlight-reel framing, when a HighlightReel is what mounted this board.
+   * IGNORED HERE too, and declared for the same reason as `events`/`cursor`.
+   *
+   * `beat` is the index of the beat on screen; when it changes the 3D camera
+   * HARD-CUTS instead of easing, which is legitimate only because the reel puts
+   * a beat counter on screen to cue it. `until` is the beat's exclusive end, so
+   * the camera's look-ahead cannot frame an event the reel never shows.
+   */
+  reel?: { beat: number; until: number };
 }
 
-/** Walls and laser emitters grouped by `"x,y"` cell key, in Tile-prop shape. */
+/** Walls, laser emitters and pushers grouped by `"x,y"` cell key, in Tile-prop shape. */
 export function boardCellMaps(board: BoardDef): {
   wallsByCell: Map<string, Direction[]>;
   emittersByCell: Map<string, Direction[]>;
+  pushersByCell: Map<string, { facing: Direction; registers: number[] }[]>;
 } {
   const wallsByCell = new Map<string, Direction[]>();
   for (const w of board.walls) {
@@ -120,13 +143,21 @@ export function boardCellMaps(board: BoardDef): {
     const key = `${l.pos.x},${l.pos.y}`;
     emittersByCell.set(key, [...(emittersByCell.get(key) ?? []), l.facing]);
   }
-  return { wallsByCell, emittersByCell };
+  const pushersByCell = new Map<string, { facing: Direction; registers: number[] }[]>();
+  for (const p of board.pushers ?? []) {
+    const key = `${p.pos.x},${p.pos.y}`;
+    pushersByCell.set(key, [
+      ...(pushersByCell.get(key) ?? []),
+      { facing: p.facing, registers: p.registers },
+    ]);
+  }
+  return { wallsByCell, emittersByCell, pushersByCell };
 }
 
 export function Board({ board, visual, currentEvent, bubbles, ghost }: BoardProps) {
   const angles = useSmoothAngles(visual.robots);
   const ghostAngle = useGhostAngle(ghost);
-  const { wallsByCell, emittersByCell } = boardCellMaps(board);
+  const { wallsByCell, emittersByCell, pushersByCell } = boardCellMaps(board);
 
   return (
     <div className="board-viewport">
@@ -147,6 +178,7 @@ export function Board({ board, visual, currentEvent, bubbles, ghost }: BoardProp
               def={def}
               walls={wallsByCell.get(`${x},${y}`) ?? []}
               emitterFacings={emittersByCell.get(`${x},${y}`) ?? []}
+              pushers={pushersByCell.get(`${x},${y}`)}
             />
           )),
         )}
@@ -157,7 +189,7 @@ export function Board({ board, visual, currentEvent, bubbles, ghost }: BoardProp
               r.visible && (
                 <div
                   key={r.player}
-                  className={`robot ${currentEvent?.type === 'damage' && currentEvent.player === r.player ? 'damage-flash' : ''}`}
+                  className={`robot ${r.poweredDown ? 'powered-down ' : ''}${currentEvent?.type === 'damage' && currentEvent.player === r.player ? 'damage-flash' : ''}`}
                   data-testid={`robot-${r.player}`}
                   data-x={r.pos.x}
                   data-y={r.pos.y}
@@ -202,7 +234,7 @@ export function Board({ board, visual, currentEvent, bubbles, ghost }: BoardProp
           })}
 
           {currentEvent?.type === 'laser-fired' && <BeamOverlay path={currentEvent.path} />}
-          {currentEvent?.type === 'robot-blocked' && (
+          {(currentEvent?.type === 'robot-blocked' || currentEvent?.type === 'pusher-fired') && (
             <div
               className="bump-flash"
               style={{ left: cellPx(currentEvent.at.x), top: cellPx(currentEvent.at.y) }}

@@ -15,7 +15,7 @@ interface BoardThumbProps {
 }
 
 export function BoardThumb({ board, tilePx = 8, maxPx = 160 }: BoardThumbProps) {
-  const { wallsByCell, emittersByCell } = boardCellMaps(board);
+  const { wallsByCell, emittersByCell, pushersByCell } = boardCellMaps(board);
   return (
     <div
       className="board board-thumb"
@@ -34,6 +34,7 @@ export function BoardThumb({ board, tilePx = 8, maxPx = 160 }: BoardThumbProps) 
             def={def}
             walls={wallsByCell.get(`${x},${y}`) ?? []}
             emitterFacings={emittersByCell.get(`${x},${y}`) ?? []}
+            pushers={pushersByCell.get(`${x},${y}`)}
           />
         )),
       )}

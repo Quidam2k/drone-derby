@@ -20,8 +20,10 @@ export type ToolId =
   | 'gear'
   | 'checkpoint'
   | 'spawn'
+  | 'wrench'
   | 'wall'
   | 'laser'
+  | 'pusher'
   | 'eraser';
 
 /** "Forked from X by Y" byline snapshot; rides beside the draft, not in BoardDef. */
@@ -93,7 +95,11 @@ interface EditorStore {
   /** Options for the parameterized tools. */
   conveyorDir: Direction;
   conveyorExpress: boolean;
+  /** null = straight belt; 'cw'/'ccw' = curved section (dir stays the exit). */
+  conveyorCurve: 'cw' | 'ccw' | null;
   gearCw: boolean;
+  /** True = classic 1/3/5 pusher; false = 2/4. */
+  pusherOdd: boolean;
   validation: BoardValidation;
   /** Snapshot history; history[historyIndex] === current board. */
   history: BoardDef[];
@@ -102,7 +108,9 @@ interface EditorStore {
   setTool: (tool: ToolId) => void;
   setConveyorDir: (dir: Direction) => void;
   setConveyorExpress: (express: boolean) => void;
+  setConveyorCurve: (curve: 'cw' | 'ccw' | null) => void;
   setGearCw: (cw: boolean) => void;
+  setPusherOdd: (odd: boolean) => void;
   setName: (name: string) => void;
 
   /** Apply the active tile tool at (x,y); no-op for wall/laser tools. */
@@ -113,7 +121,12 @@ interface EditorStore {
   toggleWall: (x: number, y: number, side: Direction) => void;
   /** Add/remove a laser emitter mounted on the given cell edge, firing inward. */
   toggleLaser: (x: number, y: number, side: Direction) => void;
-  /** Remove any wall and laser on the given cell edge (right-click erase). */
+  /**
+   * Add/remove a pusher mounted on the given cell edge, shoving inward.
+   * Same mount with the same registers removes; different registers replace.
+   */
+  togglePusher: (x: number, y: number, side: Direction, registers: number[]) => void;
+  /** Remove any wall, laser and pusher on the given cell edge (right-click erase). */
   eraseEdge: (x: number, y: number, side: Direction) => void;
   resizeBoard: (width: number, height: number) => void;
   /** Stack `source` ABOVE the current draft (the draft keeps its docks). */
@@ -184,7 +197,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     activeTool: 'pit',
     conveyorDir: 'E',
     conveyorExpress: false,
+    conveyorCurve: null,
     gearCw: true,
+    pusherOdd: true,
     validation: validateBoard(initial),
     history: [initial],
     historyIndex: 0,
@@ -192,7 +207,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setTool: (activeTool) => set({ activeTool }),
     setConveyorDir: (conveyorDir) => set({ conveyorDir }),
     setConveyorExpress: (conveyorExpress) => set({ conveyorExpress }),
+    setConveyorCurve: (conveyorCurve) => set({ conveyorCurve }),
     setGearCw: (gearCw) => set({ gearCw }),
+    setPusherOdd: (pusherOdd) => set({ pusherOdd }),
 
     setName: (name) => {
       // Renaming shouldn't spam undo history: mutate in place + revalidate.
@@ -205,7 +222,7 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
 
     paintTile: (x, y) => {
-      const { activeTool, conveyorDir, conveyorExpress, gearCw, board } = get();
+      const { activeTool, conveyorDir, conveyorExpress, conveyorCurve, gearCw, board } = get();
       if (activeTool === 'eraser') {
         get().eraseTile(x, y);
         return;
@@ -219,7 +236,11 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           tile = { kind: 'pit' };
           break;
         case 'conveyor':
-          tile = { kind: 'conveyor', dir: conveyorDir, express: conveyorExpress };
+          // Straight belts stay `curve`-less so painted tiles deep-equal the
+          // built-in boards' (paintTile dedupes via JSON compare).
+          tile = conveyorCurve
+            ? { kind: 'conveyor', dir: conveyorDir, express: conveyorExpress, curve: conveyorCurve }
+            : { kind: 'conveyor', dir: conveyorDir, express: conveyorExpress };
           break;
         case 'gear':
           tile = { kind: 'gear', cw: gearCw };
@@ -229,6 +250,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           break;
         case 'spawn':
           tile = { kind: 'spawn', n: nextFreeNumber(board, 'spawn') };
+          break;
+        case 'wrench':
+          tile = { kind: 'wrench' };
           break;
         default:
           return; // wall/laser place via edges
@@ -271,6 +295,21 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         else draft.lasers.push({ pos: { x, y }, facing, strength: 1 });
       }),
 
+    togglePusher: (x, y, side, registers) =>
+      update((draft) => {
+        // The pusher mounts on `side` and shoves across the cell, away from it.
+        const facing = opposite(side);
+        const pushers = (draft.pushers ??= []);
+        const i = pushers.findIndex((p) => p.pos.x === x && p.pos.y === y && p.facing === facing);
+        if (i >= 0 && JSON.stringify(pushers[i].registers) === JSON.stringify(registers)) {
+          pushers.splice(i, 1); // same mount, same variant: remove
+        } else if (i >= 0) {
+          pushers[i] = { pos: { x, y }, facing, registers: [...registers] }; // re-variant
+        } else {
+          pushers.push({ pos: { x, y }, facing, registers: [...registers] });
+        }
+      }),
+
     eraseEdge: (x, y, side) =>
       update((draft) => {
         let changed = false;
@@ -284,6 +323,13 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         );
         if (li >= 0) {
           draft.lasers.splice(li, 1);
+          changed = true;
+        }
+        const pi = (draft.pushers ?? []).findIndex(
+          (p) => p.pos.x === x && p.pos.y === y && p.facing === facing,
+        );
+        if (pi >= 0) {
+          draft.pushers!.splice(pi, 1);
           changed = true;
         }
         return changed;
@@ -308,6 +354,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         lasers: board.lasers
           .filter((l) => l.pos.x < w && l.pos.y < h)
           .map((l) => ({ ...l, pos: { ...l.pos } })),
+        pushers: (board.pushers ?? [])
+          .filter((p) => p.pos.x < w && p.pos.y < h)
+          .map((p) => ({ ...p, pos: { ...p.pos }, registers: [...p.registers] })),
       };
       commit(next);
     },

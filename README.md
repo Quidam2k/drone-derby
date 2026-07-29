@@ -46,19 +46,35 @@ Other commands: `npm test` (Vitest), `npm run typecheck`,
 - **New players**: the in-app rules live at `#/rules` (linked from the
   lobby, the join screen, and hot-seat setup) — point first-timers there.
 
-## The 3D board (experimental)
+## The 3D board (the default since Phase 3D-7)
 
-Add `?render=3d` to the URL — e.g. `.../?render=3d#/hotseat` — and the
-player-facing board renders in WebGL instead of DOM. Off by default; the
-DOM board is still the real one, and the editor and thumbnails stay DOM
-whatever the flag says.
+The player-facing board renders in WebGL: the programming screen, the
+replay, the highlight reel, online and hot-seat alike. **3D / 2D** in the
+board's top-left corner switches renderer at any time — mid-turn, mid-replay,
+without losing where you are — and the choice is remembered across turns and
+reloads. The DOM board is the fallback, not a museum piece: it is what a
+machine without WebGL2 gets, what a failed scene falls back to, and what
+anyone on an old phone can choose.
+
+- `?render=dom` forces the flat board for one session (e.g.
+  `.../?render=dom#/hotseat`) and always wins, whatever is stored.
+  `?render=3d` forces the other way, but **cannot** overrule a machine that
+  has no WebGL2.
+- **No WebGL2** → the flat board, with the 3D button disabled and a reason
+  on hover. Nothing is silently blank.
+- **If the 3D scene fails to start** (a bad chunk, a dead driver) the board
+  swaps itself to the flat one on the spot and files a telemetry entry. That
+  downgrade lasts the page load only — a reload puts you back in 3D, because
+  your stored choice was never overwritten.
+- The **editor and the board thumbnails are always DOM**, whatever the
+  toggle says. They are not affected by any of this.
 
 The 3D board's tiles are modelled — an industrial factory floor, from
 `public/models/tiles.glb` (rebuild with `npm run art:tiles`, which needs
-Blender). It deliberately does **not** match the DOM board's flat palette,
-so the setup-screen thumbnails and the editor will look like a different
-game to the one you play. That is expected. If the `.glb` is missing the
-board falls back to the old procedural primitives and logs one warning.
+Blender). It deliberately does **not** match the flat board's palette, so
+the setup-screen thumbnails and the editor look like a different game to the
+one you play. That is expected. If the `.glb` is missing the board falls back
+to the old procedural primitives and logs one warning.
 
 Camera, on both the programming screen and the replay:
 
@@ -69,10 +85,12 @@ Camera, on both the programming screen and the replay:
 | right-drag / two fingers | pan — this parks the camera (*Free*) |
 | double-click / double-tap | back to the default view and auto-follow |
 
-The overlay in the board's corner picks who the camera follows: **Action**
-(whatever is happening — the default), **My robot** (locks onto your
-robot's area; disabled in a pass-and-play replay, which has no single
-local player), **Free**. **↺** resets the view.
+The overlay in the board's **top-right** corner picks who the camera
+follows: **Action** (whatever is happening — the default), **My robot**
+(locks onto your robot's area; disabled in a pass-and-play replay, which has
+no single local player), **Free**. **↺** resets the view — the camera only;
+it never changes your renderer choice. The renderer toggle keeps the
+opposite corner, so the two never collide.
 
 Your angle, tilt and zoom are remembered across turns and reloads, so ↺
 **Watch again** in the replay controls re-runs the turn from wherever you
@@ -129,12 +147,23 @@ Paste-ready invite message:
       change and rests at the final pose
 - [ ] Turn replay: animations match outcomes; auto-plays for the player
       who was waiting
+- [ ] **Renderer, both ways**: a fresh browser lands on the 3D board with
+      no URL flag; **2D** in the board's top-left corner swaps to the flat
+      board mid-turn without losing the turn; the choice survives a reload;
+      `?render=dom` forces flat against a stored 3D choice
+- [ ] **Both renderers reach everything**: programming, ghost preview,
+      replay, ★ Highlights, online catch-up and Turn history all work with
+      the toggle set either way
+- [ ] ★ Highlights: the replay controls offer it on an eventful turn (and
+      hide it on a dull one); beats play back to back with a counter, ✕
+      returns to the replay where you left it
 - [ ] Visual polish: belts scroll in their travel direction (express
       visibly faster), each seat's robot has a distinct silhouette +
       bright nose light, lasers glow/pulse, damaged robots flash
       (all animation respects OS reduced-motion settings)
 - [ ] Editor (`#/editor`): paint tiles/walls, validation, save online,
-      import/export JSON
+      import/export JSON — always the flat board, never a canvas, whatever
+      the renderer toggle is set to
 - [ ] Editor append: ⬆ Append stacks a picked board ABOVE the draft
       (draft keeps its spawn docks, checkpoints renumber from the
       bottom up, one undo step; >24 tall is refused with an alert)
@@ -151,14 +180,24 @@ Paste-ready invite message:
 - [ ] **Proving Grounds** — moves, rotation, chain pushing, edge walls
       blocking movement, checkpoints in order, win on last checkpoint
 - [ ] **Spin Cycle** — belts and express belts (express pulses twice),
-      gears rotating, pits killing, respawn at last checkpoint
+      gears rotating, pits killing, respawn at last checkpoint; the ring's
+      corners are curved belts — a rider carried around one turns with the
+      loop ("The bend swings X around"), so a lap keeps you aimed along it
 - [ ] **The Gauntlet** — corridor lasers dealing damage per register-end,
       damage locking registers at 5+, route trade-offs (safe lane vs
       gauntlet vs belts) actually feel like choices
+- [ ] **Pushers (The Gauntlet / Grand Circuit)** — the numbered wall
+      plates: park a robot in front of one and it's shoved a space on
+      exactly the registers printed on it (1/3/5 amber, 2/4 steel) —
+      "Pusher shoves X" caption, thud, bump ring; shoves chain-push,
+      are wall-blocked, and can dump you in a pit; the Gauntlet's
+      corridor pair forces the lane switch on a clock, and the Grand
+      Circuit baffles bounce dock campers south
 - [ ] **Vortex Arena** — express whirlpool carries 2 cells/register;
       Move 2 shoots through a core gear gate, but STOPPING on one spins
       you every register (u-turn is the escape); core pits punish
-      sloppy hops; does riding vs walking feel like a real choice?
+      sloppy hops; does riding vs walking feel like a real choice? The
+      whirlpool's corners are curves too — riders swing around with it
 - [ ] **Pit Archipelago** — islands split by 1-wide pit channels; the
       floor causeways are free but demand exact programs (one wrong
       column is a life, and loitering on a shore invites a shove into
@@ -170,7 +209,21 @@ Paste-ready invite message:
       board (12×17, the composed one): launch from the south docks
       through the baffle walls, then the whole Spin Cycle race above;
       Spin Cycle's old spawn row is plain floor
+- [ ] Repair (any board): end a damaged robot's turn on a wrench tile or
+      a checkpoint flag → 1 damage comes off (replay caption + a pip
+      drops); at 5+ damage, repairing back below the threshold unlocks
+      the register and next turn's hand is one card bigger
 - [ ] Lives: 3 lives, death → respawn, last life → eliminated
+- [ ] Respawn facing: die (pit/edge/10 damage), and while programming the
+      next turn a "Back in play — face:" arrow row appears — toggling it
+      turns your robot live on the board; submit and the replay opens
+      with the robot swinging to your pick before register 1
+- [ ] Power-down: hit "⏻ Power down next turn" in the programming footer →
+      the replay ends with "powers down — all systems off"; next turn your
+      seat gets a one-tap Stay/Wake screen, all damage clears at the turn
+      start (repair caption + pips to 0), and the robot sits dimmed while
+      belts still carry it and lasers still hit it (that damage sticks);
+      wake and the following hand is 9 − damage cards
 - [ ] Win: first to tag all checkpoints in order ends the game
 
 ### When something breaks
@@ -190,7 +243,9 @@ Paste-ready invite message:
 
 - `src/engine/` — pure deterministic engine (no DOM/IO/randomness; seeded
   RNG only). Shared verbatim by client and Convex.
-- `src/components/` — React UI (board rendering is DOM/CSS grid, no canvas)
+- `src/components/` — React UI. The player-facing board is WebGL by default
+  (`board3d/`, chosen in `board/BoardView.tsx`); the DOM/CSS-grid board
+  (`board/Board.tsx`) is its fallback and the editor's only renderer.
 - `src/services/` — client plumbing (Convex client, routing, push, telemetry)
 - `convex/` — backend functions + schema
 - `docs/game_mechanics_md.md` — rules source of truth

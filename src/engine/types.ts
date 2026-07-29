@@ -18,7 +18,7 @@ export type CardType =
   | 'uTurn';
 
 export interface Card {
-  /** Unique within one player's deck, e.g. "move1-490". */
+  /** Globally unique — one shared deck, e.g. "move1-490". */
   id: string;
   type: CardType;
   priority: number;
@@ -37,10 +37,22 @@ export type Program = (Card | null)[];
 export type TileDef =
   | { kind: 'floor' }
   | { kind: 'pit' }
-  | { kind: 'conveyor'; dir: Direction; express: boolean }
+  | {
+      kind: 'conveyor';
+      /** EXIT direction — where a rider is carried next pulse. */
+      dir: Direction;
+      express: boolean;
+      /**
+       * Curved belt section. A robot CARRIED onto this tile by a belt (never
+       * walked, pushed, or respawned) rotates 90° in the curve's direction.
+       * The entry travel direction is derived: rotate(dir, cw ? -1 : +1).
+       */
+      curve?: 'cw' | 'ccw';
+    }
   | { kind: 'gear'; cw: boolean }
   | { kind: 'checkpoint'; n: number }
-  | { kind: 'spawn'; n: number };
+  | { kind: 'spawn'; n: number }
+  | { kind: 'wrench' };
 
 /**
  * A wall sits on one edge of a cell and blocks crossing in both directions:
@@ -63,6 +75,18 @@ export interface LaserDef {
   strength: number;
 }
 
+/**
+ * Wall-mounted pusher piston. Mounted on the `opposite(facing)` edge of its
+ * cell; on the registers listed in `registers` (1-based) it shoves the robot
+ * in its cell one space in `facing`, with normal chain-push / wall-block /
+ * pit-fall rules. Classic variants are registers [1,3,5] and [2,4].
+ */
+export interface PusherDef {
+  pos: Position;
+  facing: Direction;
+  registers: number[];
+}
+
 export interface BoardDef {
   name: string;
   width: number;
@@ -71,6 +95,8 @@ export interface BoardDef {
   tiles: TileDef[][];
   walls: WallDef[];
   lasers: LaserDef[];
+  /** Optional so stored boards/states predating pushers stay valid (absent = none). */
+  pushers?: PusherDef[];
 }
 
 export interface RobotState {
@@ -93,11 +119,29 @@ export interface RobotState {
   lockedRegisters: (Card | null)[];
   /** Fell/was destroyed this turn; respawns at end of turn if lives remain. */
   destroyed: boolean;
+  /**
+   * Set when the robot re-entered play at the end of the previous turn
+   * (facing N). Gates the one-shot facing choice applied at the start of
+   * the next executeTurn, and tells the programming UI to show the facing
+   * picker. Cleared by the next executeTurn regardless of any choice.
+   * Optional so stored states and old fixtures stay valid (absent = false).
+   */
+  justRespawned?: boolean;
+  /**
+   * Powered down for the CURRENT turn (1994 rule, announced while
+   * programming the PREVIOUS turn). All damage is removed at the start of
+   * the turn, the robot needs no program, executes no registers and fires
+   * no laser — but belts, gears, pushes and lasers still affect it. Set at
+   * end of turn from TurnChoices.powerDown; cleared when the player wakes
+   * it (or by destruction). Optional so stored states stay valid.
+   */
+  poweredDown?: boolean;
   /** Out of lives. Permanent. */
   eliminated: boolean;
 }
 
-export interface PlayerDeck {
+/** The single shared 84-card deck all players draw from (board-game rule). */
+export interface Deck {
   drawPile: Card[];
   discardPile: Card[];
 }
@@ -106,7 +150,7 @@ export interface GameState {
   board: BoardDef;
   /** Seat order; fixed for the whole game. */
   robots: RobotState[];
-  decks: Record<PlayerId, PlayerDeck>;
+  deck: Deck;
   hands: Record<PlayerId, Card[]>;
   /** 1-based number of the turn currently being programmed/executed. */
   turn: number;

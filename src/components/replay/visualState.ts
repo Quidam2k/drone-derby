@@ -17,6 +17,8 @@ export interface RobotVisual {
   checkpoints: number;
   /** False while destroyed (fell/exploded) or eliminated — not drawn. */
   visible: boolean;
+  /** Drawn dimmed — all systems off for the current turn. */
+  poweredDown?: boolean;
   eliminated: boolean;
 }
 
@@ -39,6 +41,7 @@ export function initialVisual(state: GameState): VisualState {
       lives: r.lives,
       checkpoints: r.checkpoints,
       visible: !r.destroyed && !r.eliminated,
+      poweredDown: r.poweredDown === true,
       eliminated: r.eliminated,
     })),
     register: 0,
@@ -71,8 +74,10 @@ export function applyEvent(v: VisualState, e: EngineEvent): VisualState {
       return updateRobot(v, e.player, { pos: { ...e.to } });
     case 'robot-rotated':
     case 'gear-rotated':
+    case 'conveyor-rotated':
       return updateRobot(v, e.player, { facing: e.to });
     case 'damage':
+    case 'repair':
       return updateRobot(v, e.player, { damage: e.total });
     case 'robot-fell':
     case 'robot-destroyed':
@@ -82,13 +87,19 @@ export function applyEvent(v: VisualState, e: EngineEvent): VisualState {
     case 'player-eliminated':
       return updateRobot(v, e.player, { eliminated: true, visible: false });
     case 'robot-respawned':
-      // The engine resets damage on respawn without a damage event.
+      // The engine resets damage on respawn without a damage event, and
+      // destruction ends a power-down without a powered-up event.
       return updateRobot(v, e.player, {
         pos: { ...e.pos },
         facing: e.facing,
         damage: RESPAWN_DAMAGE,
         visible: true,
+        poweredDown: false,
       });
+    case 'robot-powered-down':
+      return updateRobot(v, e.player, { poweredDown: true });
+    case 'robot-powered-up':
+      return updateRobot(v, e.player, { poweredDown: false });
     case 'checkpoint-claimed':
       return updateRobot(v, e.player, { checkpoints: e.checkpoint });
     case 'game-won':
@@ -97,8 +108,10 @@ export function applyEvent(v: VisualState, e: EngineEvent): VisualState {
     case 'turn-ended':
     case 'card-revealed':
     case 'robot-blocked':
+    case 'pusher-fired':
     case 'laser-fired':
     case 'register-locked':
+    case 'register-unlocked':
       return v;
   }
 }

@@ -1,10 +1,10 @@
-import type { Card, CardType, GameState, PlayerDeck, PlayerId } from './types';
+import type { Card, CardType, Deck, GameState, PlayerId } from './types';
 import type { Rng } from './rng';
 import { shuffle } from './rng';
 
 /**
- * 84-card deck per player, classic priority ladder (all priorities unique
- * within a deck). Matches docs/game_mechanics_md.md composition:
+ * The 84-card deck shared by all players (board-game rule), classic priority
+ * ladder (all priorities unique). Matches docs/game_mechanics_md.md:
  *   U-Turn        6 × (10..60   step 10)
  *   Turn Left    18 × (70..410  step 20)
  *   Turn Right   18 × (80..420  step 20)
@@ -23,7 +23,7 @@ const DECK_SPEC: { type: CardType; count: number; start: number; step: number }[
   { type: 'move3', count: 6, start: 790, step: 10 },
 ];
 
-/** Build one player's full 84-card deck in deterministic (unshuffled) order. */
+/** Build the full 84-card deck in deterministic (unshuffled) order. */
 export function buildDeck(): Card[] {
   const cards: Card[] = [];
   for (const spec of DECK_SPEC) {
@@ -51,7 +51,7 @@ export function handSize(damage: number): number {
 }
 
 /** Draw n cards, reshuffling the discard pile into the draw pile if needed. */
-export function drawCards(deck: PlayerDeck, n: number, rng: Rng): Card[] {
+export function drawCards(deck: Deck, n: number, rng: Rng): Card[] {
   const drawn: Card[] = [];
   while (drawn.length < n) {
     if (deck.drawPile.length === 0) {
@@ -65,25 +65,30 @@ export function drawCards(deck: PlayerDeck, n: number, rng: Rng): Card[] {
 }
 
 /**
- * Deal every operating player a fresh hand of 9 − damage cards (locked
- * registers keep their cards outside the deck, so a damaged player needs
- * fewer). Mutates `state` — callers own cloning (executeTurn/createGame do).
+ * Deal every operating player a fresh hand of 9 − damage cards from the
+ * shared deck, in seat order (locked registers keep their cards outside the
+ * deck, so a damaged player needs fewer). With ≤9 players the deal can never
+ * run dry (9 × 9 ≤ 84); drawCards' empty-pile break stays as a guard.
+ * Mutates `state` — callers own cloning (executeTurn/createGame do).
  */
 export function dealHands(state: GameState, rng: Rng): void {
   for (const robot of state.robots) {
     if (robot.eliminated) continue;
-    state.hands[robot.player] = drawCards(
-      state.decks[robot.player],
-      handSize(robot.damage),
-      rng,
-    );
+    // Powered down next turn: holds no cards while its systems are off. A
+    // waking robot deals normally at 9 − current damage (damage taken WHILE
+    // down sticks — only the start-of-down-turn clear removes it).
+    if (robot.poweredDown) {
+      state.hands[robot.player] = [];
+      continue;
+    }
+    state.hands[robot.player] = drawCards(state.deck, handSize(robot.damage), rng);
   }
 }
 
 export function discardHand(state: GameState, player: PlayerId): void {
   const hand = state.hands[player];
   if (hand && hand.length > 0) {
-    state.decks[player].discardPile.push(...hand);
+    state.deck.discardPile.push(...hand);
   }
   state.hands[player] = [];
 }

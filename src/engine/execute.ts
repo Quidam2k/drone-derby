@@ -21,6 +21,21 @@ export interface TurnResult {
   events: EventLog;
 }
 
+/**
+ * Optional per-player choices riding the turn's program submissions.
+ * Each is gated by a RobotState flag, so stale or bogus entries are inert.
+ */
+export interface TurnChoices {
+  /** Re-entry facing for just-respawned robots (Phase 32); applied at turn start. */
+  respawnFacing?: Record<PlayerId, Direction>;
+  /**
+   * Players announcing a power-down (robot is down NEXT turn) or — if their
+   * robot is already down — staying down another turn. A robot down this
+   * turn whose player is NOT named wakes at end of turn.
+   */
+  powerDown?: PlayerId[];
+}
+
 interface Ctx {
   s: GameState;
   events: EngineEvent[];
@@ -40,7 +55,8 @@ interface Ctx {
  *     starting from state.startPlayerIndex (rotates each turn)
  *  b. execute each card; moves resolve step-by-step with wall blocking and
  *     chain pushing; pits/edges kill the moment a robot enters/exits
- *  c. express conveyors pulse, then all conveyors pulse, then gears rotate
+ *  c. express conveyors pulse, then all conveyors pulse, then pushers fire
+ *     (on their listed registers), then gears rotate
  *  d. board lasers fire, then all robot lasers fire (simultaneously)
  *  e. checkpoints: touching any updates the archive; claiming must be in order
  *  f. win check: all checkpoints claimed, or last robot standing
@@ -49,6 +65,7 @@ export function executeTurn(
   state: GameState,
   programs: Record<PlayerId, Program>,
   seed: number,
+  choices?: TurnChoices,
 ): TurnResult {
   if (isGameOver(state)) throw new Error('executeTurn: game is already over');
 
@@ -62,6 +79,8 @@ export function executeTurn(
 
   prepareTurn(ctx, programs);
   emit(ctx, { type: 'turn-started', turn: s.turn });
+  applyRespawnFacing(ctx, choices?.respawnFacing);
+  powerDownRepair(ctx);
 
   for (let register = 1; register <= 5; register++) {
     emit(ctx, { type: 'register-started', register });
@@ -83,6 +102,7 @@ export function executeTurn(
     // (c) board elements
     conveyorPulse(ctx, true);
     conveyorPulse(ctx, false);
+    firePushers(ctx, register);
     rotateGears(ctx);
     if (gameEnded(ctx)) break;
 
@@ -98,8 +118,19 @@ export function executeTurn(
 
   // Card cleanup runs even when the game ended mid-register: the 84-card
   // invariant has to hold for the final state too. Only the next turn's
-  // respawn/deal is gated on the game continuing.
-  if (!gameEnded(ctx)) respawnRobots(ctx);
+  // respawn/deal is gated on the game continuing. Repair runs before respawn
+  // (a robot respawning onto a wrench doesn't heal the turn it died) and
+  // before cleanUpCards, so cards freed by an unlock flow back to the shared
+  // discard pile this same turn.
+  if (!gameEnded(ctx)) {
+    repairRobots(ctx);
+    // Before respawnRobots: a robot destroyed this turn can be neither kept
+    // down nor newly powered down — destruction ends a power-down (killRobot
+    // cleared the flag) and voids an announcement (the player may re-announce
+    // while programming the next turn).
+    applyPowerDownChoices(ctx, choices?.powerDown);
+    respawnRobots(ctx);
+  }
   cleanUpCards(ctx);
   if (!gameEnded(ctx)) {
     s.turn += 1;
@@ -142,6 +173,10 @@ function prepareTurn(ctx: Ctx, programs: Record<PlayerId, Program>): void {
   const { s } = ctx;
   for (const robot of s.robots) {
     if (robot.eliminated) continue;
+    // A powered-down robot has no hand and needs no program (any submitted
+    // one-tap placeholder is ignored). No effective entry = idles every
+    // register, which is also what keeps it out of actingOrder.
+    if (robot.poweredDown) continue;
     const program = programs[robot.player];
     if (!program || program.length !== 5) {
       throw new Error(`executeTurn: player ${robot.player} needs a 5-slot program`);
@@ -231,8 +266,10 @@ function moveRobot(ctx: Ctx, idx: number, steps: number, backward: boolean): voi
  * Move one robot one cell in `dir`, chain-pushing any robots in the way.
  * A wall anywhere along the chain blocks the whole chain. Robots pushed
  * over a pit or off the board fall. Returns false only when blocked.
+ * `moverPushed` marks the mover itself as shoved (pusher pistons) so its
+ * robot-moved carries pushed: true; card moves leave it false.
  */
-function tryStep(ctx: Ctx, idx: number, dir: Direction): boolean {
+function tryStep(ctx: Ctx, idx: number, dir: Direction, moverPushed = false): boolean {
   const { s } = ctx;
   const mover = s.robots[idx];
   const chain = [idx];
@@ -260,7 +297,7 @@ function tryStep(ctx: Ctx, idx: number, dir: Direction): boolean {
       continue;
     }
     robot.pos = to;
-    emit(ctx, { type: 'robot-moved', player: robot.player, from, to, pushed: i > 0 });
+    emit(ctx, { type: 'robot-moved', player: robot.player, from, to, pushed: i > 0 || moverPushed });
     if (tileAt(s.board, to).kind === 'pit') {
       killRobot(ctx, chain[i], { type: 'robot-fell', player: robot.player, cause: 'pit', at: to });
     }
@@ -277,6 +314,8 @@ function conveyorPulse(ctx: Ctx, expressOnly: boolean): void {
     idx: number;
     from: Position;
     to: Position;
+    /** Travel direction this pulse — the source belt's exit dir. */
+    dir: Direction;
     express: boolean;
     cancelled: boolean;
   }
@@ -292,6 +331,7 @@ function conveyorPulse(ctx: Ctx, expressOnly: boolean): void {
       idx,
       from: pos,
       to: step(pos, tile.dir),
+      dir: tile.dir,
       express: tile.express,
       cancelled: false,
     });
@@ -345,9 +385,45 @@ function conveyorPulse(ctx: Ctx, expressOnly: boolean): void {
       to: p.to,
       express: p.express,
     });
+    // 1994 curve rule: a robot the BELT carries onto a curved section, in
+    // across the curve's entry edge, rotates with the bend. Walking, pushing
+    // and respawning onto curves never rotate (they don't come through here),
+    // and neither does being conveyed in from a non-entry side.
+    const dest = tileAt(s.board, p.to);
+    if (dest.kind === 'conveyor' && dest.curve) {
+      const cw = dest.curve === 'cw';
+      const entryDir = rotate(dest.dir, cw ? -1 : 1);
+      if (p.dir === entryDir) {
+        const from = robot.facing;
+        robot.facing = rotate(from, cw ? 1 : -1);
+        emit(ctx, { type: 'conveyor-rotated', player: robot.player, cw, from, to: robot.facing });
+      }
+    }
     if (tileAt(s.board, p.to).kind === 'pit') {
       killRobot(ctx, p.idx, { type: 'robot-fell', player: robot.player, cause: 'pit', at: p.to });
     }
+  }
+}
+
+/**
+ * Wall-mounted pushers (1994 rule): each pusher whose printed registers
+ * include the current one shoves the robot in its cell one space in
+ * `facing`, with normal chain pushing, wall blocking and pit/edge falls.
+ * List order — deterministic. Powered-down robots are shoved like anything
+ * else; an empty pusher fires silently (no event without a subject).
+ */
+function firePushers(ctx: Ctx, register: number): void {
+  for (const pusher of ctx.s.board.pushers ?? []) {
+    if (!pusher.registers.includes(register)) continue;
+    const idx = robotIndexAt(ctx, pusher.pos);
+    if (idx === -1) continue;
+    emit(ctx, {
+      type: 'pusher-fired',
+      at: { ...pusher.pos },
+      dir: pusher.facing,
+      player: ctx.s.robots[idx].player,
+    });
+    tryStep(ctx, idx, pusher.facing, true);
   }
 }
 
@@ -415,6 +491,9 @@ function fireRobotLasers(ctx: Ctx): void {
   for (let idx = 0; idx < s.robots.length; idx++) {
     if (!isActive(ctx, idx)) continue;
     const robot = s.robots[idx];
+    // Powered down: all systems off — it doesn't fire, but it still gets hit
+    // (isActive is untouched, so beams and robotIndexAt still find it).
+    if (robot.poweredDown) continue;
     shots.push({ shooter: idx, ...traceBeam(ctx, robot.pos, robot.facing, false) });
   }
   for (const shot of shots) {
@@ -446,7 +525,7 @@ function applyDamage(ctx: Ctx, idx: number, amount: number): void {
 
   // Registers lock from 5 downward as damage crosses 5, 6, 7, 8. A register
   // locks with the card it holds THIS turn, which then repeats every turn
-  // until the lock clears (only via destruction/respawn — no repair in MVP).
+  // until the lock clears — via destruction/respawn, or end-of-turn repair.
   const wasLocked = lockedRegisterCount(before);
   const nowLocked = lockedRegisterCount(robot.damage);
   const effective = ctx.effective.get(robot.player);
@@ -472,6 +551,7 @@ function killRobot(ctx: Ctx, idx: number, causeEvent: EngineEvent): void {
   emit(ctx, causeEvent);
   robot.destroyed = true;
   robot.lockedRegisters = [null, null, null, null, null];
+  delete robot.poweredDown; // destruction ends a power-down
   robot.lives -= 1;
   emit(ctx, { type: 'life-lost', player: robot.player, remaining: robot.lives });
   if (robot.lives <= 0) {
@@ -511,15 +591,129 @@ function touchCheckpoints(ctx: Ctx): void {
   }
 }
 
+/**
+ * End-of-turn repair (1994 rule): a robot ending the turn on a repair site
+ * (wrench) or a flag (checkpoint) discards 1 damage token, and its archive
+ * marker moves there. Runs before respawnRobots — a destroyed robot doesn't
+ * repair the turn it died — and before cleanUpCards, so a register unlocked
+ * by dropping below its lock threshold releases its card into the shared
+ * discard pile this same turn (cleanUpCards discards every effective card
+ * that is no longer locked).
+ */
+function repairRobots(ctx: Ctx): void {
+  const { s } = ctx;
+  for (let idx = 0; idx < s.robots.length; idx++) {
+    if (!isActive(ctx, idx)) continue;
+    const robot = s.robots[idx];
+    const tile = tileAt(s.board, robot.pos);
+    if (tile.kind !== 'wrench' && tile.kind !== 'checkpoint') continue;
+    robot.archive = { ...robot.pos }; // a wrench updates the respawn point too
+    if (robot.damage <= 0) continue;
+    const before = robot.damage;
+    robot.damage -= 1;
+    emit(ctx, { type: 'repair', player: robot.player, amount: 1, total: robot.damage });
+    for (let register = 1; register <= 5; register++) {
+      if (isRegisterLocked(before, register) && !isRegisterLocked(robot.damage, register)) {
+        const card = robot.lockedRegisters[register - 1];
+        robot.lockedRegisters[register - 1] = null;
+        emit(ctx, { type: 'register-unlocked', player: robot.player, register, card });
+      }
+    }
+  }
+}
+
+const DIRECTIONS: readonly Direction[] = ['N', 'E', 'S', 'W'];
+
+/**
+ * 1994 rule: the player of a destroyed robot chooses which way it faces on
+ * re-entry. The choice is made while programming the NEXT turn (it rides the
+ * program submission, so async play never blocks): the robot respawns facing
+ * N at end of turn, and the choice lands here — right after turn-started of
+ * the following turn — as a plain robot-rotated. The justRespawned flag is
+ * the permission gate: choices for players who aren't flagged are ignored,
+ * and the flag clears whether or not a choice arrived (no choice = stays N).
+ */
+function applyRespawnFacing(
+  ctx: Ctx,
+  choices: Record<PlayerId, Direction> | undefined,
+): void {
+  const { s } = ctx;
+  for (let idx = 0; idx < s.robots.length; idx++) {
+    const robot = s.robots[idx];
+    if (!robot.justRespawned) continue;
+    const to = choices?.[robot.player];
+    if (isActive(ctx, idx) && to !== undefined && DIRECTIONS.includes(to) && to !== robot.facing) {
+      const from = robot.facing;
+      robot.facing = to;
+      emit(ctx, { type: 'robot-rotated', player: robot.player, from, to });
+    }
+    delete robot.justRespawned;
+  }
+}
+
+/**
+ * Start-of-turn recovery for powered-down robots (1994 rule): ALL damage is
+ * removed at the start of the turn the robot spends down. Every locked
+ * register releases — its card returns to the shared discard pile directly,
+ * because a powered-down robot has no effective program for cleanUpCards to
+ * sweep. Damage taken later in the turn (it can still be shot) sticks until
+ * the next power-down turn's clear, or normal repair after waking.
+ */
+function powerDownRepair(ctx: Ctx): void {
+  const { s } = ctx;
+  for (const robot of s.robots) {
+    if (!robot.poweredDown || robot.eliminated) continue;
+    if (robot.damage <= 0) continue;
+    const before = robot.damage;
+    robot.damage = 0;
+    emit(ctx, { type: 'repair', player: robot.player, amount: before, total: 0 });
+    for (let register = 1; register <= 5; register++) {
+      if (!isRegisterLocked(before, register)) continue;
+      const card = robot.lockedRegisters[register - 1];
+      robot.lockedRegisters[register - 1] = null;
+      emit(ctx, { type: 'register-unlocked', player: robot.player, register, card });
+      if (card !== null) s.deck.discardPile.push(card);
+    }
+  }
+}
+
+/**
+ * End-of-turn power-down bookkeeping. `names` lists players announcing a
+ * power-down (their robot is down NEXT turn) or staying down; a robot down
+ * this turn whose player is not named wakes. Runs before respawnRobots, so a
+ * robot destroyed this turn is never in either branch: killRobot already
+ * cleared its flag, and an announcement from its player is void (isActive
+ * gate) — the player may re-announce while programming the next turn.
+ */
+function applyPowerDownChoices(ctx: Ctx, names: PlayerId[] | undefined): void {
+  const { s } = ctx;
+  const chosen = new Set(names ?? []);
+  for (let idx = 0; idx < s.robots.length; idx++) {
+    const robot = s.robots[idx];
+    if (!isActive(ctx, idx)) continue;
+    if (robot.poweredDown) {
+      if (!chosen.has(robot.player)) {
+        delete robot.poweredDown;
+        emit(ctx, { type: 'robot-powered-up', player: robot.player });
+      }
+      // Named: staying down another turn — keep the flag, no event.
+    } else if (chosen.has(robot.player)) {
+      robot.poweredDown = true;
+      emit(ctx, { type: 'robot-powered-down', player: robot.player });
+    }
+  }
+}
+
 function respawnRobots(ctx: Ctx): void {
   const { s } = ctx;
   for (let idx = 0; idx < s.robots.length; idx++) {
     const robot = s.robots[idx];
     if (!robot.destroyed || robot.eliminated) continue;
     robot.pos = respawnSpot(ctx, robot.archive);
-    robot.facing = 'N'; // deterministic facing for MVP (no chooser yet)
+    robot.facing = 'N'; // player's facing choice arrives with next turn's program
     robot.damage = RESPAWN_DAMAGE;
     robot.destroyed = false;
+    robot.justRespawned = true;
     emit(ctx, {
       type: 'robot-respawned',
       player: robot.player,
@@ -555,13 +749,14 @@ function respawnSpot(ctx: Ctx, archive: Position): Position {
 
 /**
  * Discard leftover hands and every card played this turn that did not end
- * the turn held by a locked register. Cards that came in locked and are
- * still locked stay on their registers (they are not part of the deck).
+ * the turn held by a locked register, all into the shared discard pile.
+ * Cards that came in locked and are still locked stay on their registers
+ * (they are not part of the deck). Death clears lockedRegisters (killRobot),
+ * so an eliminated player's cards flow back to the shared pool here.
  */
 function cleanUpCards(ctx: Ctx): void {
   const { s } = ctx;
   for (const robot of s.robots) {
-    if (!(robot.player in s.decks)) continue;
     discardHand(s, robot.player);
     const effective = ctx.effective.get(robot.player);
     if (!effective) continue;
@@ -570,7 +765,7 @@ function cleanUpCards(ctx: Ctx): void {
     );
     for (const card of effective) {
       if (card !== null && !stillLocked.has(card.id)) {
-        s.decks[robot.player].discardPile.push(card);
+        s.deck.discardPile.push(card);
       }
     }
   }

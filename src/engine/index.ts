@@ -11,6 +11,7 @@ export {
   isGameOver,
   RESPAWN_DAMAGE,
   ROBOT_LASER_STRENGTH,
+  type TurnChoices,
   type TurnResult,
 } from './execute';
 export {

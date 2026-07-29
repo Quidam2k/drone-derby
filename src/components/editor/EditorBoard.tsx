@@ -15,10 +15,11 @@ const EDGES: Direction[] = ['N', 'E', 'S', 'W'];
 export function EditorBoard() {
   const board = useEditorStore((s) => s.board);
   const activeTool = useEditorStore((s) => s.activeTool);
-  const { paintTile, eraseTile, toggleWall, toggleLaser, eraseEdge, beginStroke, endStroke } =
+  const pusherOdd = useEditorStore((s) => s.pusherOdd);
+  const { paintTile, eraseTile, toggleWall, toggleLaser, togglePusher, eraseEdge, beginStroke, endStroke } =
     useEditorStore.getState();
 
-  const edgeMode = activeTool === 'wall' || activeTool === 'laser';
+  const edgeMode = activeTool === 'wall' || activeTool === 'laser' || activeTool === 'pusher';
   const layerRef = useRef<HTMLDivElement>(null);
   const strokeActiveRef = useRef(false);
   const lastPaintedRef = useRef<string | null>(null);
@@ -160,6 +161,8 @@ export function EditorBoard() {
                         e.stopPropagation();
                         if (e.button !== 0) return;
                         if (activeTool === 'wall') toggleWall(x, y, side);
+                        else if (activeTool === 'pusher')
+                          togglePusher(x, y, side, pusherOdd ? [1, 3, 5] : [2, 4]);
                         else toggleLaser(x, y, side);
                       }}
                       onContextMenu={(e) => {

@@ -329,6 +329,22 @@ export class EffectField {
     }
   }
 
+  /**
+   * End-of-turn repair: a ring in the checkpoint green CONTRACTING onto the
+   * chassis. Expansion is this pool's language for impacts and arrivals;
+   * drawing inward is what reads as mending rather than another hit.
+   */
+  repair(at: THREE.Vector3): void {
+    this.start(this.take(this.rings), {
+      at: new THREE.Vector3(at.x, 0.08, at.z),
+      life: 0.4,
+      r0: 0.95,
+      r1: 0.3,
+      color: COLOR.checkpoint,
+      peak: 0.85,
+    });
+  }
+
   /** Respawn touchdown: a ring of dust kicked out from under the chassis. */
   land(at: THREE.Vector3): void {
     this.start(this.take(this.rings), {

@@ -60,6 +60,19 @@ describe('previewProgram', () => {
     expect(previewProgram(state, 'A', prog())).toEqual([]);
   });
 
+  it('a powered-down robot previews nothing — even with locked-register cards', () => {
+    const locked = card('move1', 520);
+    const state = makeState(emptyBoard('t', 8, 8), [
+      robot('A', 2, 6, 'N', {
+        poweredDown: true,
+        damage: 5,
+        lockedRegisters: [null, null, null, null, locked],
+      }),
+    ]);
+    giveHand(state, 'A', []);
+    expect(previewProgram(state, 'A', prog())).toEqual([]);
+  });
+
   it('counts locked registers as filled, past empty slots', () => {
     // Damage 5 locks register 5, which holds a known card that auto-plays.
     const locked = card('move1', 520);
@@ -94,11 +107,11 @@ describe('previewProgram', () => {
     expect(eventsOf(events, 'robot-respawned')).toHaveLength(0);
   });
 
-  it('works on a redacted online state (no decks, only own hand)', () => {
+  it('works on a redacted online state (emptied deck, only own hand)', () => {
     const state = makeState(emptyBoard('t', 8, 8), [robot('A', 2, 5, 'N'), robot('B', 5, 5, 'S')]);
     const program = prog(card('move1', 500));
     giveHand(state, 'A', program);
-    state.decks = {}; // what convex/games.ts sends to clients
+    state.deck = { drawPile: [], discardPile: [] }; // what convex/games.ts sends to clients
     delete state.hands['B'];
 
     const events = previewProgram(state, 'A', program);
@@ -106,6 +119,29 @@ describe('previewProgram', () => {
     const moves = eventsOf(events, 'robot-moved');
     expect(moves).toHaveLength(1);
     expect(moves[0].to).toEqual({ x: 2, y: 4 });
+  });
+
+  it('aims a just-respawned ghost with the chosen facing before register 1', () => {
+    const state = makeState(emptyBoard('t', 8, 8), [
+      robot('A', 2, 5, 'N', { justRespawned: true }),
+    ]);
+    const program = prog(card('move1', 500));
+    giveHand(state, 'A', program);
+
+    const events = previewProgram(state, 'A', program, 'E');
+
+    // The facing choice lands as a robot-rotated before register 1 opens.
+    const types = events.map((e) => e.type);
+    expect(types.indexOf('robot-rotated')).toBeGreaterThan(-1);
+    expect(types.indexOf('robot-rotated')).toBeLessThan(types.indexOf('register-started'));
+    const moves = eventsOf(events, 'robot-moved');
+    expect(moves).toHaveLength(1);
+    expect(moves[0].to).toEqual({ x: 3, y: 5 }); // moved E, not N
+
+    // Without a choice the ghost keeps facing N.
+    const plain = previewProgram(state, 'A', program);
+    expect(eventsOf(plain, 'robot-rotated')).toHaveLength(0);
+    expect(eventsOf(plain, 'robot-moved')[0].to).toEqual({ x: 2, y: 4 });
   });
 
   it('shows belt (express first) then gear ordering within a register', () => {
