@@ -1,33 +1,31 @@
 # Session State
-Updated: 2026-07-28 ~20:30 (Phase 34 pushers DONE)
+Updated: 2026-07-28 ~21:00 (commit + deploy DONE)
 
 ## Current Task
-Phase 34 — pushers: **implemented and green** (392 tests + both
-typechecks, Playwright-verified 2D/3D/editor/fallback). Rules parity is
-COMPLETE. Next action is plan mode for the **commit/deploy phase**
-(uncommitted 3D-5→34 backlog).
+Commit/deploy phase COMPLETE: the 3D-5→34 backlog is on prod. Commit
+`b9b374c` (82 files, one comprehensive commit — Todd's call) +
+`npm run deploy` (Convex prod + Cloudflare Pages) + Playwright prod
+smoke all green. **The fun-playtest gate is now open — the ball is in
+Todd's court.**
 
 ## Just Completed
-- `BoardDef.pushers` (optional, mirrors lasers); `firePushers` between
-  belts and gears; `pusher-fired` event; tryStep `moverPushed`;
-  validate errors + no-backing-wall warning; compose offsets; Gauntlet
-  (3) + dockyard (2) placements; DOM PusherSprite + bump-flash; 3D kit
-  pieces pusher_housing/pusher_plate (tiles.glb regenerated, CPU) with
-  primitive fallbacks; editor tool 1/3/5 ↔ 2/4; rules screen; mechanics
-  doc/README/CLAUDE.md updated; cascade Phase 34 entry + ⚠️ NEXT.
-- notes/2026-07-28-session-34.md → Pantheon copy.
+- Pre-flight (typecheck, convex tsc, 392 tests, build) → commit
+  `b9b374c` → deploy → prod smoke: pusher thumbs/legend, hot-seat 3D
+  board + 2D toggle, no console errors, telemetry clean.
+- Cascade "Committed + deployed" entry; session note
+  notes/2026-07-28-session-commit-deploy.md → Pantheon copy.
 
 ## Next Steps
-1. Plan mode: commit series for 3D-5/6/7 + 29c + 30–34 (logical
-   per-phase commits, typecheck+tests before each landing point), then
-   `npm run deploy`.
-2. Fun-playtest gate stays Todd's: play on prod, then mine
-   `npx convex run telemetry:recent --prod`.
+1. Todd plays on prod (https://drone-derby.pages.dev); then a
+   telemetry-mining phase: `npx convex run telemetry:recent --prod` +
+   verdict → rules/pacing tweaks (Gauntlet re-tune candidate).
+2. Follow-up (small): RulesScreen "Lives & respawn" still says respawn
+   "facing north" — stale pre-Phase-32 copy; fix on next rules-copy pass.
 
 ## Open Questions / Blockers
-- Everything from 3D-5 through Phase 34 is uncommitted on master.
+- Waiting on Todd's playtest; auth creds (Resend/Google) still pending.
 
 ## Key Files
-cascades/2026-07-05-v2-rewrite.md (Phase 34 entry + NEXT),
-notes/2026-07-28-session-34.md, src/engine/execute.ts,
-src/engine/boards.ts, scripts/blender/tiles.py
+cascades/2026-07-05-v2-rewrite.md (Phase 34 ⚠️ NEXT + deploy entry),
+notes/2026-07-28-session-commit-deploy.md,
+src/components/rules/RulesScreen.tsx (stale respawn copy)
