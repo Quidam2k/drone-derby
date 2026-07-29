@@ -4,7 +4,7 @@
 // from one number.
 
 import { create } from 'zustand';
-import type { BoardDef, EventLog, GameState, PlayerId, Program } from '../engine';
+import type { BoardDef, Direction, EventLog, GameState, PlayerId, Program } from '../engine';
 import { createGame, executeTurn, isGameOver, provingGrounds } from '../engine';
 
 export type Screen = 'setup' | 'handoff' | 'programming' | 'replay' | 'gameover';
@@ -25,13 +25,22 @@ interface GameStore {
   currentSeat: number;
   pendingPrograms: Record<PlayerId, Program>;
   pendingTaunts: Record<PlayerId, string>;
+  /** Respawn facing choices from just-respawned seats, applied at turn start. */
+  pendingFacings: Record<PlayerId, Direction>;
+  /** Players announcing a power-down (or staying down), applied at turn end. */
+  pendingPowerDown: PlayerId[];
   lastTurn: LastTurn | null;
 
   /** Start a hot-seat game; `board` overrides the default (editor test-drives). */
   startGame: (playerNames: string[], board?: BoardDef) => void;
   /** Handoff screen's Ready button: reveal the current seat's hand. */
   beginProgramming: () => void;
-  submitProgram: (program: Program, taunt?: string) => void;
+  submitProgram: (
+    program: Program,
+    taunt?: string,
+    respawnFacing?: Direction,
+    powerDown?: boolean,
+  ) => void;
   finishReplay: () => void;
   newGame: () => void;
 }
@@ -50,6 +59,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
   currentSeat: 0,
   pendingPrograms: {},
   pendingTaunts: {},
+  pendingFacings: {},
+  pendingPowerDown: [],
   lastTurn: null,
 
   startGame: (playerNames, board) => {
@@ -61,6 +72,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       currentSeat: 0,
       pendingPrograms: {},
       pendingTaunts: {},
+      pendingFacings: {},
+      pendingPowerDown: [],
       lastTurn: null,
       screen: 'handoff',
     });
@@ -68,12 +81,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
 
   beginProgramming: () => set({ screen: 'programming' }),
 
-  submitProgram: (program, taunt) => {
-    const { game, currentSeat, pendingPrograms, pendingTaunts, initialSeed } = get();
+  submitProgram: (program, taunt, respawnFacing, powerDown) => {
+    const {
+      game,
+      currentSeat,
+      pendingPrograms,
+      pendingTaunts,
+      pendingFacings,
+      pendingPowerDown,
+      initialSeed,
+    } = get();
     if (!game) return;
     const player = game.robots[currentSeat].player;
     const programs = { ...pendingPrograms, [player]: program };
     const taunts = taunt ? { ...pendingTaunts, [player]: taunt } : pendingTaunts;
+    const facings = respawnFacing
+      ? { ...pendingFacings, [player]: respawnFacing }
+      : pendingFacings;
+    const powerDowns = powerDown ? [...pendingPowerDown, player] : pendingPowerDown;
 
     const nextSeat = firstActiveSeat(game, currentSeat + 1);
     if (nextSeat !== -1) {
@@ -81,6 +106,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       set({
         pendingPrograms: programs,
         pendingTaunts: taunts,
+        pendingFacings: facings,
+        pendingPowerDown: powerDowns,
         currentSeat: nextSeat,
         screen: 'handoff',
       });
@@ -88,12 +115,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     // Everyone has submitted — execute the turn.
-    const { state, events } = executeTurn(game, programs, initialSeed + game.turn);
+    const { state, events } = executeTurn(game, programs, initialSeed + game.turn, {
+      respawnFacing: facings,
+      powerDown: powerDowns,
+    });
     set({
       game: state,
       lastTurn: { events, prevState: game, taunts },
       pendingPrograms: {},
       pendingTaunts: {},
+      pendingFacings: {},
+      pendingPowerDown: [],
       screen: 'replay',
     });
   },
@@ -115,6 +147,8 @@ export const useGameStore = create<GameStore>((set, get) => ({
       currentSeat: 0,
       pendingPrograms: {},
       pendingTaunts: {},
+      pendingFacings: {},
+      pendingPowerDown: [],
       lastTurn: null,
     }),
 }));

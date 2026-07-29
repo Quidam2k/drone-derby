@@ -37,15 +37,27 @@ export const EVENT_SOUND = {
   'robot-blocked': 'thud',
   'robot-rotated': 'servo',
   'conveyor-moved': 'belt',
+  // The bend reuses the rotation servo — it's a facing change, not a belt hum.
+  'conveyor-rotated': 'servo',
   'gear-rotated': 'gear',
+  // The piston shares the wall-bump thud — same physical language, one clip.
+  'pusher-fired': 'thud',
   'laser-fired': 'laser',
   'damage': 'hit',
+  // No new clips this phase: 'respawn' is the existing restorative sound,
+  // and end-of-turn repair rarely shares a beat with an actual respawn.
+  'repair': 'respawn',
   'register-locked': 'lock',
+  'register-unlocked': null,
   'robot-fell': 'explosion',
   'robot-destroyed': 'explosion',
   'life-lost': 'life-lost',
   'player-eliminated': 'eliminated',
   'robot-respawned': 'respawn',
+  // No new clips (phase 33): powering down borrows the register-lock clunk,
+  // powering up the restorative respawn chime.
+  'robot-powered-down': 'lock',
+  'robot-powered-up': 'respawn',
   'checkpoint-claimed': 'checkpoint',
   'game-won': 'fanfare',
   'turn-ended': null,

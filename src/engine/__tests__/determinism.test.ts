@@ -54,13 +54,17 @@ describe('determinism', () => {
     for (let turn = 0; turn < 30 && !isGameOver(state); turn++) {
       state = executeTurn(state, naivePrograms(state), 1000 + turn).state;
       if (isGameOver(state)) break;
+      const held = state.robots.reduce(
+        (n, r) => n + r.lockedRegisters.filter((c) => c !== null).length,
+        0,
+      );
+      const inHands = Object.values(state.hands).reduce((n, h) => n + h.length, 0);
+      expect(
+        state.deck.drawPile.length + state.deck.discardPile.length + inHands + held,
+      ).toBe(84);
       for (const robot of state.robots) {
         if (robot.eliminated) continue;
-        const deck = state.decks[robot.player];
-        const held = robot.lockedRegisters.filter((c) => c !== null).length;
-        const inHand = state.hands[robot.player].length;
-        expect(deck.drawPile.length + deck.discardPile.length + inHand + held).toBe(84);
-        expect(inHand).toBe(handSize(robot.damage));
+        expect(state.hands[robot.player]).toHaveLength(handSize(robot.damage));
       }
     }
   });

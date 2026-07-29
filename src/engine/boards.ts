@@ -13,8 +13,9 @@ import { composeBoards } from './compose';
  *   y=3  laser emitter at (0,3) firing E; express conveyor N at (6,3)
  *   y=4  gear CW (2,4), express conveyor N (6,4), gear CCW (7,4), wall N of (1,4)
  *   y=5  pit at (4,5)
+ *   y=2  wrench at (3,2) on the approach to checkpoint 2
  *   y=6  checkpoint 1 at (8,6)
- *   y=7  conveyors E at (2..4,7), wall E of (5,7)
+ *   y=7  conveyors E at (2..4,7), wall E of (5,7); wrench at (7,7)
  *   y=8  laser emitter at (9,8) firing W
  *   y=9  spawns 1–4 at x = 1,3,5,7
  */
@@ -31,6 +32,11 @@ export function provingGrounds(): BoardDef {
   setTile(board, 8, 1, { kind: 'checkpoint', n: 3 });
 
   setTile(board, 4, 5, { kind: 'pit' });
+
+  // Repair sites, mid-route and clear of the spawn row: one on the way up to
+  // checkpoint 2, one just short of checkpoint 1.
+  setTile(board, 3, 2, { kind: 'wrench' });
+  setTile(board, 7, 7, { kind: 'wrench' });
 
   setTile(board, 2, 7, { kind: 'conveyor', dir: 'E', express: false });
   setTile(board, 3, 7, { kind: 'conveyor', dir: 'E', express: false });
@@ -70,6 +76,9 @@ export function provingGrounds(): BoardDef {
  *   y=5    loop sides N (3,5) / S (8,5); checkpoint 3 at (5,5) with wall S;
  *          laser (11,5) firing W
  *   y=6    loop bottom: corner N (3,6), belts W at (4..7,6), corner W (8,6)
+ *   y=1    wrench at (8,1) between checkpoint 1 and the loop's feeder
+ *   y=6    wrench at (2,6) beside the loop's SW corner, on the way to
+ *          checkpoint 2 — both wrenches sit off the laser rows 4 and 5
  *   y=7    checkpoint 2 at (1,7) with wall E; gears CCW (2,7) / CW (9,7);
  *          express feeder N at (5,7..8) into the loop
  *   y=9    spawns 1–4 at x = 2,4,7,9
@@ -89,14 +98,18 @@ export function spinCycle(): BoardDef {
   setTile(board, 6, 4, { kind: 'pit' });
 
   // The loop: a clockwise ring of normal belts around the 6×4 center block.
-  const ring: [number, number, Direction][] = [
-    [3, 3, 'E'], [4, 3, 'E'], [5, 3, 'E'], [6, 3, 'E'], [7, 3, 'E'], [8, 3, 'S'],
-    [8, 4, 'S'], [8, 5, 'S'], [8, 6, 'W'],
-    [7, 6, 'W'], [6, 6, 'W'], [5, 6, 'W'], [4, 6, 'W'], [3, 6, 'N'],
+  // Corners are curved sections — riders carried around them turn with the
+  // ring (1994 rule), so a lap keeps your Move cards aimed along the belt.
+  const ring: [number, number, Direction, ('cw' | 'ccw')?][] = [
+    [3, 3, 'E', 'cw'], [4, 3, 'E'], [5, 3, 'E'], [6, 3, 'E'], [7, 3, 'E'], [8, 3, 'S', 'cw'],
+    [8, 4, 'S'], [8, 5, 'S'], [8, 6, 'W', 'cw'],
+    [7, 6, 'W'], [6, 6, 'W'], [5, 6, 'W'], [4, 6, 'W'], [3, 6, 'N', 'cw'],
     [3, 5, 'N'], [3, 4, 'N'],
   ];
-  for (const [x, y, dir] of ring) {
-    setTile(board, x, y, { kind: 'conveyor', dir, express: false });
+  for (const [x, y, dir, curve] of ring) {
+    setTile(board, x, y, curve
+      ? { kind: 'conveyor', dir, express: false, curve }
+      : { kind: 'conveyor', dir, express: false });
   }
 
   // Express on-ramps into the loop from the north and south.
@@ -109,6 +122,11 @@ export function spinCycle(): BoardDef {
   setTile(board, 9, 2, { kind: 'gear', cw: false });
   setTile(board, 2, 7, { kind: 'gear', cw: false });
   setTile(board, 9, 7, { kind: 'gear', cw: true });
+
+  // Repair sites off the crossfire rows: hopping off the loop to heal costs
+  // tempo, not more damage.
+  setTile(board, 8, 1, { kind: 'wrench' });
+  setTile(board, 2, 6, { kind: 'wrench' });
 
   board.walls = [
     { x: 10, y: 2, side: 'S' },
@@ -137,7 +155,8 @@ export function spinCycle(): BoardDef {
  *
  * Layout sketch (x → E, y → S):
  *   y=1    checkpoint 1 at (5,1) at the corridor's north exit; gear CCW
- *          (6,1) in the pocket behind lane 6's sealed exit
+ *          (6,1) in the pocket behind lane 6's sealed exit; wrench at (3,1)
+ *          pays out the gauntlet's toll for whoever survives it
  *   y=2    checkpoint 3 at (10,2); laser (5,2) firing S down lane 5;
  *          wall N of (6,2) seals lane 6's exit and stops its beam
  *   y=2..9 the gauntlet: lanes x=5,6, walled W of 5 and E of 6
@@ -147,6 +166,7 @@ export function spinCycle(): BoardDef {
  *   y=8..9 express on-ramp N at (9,8..9)
  *   y=9    laser (6,9) firing N up lane 6; wall S of (5,9) seals lane 5's
  *          mouth and stops its beam
+ *   y=9    wrench at (10,9) at the foot of the east on-ramp
  *   y=10   checkpoint 2 at (1,10); gear CW (5,10) in the pocket at lane
  *          5's sealed mouth
  *   y=11   spawns 1–4 at x = 2,4,7,9
@@ -169,18 +189,27 @@ export function theGauntlet(): BoardDef {
   setTile(board, 9, 6, { kind: 'pit' });
 
   // East shortcut: express on-ramp north, one bend east around the pits,
-  // then express north past them toward checkpoint 3.
-  const belts: [number, number, Direction][] = [
-    [9, 9, 'N'], [9, 8, 'N'], [9, 7, 'E'],
-    [10, 7, 'N'], [10, 6, 'N'], [10, 5, 'N'], [10, 4, 'N'],
+  // then express north past them toward checkpoint 3. The two bends are
+  // curved sections: (9,7) is entered moving N and exits E (cw), (10,7) is
+  // entered moving E and exits N (ccw) — riders stay aimed along the belt.
+  const belts: [number, number, Direction, ('cw' | 'ccw')?][] = [
+    [9, 9, 'N'], [9, 8, 'N'], [9, 7, 'E', 'cw'],
+    [10, 7, 'N', 'ccw'], [10, 6, 'N'], [10, 5, 'N'], [10, 4, 'N'],
   ];
-  for (const [x, y, dir] of belts) {
-    setTile(board, x, y, { kind: 'conveyor', dir, express: true });
+  for (const [x, y, dir, curve] of belts) {
+    setTile(board, x, y, curve
+      ? { kind: 'conveyor', dir, express: true, curve }
+      : { kind: 'conveyor', dir, express: true });
   }
 
   // Rescue gears in the pockets at the sealed corridor mouths.
   setTile(board, 5, 10, { kind: 'gear', cw: true });
   setTile(board, 6, 1, { kind: 'gear', cw: false });
+
+  // Repair sites: one past the gauntlet's north exit (the lane toll is
+  // refundable if you live), one at the foot of the east on-ramp.
+  setTile(board, 3, 1, { kind: 'wrench' });
+  setTile(board, 10, 9, { kind: 'wrench' });
 
   board.walls = [
     // Gauntlet corridor sides, lanes x=5,6, rows y=2..9.
@@ -199,6 +228,16 @@ export function theGauntlet(): BoardDef {
   board.lasers = [
     { pos: { x: 5, y: 2 }, facing: 'S', strength: 1 },
     { pos: { x: 6, y: 9 }, facing: 'N', strength: 1 },
+  ];
+
+  // Pushers on the corridor walls force the mid-corridor lane switch on a
+  // clock: lane 5 is shoved into lane 6 on odd registers, lane 6 shoved
+  // back on even — camping a lane means eating the other lane's beam. A
+  // third pusher on the west lane's wall squeezes the "safe" route too.
+  board.pushers = [
+    { pos: { x: 5, y: 5 }, facing: 'E', registers: [1, 3, 5] },
+    { pos: { x: 6, y: 6 }, facing: 'W', registers: [2, 4] },
+    { pos: { x: 1, y: 4 }, facing: 'W', registers: [2, 4] },
   ];
 
   return board;
@@ -220,6 +259,8 @@ export function theGauntlet(): BoardDef {
  *   y=2    checkpoint 1 at (9,2)
  *   y=3    ring top: belts E at (3..6,3), corner S at (7,3); rescue gear
  *          CCW (8,3)
+ *   y=4    wrench at (9,4) between checkpoint 1 and the E on-ramp
+ *   y=6    wrench at (1,6) on the walk down to checkpoint 2
  *   y=4    ring sides N (3,4) / S (7,4); core pits (4,4), (6,4); gear
  *          gate CW (5,4)
  *   y=5    W on-ramp E at (1..2,5); ring N (3,5) / S (7,5); gear gates
@@ -245,14 +286,17 @@ export function vortexArena(): BoardDef {
   setTile(board, 5, 5, { kind: 'checkpoint', n: 3 });
 
   // The whirlpool: a clockwise ring of express belts around the 3×3 core.
-  const ring: [number, number, Direction][] = [
-    [3, 3, 'E'], [4, 3, 'E'], [5, 3, 'E'], [6, 3, 'E'], [7, 3, 'S'],
-    [7, 4, 'S'], [7, 5, 'S'], [7, 6, 'S'], [7, 7, 'W'],
-    [6, 7, 'W'], [5, 7, 'W'], [4, 7, 'W'], [3, 7, 'N'],
+  // Curved corners: the ring turns its riders with it (1994 rule).
+  const ring: [number, number, Direction, ('cw' | 'ccw')?][] = [
+    [3, 3, 'E', 'cw'], [4, 3, 'E'], [5, 3, 'E'], [6, 3, 'E'], [7, 3, 'S', 'cw'],
+    [7, 4, 'S'], [7, 5, 'S'], [7, 6, 'S'], [7, 7, 'W', 'cw'],
+    [6, 7, 'W'], [5, 7, 'W'], [4, 7, 'W'], [3, 7, 'N', 'cw'],
     [3, 6, 'N'], [3, 5, 'N'], [3, 4, 'N'],
   ];
-  for (const [x, y, dir] of ring) {
-    setTile(board, x, y, { kind: 'conveyor', dir, express: true });
+  for (const [x, y, dir, curve] of ring) {
+    setTile(board, x, y, curve
+      ? { kind: 'conveyor', dir, express: true, curve }
+      : { kind: 'conveyor', dir, express: true });
   }
 
   // Express on-ramps feeding the ring from all four cardinal points.
@@ -281,6 +325,11 @@ export function vortexArena(): BoardDef {
   setTile(board, 8, 3, { kind: 'gear', cw: false });
   setTile(board, 2, 7, { kind: 'gear', cw: false });
 
+  // Repair sites on the outer floor, clear of the laser rows 1 and 9:
+  // walking the slow lane at least lets you patch up on the way.
+  setTile(board, 9, 4, { kind: 'wrench' });
+  setTile(board, 1, 6, { kind: 'wrench' });
+
   board.walls = [];
 
   board.lasers = [
@@ -303,11 +352,12 @@ export function vortexArena(): BoardDef {
  *
  * Layout sketch (x → E, y → S):
  *   y=0..3 north island; checkpoint 3 at (5,1); gear CCW (9,3) above the
- *          east causeway's landing
+ *          east causeway's landing; wrench at (8,2) past that landing
  *   y=4    north channel: pits x=0..11 except belt bridge N at (2,4) and
  *          floor causeway at (9,4)
- *   y=5..7 middle band: west island x=0..5 with checkpoint 1 at (1,5) and
- *          the north bridge on-ramp N at (2,5); pit gate column x=6 (pits
+ *   y=5..7 middle band: west island x=0..5 with checkpoint 1 at (1,5),
+ *          a wrench at (4,5) and the north bridge on-ramp N at (2,5);
+ *          pit gate column x=6 (pits
  *          (6,5),(6,7), floor gate (6,6)); east island x=7..11 with
  *          checkpoint 2 at (10,6); laser (0,6) firing E along row 6 into
  *          the gate, stopped by a wall E of (7,6); gear CW (3,7) above the
@@ -351,6 +401,11 @@ export function pitArchipelago(): BoardDef {
   setTile(board, 3, 7, { kind: 'gear', cw: true });
   setTile(board, 9, 3, { kind: 'gear', cw: false });
 
+  // Repair sites, one island each side of the crossings, off both beams: a
+  // botched crossing costs a life, a survived one can at least be patched.
+  setTile(board, 4, 5, { kind: 'wrench' });
+  setTile(board, 8, 2, { kind: 'wrench' });
+
   board.walls = [
     { x: 7, y: 6, side: 'E' }, // stops the row-6 beam at the east island's shore
     { x: 8, y: 7, side: 'N' }, // stops the bridge beam; the landing sidesteps
@@ -391,6 +446,13 @@ export function dockyard(): BoardDef {
     { x: 4, y: 2, side: 'N' },
     { x: 7, y: 2, side: 'N' },
     { x: 8, y: 2, side: 'N' },
+  ];
+
+  // Pushers on two baffles bounce dawdlers back toward the docks: a launch
+  // that stalls in front of a baffle gets shoved south on the piston's beat.
+  board.pushers = [
+    { pos: { x: 3, y: 2 }, facing: 'S', registers: [1, 3, 5] },
+    { pos: { x: 8, y: 2 }, facing: 'S', registers: [2, 4] },
   ];
 
   return board;

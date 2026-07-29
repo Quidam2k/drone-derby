@@ -30,7 +30,14 @@ describe('composeBoards', () => {
 
     // Spin Cycle (top part, no offset): pit and a ring belt stay put.
     expect(tileAt(board, { x: 6, y: 4 })).toEqual({ kind: 'pit' });
-    expect(tileAt(board, { x: 3, y: 3 })).toEqual({ kind: 'conveyor', dir: 'E', express: false });
+    // (3,3) is the ring's NW corner — a curved section since Phase 31, and
+    // compose must carry the curve through untouched.
+    expect(tileAt(board, { x: 3, y: 3 })).toEqual({
+      kind: 'conveyor',
+      dir: 'E',
+      express: false,
+      curve: 'cw',
+    });
     expect(board.lasers).toContainEqual({ pos: { x: 0, y: 4 }, facing: 'E', strength: 1 });
 
     // Dockyard (bottom part): everything shifts down by Spin Cycle's 10 rows.
@@ -38,6 +45,28 @@ describe('composeBoards', () => {
     expect(spawnPos(board, 4)).toEqual({ x: 9, y: 16 });
     expect(board.walls).toContainEqual({ x: 3, y: 16, side: 'E' });
     expect(board.walls).toContainEqual({ x: 3, y: 12, side: 'N' });
+    // Its baffle pushers ride down with their walls, facings preserved.
+    expect(board.pushers).toContainEqual({
+      pos: { x: 3, y: 12 },
+      facing: 'S',
+      registers: [1, 3, 5],
+    });
+    expect(board.pushers).toContainEqual({ pos: { x: 8, y: 12 }, facing: 'S', registers: [2, 4] });
+  });
+
+  it('offsets a narrower part\'s pushers east along with it', () => {
+    const top = floorPart();
+    const docks = docksPart();
+    docks.width = 14; // widen the bottom so the 12-wide floor centres at xOff 1
+    docks.tiles = docks.tiles.map((row) => [...row, { kind: 'floor' as const }, { kind: 'floor' as const }]);
+    top.pushers = [{ pos: { x: 2, y: 2 }, facing: 'E', registers: [1, 3, 5] }];
+    top.walls.push({ x: 2, y: 2, side: 'W' });
+    const board = composeBoards([top, docks], 'Pusher Offset');
+    expect(board.pushers).toContainEqual({
+      pos: { x: 3, y: 2 },
+      facing: 'E',
+      registers: [1, 3, 5],
+    });
   });
 
   it('centers narrower parts and pads them with floor', () => {

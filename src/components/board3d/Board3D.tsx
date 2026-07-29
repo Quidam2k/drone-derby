@@ -1,7 +1,7 @@
-// WebGL board renderer — Phase 3D-1 spike, behind ?render=3d.
+// WebGL board renderer — Phase 3D-1 spike, the DEFAULT board since 3D-7.
 //
-// Deliberately the SAME props as the DOM <Board>, so it is a drop-in swap at
-// the three call sites (ProgrammingView, ReplayPlayer, OnlineGameScreen)
+// Deliberately the SAME props as the DOM <Board>, so it is a drop-in swap
+// inside ../board/BoardView (which is now the only thing that mounts either)
 // rather than a rewrite of the app. The props type is derived from Board
 // itself so the two cannot drift apart without a typecheck failure.
 //
@@ -17,11 +17,28 @@
 // bubbles stay DOM and the scene reports each robot's screen-space anchor once
 // per frame. Those numbers are written STRAIGHT ONTO REFS — no React state per
 // frame, the same discipline ViewControls follows for the camera.
+//
+// Phase 3D-5 adds two props and nothing else: `events` + `cursor`, the replay
+// look-ahead its camera director needs to be framed on the laser before the
+// beam appears rather than chasing it. Both are declared on the DOM board's
+// BoardProps (which this type derives from) and ignored there.
+//
+// Phase 3D-6 adds one more the same way: `reel`, present only while a
+// HighlightReel is driving this board. It buys the two things a reel may do and
+// the live camera may not — frame tight, and hard-cut on a beat boundary.
+//
+// Phase 3D-7 makes this the default renderer and moves the choice out to
+// ../board/BoardView. The only change here is the failure path: a scene that
+// throws now SAYS SO — to viewSettings, so the mounted BoardView swaps in the
+// DOM board on the spot, and to telemetry, so how often this happens in the
+// field is a number rather than a guess.
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { logTelemetry } from '../../services/telemetry';
 import {
   getFocusPlayer,
   getView,
+  markRenderer3dFailed,
   resetView,
   setView,
   subscribe,
@@ -40,16 +57,6 @@ type BoardProps = Parameters<typeof Board>[0];
 const SQUASH = 0.788;
 /** Tiles of headroom above the board for robot height and the far rim. */
 const HEADROOM = 1.5;
-
-/**
- * `?render=3d` anywhere in the URL — query string or after the hash, since
- * routing here is hash-based. Default off; the DOM board stays the default
- * renderer and is not modified by any of this.
- */
-export function board3dEnabled(): boolean {
-  if (typeof window === 'undefined') return false;
-  return /[?&]render=3d(?:$|[&#/])/.test(window.location.href);
-}
 
 const FOLLOW_LABELS: { mode: FollowMode; label: string; title: string }[] = [
   { mode: 'action', label: 'Action', title: 'Follow whatever is happening' },
@@ -81,7 +88,10 @@ function ViewControls() {
   }, []);
 
   return (
-    <div className="board-3d-controls" data-testid="board-3d-controls">
+    <div
+      className="board-overlay-controls board-3d-controls"
+      data-testid="board-3d-controls"
+    >
       <div className="follow-seg" role="group" aria-label="Camera follow">
         {FOLLOW_LABELS.map(({ mode, label, title }) => {
           // Pass-and-play has no single local player during a replay, so
@@ -118,13 +128,34 @@ function ViewControls() {
   );
 }
 
-export function Board3D({ board, visual, currentEvent, bubbles, ghost }: BoardProps) {
+// EVERY prop on BoardProps has to be destructured here and every scene prop
+// forwarded below. 3D-4 shipped with four of five destructured, which silently
+// dropped `bubbles` — no typecheck catches an unused prop, so Board3D.props.test
+// asserts the two lists agree instead.
+export function Board3D({
+  board,
+  visual,
+  currentEvent,
+  bubbles,
+  ghost,
+  events,
+  cursor,
+  reel,
+}: BoardProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneRef = useRef<BoardScene | null>(null);
   // The scene loads asynchronously (four .glb fetches); props that arrive
   // before it is ready are held here and applied the moment it exists.
-  const inputRef = useRef<BoardSceneInput>({ board, visual, currentEvent, ghost });
-  inputRef.current = { board, visual, currentEvent, ghost };
+  const inputRef = useRef<BoardSceneInput>({
+    board,
+    visual,
+    currentEvent,
+    ghost,
+    events,
+    cursor,
+    reel,
+  });
+  inputRef.current = { board, visual, currentEvent, ghost, events, cursor, reel };
   /** Live bubble elements by player, written to by the scene's frame callback. */
   const bubbleRefs = useRef(new Map<string, HTMLDivElement>());
 
@@ -164,6 +195,15 @@ export function Board3D({ board, visual, currentEvent, bubbles, ghost }: BoardPr
         (window as unknown as { __board3d?: BoardScene }).__board3d = scene;
       } catch (err) {
         console.error('[board3d] failed to start', err);
+        // No context, a dead driver, a corrupt .glb — whatever it was, this
+        // canvas is never going to draw. Leaving it blank was tolerable while
+        // 3D was opt-in; as the default it is a white screen where the game
+        // should be, so hand the player back the DOM board.
+        logTelemetry('error', '[board3d] scene failed to start', {
+          error: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        });
+        markRenderer3dFailed();
       }
     })();
 
@@ -176,7 +216,7 @@ export function Board3D({ board, visual, currentEvent, bubbles, ghost }: BoardPr
   }, []);
 
   useEffect(() => {
-    sceneRef.current?.update({ board, visual, currentEvent, ghost });
+    sceneRef.current?.update({ board, visual, currentEvent, ghost, events, cursor, reel });
   });
 
   // Sized off the DOM board's own tileFit(), so the 3D board is exactly as

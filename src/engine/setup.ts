@@ -7,7 +7,7 @@ export const STARTING_LIVES = 3;
 
 /**
  * Create a fresh game: robots on their numbered spawn docks (seat i gets
- * spawn i+1), shuffled decks, first hands dealt. Deterministic in
+ * spawn i+1), one shared shuffled deck, first hands dealt. Deterministic in
  * (boardDef, playerIds, seed).
  */
 export function createGame(board: BoardDef, playerIds: PlayerId[], seed: number): GameState {
@@ -37,9 +37,7 @@ export function createGame(board: BoardDef, playerIds: PlayerId[], seed: number)
   const state: GameState = {
     board,
     robots,
-    decks: Object.fromEntries(
-      playerIds.map((p) => [p, { drawPile: shuffle(buildDeck(), rng), discardPile: [] }]),
-    ),
+    deck: { drawPile: shuffle(buildDeck(), rng), discardPile: [] },
     hands: Object.fromEntries(playerIds.map((p) => [p, []])),
     turn: 1,
     startPlayerIndex: 0,

@@ -1,6 +1,6 @@
 // Multiplayer game lifecycle. The pure engine in ../src/engine runs here
 // verbatim (Convex bundles it); the server is authoritative — clients only
-// ever see sanitized state (own hand, no decks) and the public EventLog.
+// ever see sanitized state (own hand, emptied deck) and the public EventLog.
 
 import { v } from 'convex/values';
 import { mutation, query } from './_generated/server';
@@ -18,7 +18,7 @@ import {
   provingGrounds,
   validateBoard,
 } from '../src/engine';
-import type { BoardDef, Card, GameState, PlayerId, Program } from '../src/engine';
+import type { BoardDef, Card, Direction, GameState, PlayerId, Program } from '../src/engine';
 
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 4;
@@ -93,14 +93,14 @@ async function turnSubmissions(
 
 /**
  * Strip secrets from an engine GameState before it leaves the server:
- * decks are server-only, and only the caller's own hand survives. The
- * board renderer and ReplayPlayer only read robots/board/winner, and
+ * the shared deck is server-only, and only the caller's own hand survives.
+ * The board renderer and ReplayPlayer only read robots/board/winner, and
  * ProgrammingView only reads the caller's hand, so nothing else is needed.
  */
 function sanitizeState(state: GameState, myName: PlayerId | null): GameState {
   const hands: Record<PlayerId, Card[]> = {};
   if (myName !== null && state.hands[myName]) hands[myName] = state.hands[myName];
-  return { ...state, decks: {}, hands };
+  return { ...state, deck: { drawPile: [], discardPile: [] }, hands };
 }
 
 /** Names of not-yet-submitted, still-alive players for the current turn. */
@@ -296,6 +296,19 @@ export const submitProgram = mutation({
     /** Optional speech-bubble line shown over the robot in the replay. */
     taunt: v.optional(v.string()),
     /**
+     * Re-entry facing for a just-respawned robot (default N when absent).
+     * The engine ignores it for players whose robot didn't just respawn,
+     * so the validator is the only server-side check needed.
+     */
+    respawnFacing: v.optional(
+      v.union(v.literal('N'), v.literal('E'), v.literal('S'), v.literal('W')),
+    ),
+    /**
+     * Announce a power-down for next turn — or stay down, from a powered-down
+     * robot's one-tap turn. The engine gates it on the robot's state.
+     */
+    powerDown: v.optional(v.boolean()),
+    /**
      * The turn the client built this program for. Convex retries a mutation
      * that loses an OCC race, and the retry re-runs against whatever state is
      * current — which after a concurrent execute is turn T+1 with a brand new
@@ -348,7 +361,12 @@ export const submitProgram = mutation({
       )
       .unique();
     if (prior) {
-      await ctx.db.patch(prior._id, { program, taunt });
+      await ctx.db.patch(prior._id, {
+        program,
+        taunt,
+        respawnFacing: args.respawnFacing,
+        powerDown: args.powerDown,
+      });
     } else {
       await ctx.db.insert('submissions', {
         gameId: game._id,
@@ -356,6 +374,8 @@ export const submitProgram = mutation({
         playerId: me._id,
         program,
         taunt,
+        respawnFacing: args.respawnFacing,
+        powerDown: args.powerDown,
       });
     }
 
@@ -367,14 +387,21 @@ export const submitProgram = mutation({
     const byPlayerId = new Map(players.map((p) => [p._id, p.name]));
     const programs: Record<PlayerId, Program> = {};
     const taunts: Record<PlayerId, string> = {};
+    const respawnFacings: Record<PlayerId, Direction> = {};
+    const powerDown: PlayerId[] = [];
     for (const sub of submissions) {
       const name = byPlayerId.get(sub.playerId);
       if (name === undefined) continue;
       programs[name] = sub.program as Program;
       if (sub.taunt) taunts[name] = sub.taunt;
+      if (sub.respawnFacing) respawnFacings[name] = sub.respawnFacing;
+      if (sub.powerDown) powerDown.push(name);
     }
 
-    const result = executeTurn(state, programs, game.seed + turn);
+    const result = executeTurn(state, programs, game.seed + turn, {
+      respawnFacing: respawnFacings,
+      powerDown,
+    });
     await ctx.db.insert('turns', {
       gameId: game._id,
       turn,

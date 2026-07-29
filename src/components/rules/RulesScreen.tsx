@@ -11,6 +11,7 @@ import {
   EmitterSprite,
   GearSprite,
   PitSprite,
+  PusherSprite,
   RobotSprite,
   SpawnSprite,
 } from '../board/sprites';
@@ -121,7 +122,8 @@ export function RulesScreen() {
           </li>
           <li>
             The floor moves: <strong>express belts pulse first, then all belts pulse</strong> (so
-            express carries you 2 spaces), then gears rotate whoever's standing on them 90°.
+            express carries you 2 spaces), then pushers fire on their printed registers, then
+            gears rotate whoever's standing on them 90°.
           </li>
           <li>
             Lasers fire: board lasers first, then every robot fires a laser straight ahead. Each
@@ -189,6 +191,10 @@ export function RulesScreen() {
           </LegendRow>
           <LegendRow sprite={<EmitterSprite facing="E" />} name="Board laser">
             wall-mounted; fires every register. The first robot in the beam takes the damage.
+          </LegendRow>
+          <LegendRow sprite={<PusherSprite facing="N" registers={[1, 3, 5]} />} name="Pusher">
+            wall-mounted; on the registers printed on it, it shoves the robot in front of it one
+            space.
           </LegendRow>
           <LegendRow
             sprite={

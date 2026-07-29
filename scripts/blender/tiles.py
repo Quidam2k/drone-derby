@@ -12,15 +12,19 @@ the loader pulls out by hand. Each piece becomes one instanced mesh on the
 
     floor        deck plate under every non-pit tile
     conveyor     recessed belt bed, rails and rollers; belt runs +Y
+    conveyor_curve  the bed bent 90 degrees, +X edge to +Y edge (CW frame)
     chevron      the scrolling belt arrow (also the gear's direction arrow)
     gear         one toothed wheel -- replaces a disc plus eight tooth instances
     pit_shaft    shaft floor and lining, sunk below the slab
     pit_rim      hazard curb around the hole
     checkpoint   glowing ring
     spawn        painted dock frame
+    wrench       repair-site service hatch with the tool on it
     wall         hazard barrier, long in X, sitting on a cell edge
     laser_body   wall-mounted emitter housing
     laser_lens   the muzzle glow
+    pusher_housing  wall-mounted piston housing, pushing +Y
+    pusher_plate    the hazard-striped piston face (tinted by code per variant)
 
 TWO MATERIALS for the whole kit. `tile_pbr` samples a generated wear texture;
 the palette rides in per-vertex COLOR_0, which glTF multiplies into the base
@@ -261,6 +265,47 @@ def conveyor_bed():
                       PBR, verts=12, bevel=0.005), C.ROLLER)
 
 
+def conveyor_curve():
+    """Curved belt section: the bed bends 90 degrees around the NE corner,
+    connecting the +X edge to the +Y edge -- the CW curve's local frame with
+    exit +Y (entered travelling -X, turned to +Y). The bed itself is
+    direction-agnostic (the scrolling chevrons carry the direction), so
+    boardMesh reuses this one piece for CCW curves with a different yaw.
+
+    Same vocabulary as conveyor_bed -- dark base, sunken bed, side rails,
+    rollers -- swept along the quarter arc as rotated segments. Radii match
+    the straight bed: centreline 0.5 from the corner, bed 0.70 wide, rails
+    at 0.5 +- 0.405, so a curve butts cleanly against a straight neighbour.
+    """
+    part(box('curve_base', (0, 0, -0.005), (0.94, 0.94, 0.05), PBR, bevel=0.008, segments=2),
+         C.DECK_DARK)
+    cx = cy = 0.5  # arc centre: the tile's NE corner
+    n = 6
+    for k in range(n):
+        a = math.radians(180 + (k + 0.5) * 90 / n)
+        seg = box('curve_bed', (0, 0, -0.045), (0.70, 0.26, 0.05), PBR,
+                  bevel=0.008, segments=1)
+        seg.location = (cx + 0.5 * math.cos(a), cy + 0.5 * math.sin(a), 0)
+        seg.rotation_euler = (0, 0, a)
+        part(seg, C.BELT_BED)
+    for r, w, segs in ((0.095, 0.16, 3), (0.905, 0.27, n)):
+        for k in range(segs):
+            a = math.radians(180 + (k + 0.5) * 90 / segs)
+            rail = box('curve_rail', (0, 0, 0.0), (0.13, w, 0.09), PBR,
+                       bevel=0.014, segments=2)
+            rail.location = (cx + r * math.cos(a), cy + r * math.sin(a), 0)
+            rail.rotation_euler = (0, 0, a)
+            part(rail, C.STEEL_DARK)
+    for k in range(4):
+        a = math.radians(180 + (k + 0.5) * 90 / 4)
+        roller = cylinder('curve_roller', (0, 0, 0), 0.034, 0.68, 'x',
+                          PBR, verts=12, bevel=0.005)
+        roller.location = (cx + 0.5 * math.cos(a), cy + 0.5 * math.sin(a), -0.018)
+        # Rz(a) after the axis-x tilt: euler XYZ composes as Rz @ Ry @ Rx.
+        roller.rotation_euler = (0, math.radians(90), a)
+        part(roller, C.ROLLER)
+
+
 def chevron_arm():
     """The belt arrow. Points +Y, lies flat, origin-centred.
 
@@ -379,6 +424,33 @@ def spawn_dock():
                      PBR, bevel=0.010, segments=2), C.STEEL)
 
 
+def wrench_hatch():
+    """Repair site. Replaces CylinderGeometry(0.36, 0.36, 0.04) at y = 0.025.
+
+    A round service hatch with a green paint ring (repair's colour cue, kept
+    duller than the checkpoint's emissive so the two never read as the same
+    thing) and an open-end wrench lying diagonally across it, SW to NE.
+    """
+    part(cylinder('hatch', (0, 0, 0), 0.36, 0.04, 'z', PBR, verts=24, bevel=0.008),
+         C.STEEL_DARK)
+    part(cylinder('hatch_paint', (0, 0, 0.022), 0.30, 0.010, 'z', PBR, verts=24, bevel=0.003),
+         '#2b6e5a')
+    for i in range(4):
+        a = math.pi / 4 + (i / 4) * math.pi * 2
+        part(cylinder('hatch_bolt', (math.sin(a) * 0.325, math.cos(a) * 0.325, 0.022),
+                      0.022, 0.018, 'z', PBR, verts=8, bevel=0.004), C.BOLT)
+    # The tool: ring pommel -- handle -- open jaw, along the SW-NE diagonal.
+    d = math.sqrt(0.5)
+    part(bar('wr_handle', (-0.14, -0.14), (0.14, 0.14), 0.075, 0.05, 0.052, PBR,
+             bevel=0.010, segments=2), C.STEEL)
+    part(cylinder('wr_pommel', (-0.185, -0.185, 0.052), 0.062, 0.05, 'z', PBR,
+                  verts=16, bevel=0.008), C.STEEL)
+    for s in (-1, 1):
+        px, py = 0.185 + d * 0.055 * s, 0.185 - d * 0.055 * s
+        part(bar('wr_prong', (px, py), (px + d * 0.12, py + d * 0.12), 0.048, 0.05,
+                 0.052, PBR, bevel=0.008, segments=2), C.STEEL)
+
+
 def wall_barrier():
     """Hazard barrier on a cell edge. Long in X, thin in Y, 0.34 tall.
 
@@ -428,18 +500,57 @@ def laser_lens():
          C.GLOW)
 
 
+def pusher_housing():
+    """Wall-mounted piston housing, pushing +Y.
+
+    Replaces BoxGeometry(0.72, 0.2, 0.14) placed 0.42 behind the cell centre
+    along the push direction -- the same mounting the laser body uses. The
+    piston rods reach +Y toward where the board places the plate instance
+    (0.14 in front of the housing's centre), so the two pieces read as one
+    machine while staying independently placeable.
+    """
+    part(box('pusher_mount', (0, -0.048, 0), (0.68, 0.05, 0.24), PBR, bevel=0.010, segments=2),
+         C.STEEL_DARK)
+    part(box('pusher_case', (0, 0.0, 0), (0.72, 0.10, 0.20), PBR, bevel=0.014, segments=3),
+         C.DECK_DARK)
+    part(box('pusher_warn', (0, 0.0, 0.102), (0.56, 0.08, 0.014), PBR, bevel=0.005, segments=1),
+         C.HAZARD_Y)
+    for i in (-1, 1):
+        part(cylinder('pusher_rod', (0.18 * i, 0.095, -0.01), 0.028, 0.11, 'y', PBR,
+                      verts=12, bevel=0.005), C.STEEL)
+
+
+def pusher_plate():
+    """The piston face: a hazard-striped bar the housing's rods carry.
+
+    Replaces BoxGeometry(0.6, 0.14, 0.08) placed 0.28 behind the cell centre.
+    The board tints the whole plate per register variant (1/3/5 amber, 2/4
+    steel-blue) with its own material, so the geometry stays neutral -- the
+    stripes are relief, and the colour is code's to give.
+    """
+    part(box('plate_face', (0, 0, 0), (0.60, 0.08, 0.14), PBR, bevel=0.012, segments=3),
+         C.HAZARD_Y)
+    for x in (-0.20, 0.0, 0.20):
+        part(box('plate_stripe', (x, 0.01, 0), (0.075, 0.075, 0.15), PBR,
+                 bevel=0.005, segments=1), C.HAZARD_K)
+
+
 PIECES = [
     ('floor', floor_plate),
     ('conveyor', conveyor_bed),
+    ('conveyor_curve', conveyor_curve),
     ('chevron', chevron_arm),
     ('gear', gear_wheel),
     ('pit_shaft', pit_shaft),
     ('pit_rim', pit_curb),
     ('checkpoint', checkpoint_ring),
     ('spawn', spawn_dock),
+    ('wrench', wrench_hatch),
     ('wall', wall_barrier),
     ('laser_body', laser_housing),
     ('laser_lens', laser_lens),
+    ('pusher_housing', pusher_housing),
+    ('pusher_plate', pusher_plate),
 ]
 
 

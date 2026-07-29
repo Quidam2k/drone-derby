@@ -18,15 +18,19 @@ const MODEL_URL = '/models/tiles.glb';
 export const PIECE_NAMES = [
   'floor',
   'conveyor',
+  'conveyor_curve',
   'chevron',
   'gear',
   'pit_shaft',
   'pit_rim',
   'checkpoint',
   'spawn',
+  'wrench',
   'wall',
   'laser_body',
   'laser_lens',
+  'pusher_housing',
+  'pusher_plate',
 ] as const;
 
 export type PieceName = (typeof PIECE_NAMES)[number];
@@ -119,7 +123,7 @@ export async function loadTileKit(): Promise<TileKit | null> {
     ...pieces,
     dispose() {
       for (const name of PIECE_NAMES) pieces[name]?.geometry.dispose();
-      // Two materials for eleven pieces, so dispose by identity, once each.
+      // Two materials for fifteen pieces, so dispose by identity, once each.
       const seen = new Set<THREE.Material>();
       gltf.scene.traverse((o) => {
         const mesh = o as THREE.Mesh;

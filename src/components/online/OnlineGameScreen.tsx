@@ -8,12 +8,11 @@ import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
-import type { EventLog, GameState, Program } from '../../engine';
+import type { Direction, EventLog, GameState, Program } from '../../engine';
 import { countCheckpoints } from '../../engine';
 import { inviteUrl, navigate } from '../../services/route';
 import { setFocusPlayer } from '../../services/viewSettings';
-import { Board } from '../board/Board';
-import { Board3D, board3dEnabled } from '../board3d/Board3D';
+import { BoardView } from '../board/BoardView';
 import { BoardThumb } from '../board/BoardThumb';
 import { PlayerStrip } from '../board/PlayerStrip';
 import { initialVisual } from '../replay/visualState';
@@ -23,9 +22,6 @@ import { ReplayPlayer } from '../replay/ReplayPlayer';
 import { CenterNote, errorMessage, SignInGate } from './common';
 import { HistoryBrowser } from './HistoryBrowser';
 import { NotificationsButton } from './NotificationsButton';
-
-/** ?render=3d swaps the WebGL board in; the DOM board is the default. */
-const BoardView = board3dEnabled() ? Board3D : Board;
 
 export function OnlineGameScreen({ gameId }: { gameId: string }) {
   return (
@@ -103,7 +99,7 @@ function GameInner({ gameId }: { gameId: Id<'games'> }) {
     );
   }
 
-  const state = g.state as GameState; // sanitized: my hand only, no decks
+  const state = g.state as GameState; // sanitized: my hand only, deck emptied
   const myRobot = state.robots[g.mySeat];
 
   if (myRobot.eliminated || g.mySubmitted) {
@@ -117,14 +113,24 @@ function GameInner({ gameId }: { gameId: Id<'games'> }) {
     );
   }
 
-  const submit = (program: Program, taunt?: string) => {
+  const submit = (
+    program: Program,
+    taunt?: string,
+    respawnFacing?: Direction,
+    powerDown?: boolean,
+  ) => {
     setError(null);
     // expectedTurn: if the server has already moved on (OCC retry after someone
     // else's submission executed the turn), the result comes back stale and we
     // drop it silently — the reactive query is already rendering the new turn.
-    submitProgram({ gameId: g.gameId, program, taunt, expectedTurn: g.currentTurn }).catch(
-      (e: unknown) => setError(errorMessage(e)),
-    );
+    submitProgram({
+      gameId: g.gameId,
+      program,
+      taunt,
+      respawnFacing,
+      powerDown,
+      expectedTurn: g.currentTurn,
+    }).catch((e: unknown) => setError(errorMessage(e)));
   };
 
   return (

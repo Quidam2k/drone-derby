@@ -151,6 +151,8 @@ export class RobotRig {
   private readonly recoilDir = { x: 0, z: 0 };
   /** What the VisualState last said. A death animation overrides it until done. */
   private wantVisible = true;
+  /** Powered down: lamps and thrusters off — the chassis reads as dead metal. */
+  private poweredDown = false;
   /** Last non-zero step of `wanted`, for breaking edge-fall corner ties. */
   private travelX = 0;
   private travelZ = 0;
@@ -233,6 +235,20 @@ export class RobotRig {
   /** Red pulse on a hit. Purely cosmetic; the state change is the event's. */
   hit(): void {
     this.flash = FLASH_SECONDS;
+  }
+
+  /**
+   * All systems off while powered down: every self-lit part (lamps,
+   * thrusters) goes dark. The damage flash still plays over it — a hit on a
+   * sleeping robot should read — and its own restore respects this state.
+   */
+  setPoweredDown(down: boolean): void {
+    if (down === this.poweredDown) return;
+    this.poweredDown = down;
+    if (this.flash > 0) return; // stepFlash's restore applies the new state
+    for (const e of this.emissives) {
+      e.material.emissiveIntensity = down ? 0 : e.intensity;
+    }
   }
 
   /** Rock back off the wall it just hit. `dir` is the direction it tried to go. */
@@ -351,9 +367,9 @@ export class RobotRig {
     for (const e of this.emissives) {
       if (this.flash === 0) {
         // Restore the colour too: several chassis parts are lamps and
-        // thrusters that emit on their own.
+        // thrusters that emit on their own (unless the robot is powered down).
         e.material.emissive.copy(e.color);
-        e.material.emissiveIntensity = e.intensity;
+        e.material.emissiveIntensity = this.poweredDown ? 0 : e.intensity;
       } else {
         e.material.emissive.setHex(0xff2b2b);
         e.material.emissiveIntensity = 0.15 + t * 1.6;

@@ -52,30 +52,26 @@ function randomPrograms(state: GameState, rng: Rng): Record<PlayerId, Program> {
 function checkInvariants(state: GameState, where: string, final = false): void {
   const occupied = new Map<string, PlayerId>();
 
+  // Cards are conserved globally: the one shared 84-card deck is always fully
+  // accounted for across draw pile, discard pile, every hand, and every
+  // locked register — and no card id appears in two places at once.
+  const ids = [
+    ...state.deck.drawPile.map((c) => c.id),
+    ...state.deck.discardPile.map((c) => c.id),
+    ...Object.values(state.hands).flat().map((c) => c.id),
+    ...state.robots.flatMap((r) =>
+      r.lockedRegisters.filter((c) => c !== null).map((c) => c!.id),
+    ),
+  ];
+  expect(ids.length, `${where}: card conservation (shared deck)`).toBe(84);
+  expect(new Set(ids).size, `${where}: no duplicate card ids`).toBe(84);
+
+  if (final) return; // between-turns checks below don't apply to a won game
+
   for (const robot of state.robots) {
-    if (robot.eliminated && !final) continue;
+    if (robot.eliminated) continue;
     const who = `${where} / ${robot.player}`;
-
-    // Cards are conserved: the 84-card deck is always fully accounted for
-    // across draw pile, discard pile, hand, and locked registers.
-    const deck = state.decks[robot.player];
-    const locked = robot.lockedRegisters.filter((c) => c !== null).length;
     const inHand = state.hands[robot.player].length;
-    expect(
-      deck.drawPile.length + deck.discardPile.length + inHand + locked,
-      `${who}: card conservation`,
-    ).toBe(84);
-
-    // No card appears in two places at once.
-    const ids = [
-      ...deck.drawPile.map((c) => c.id),
-      ...deck.discardPile.map((c) => c.id),
-      ...state.hands[robot.player].map((c) => c.id),
-      ...robot.lockedRegisters.filter((c) => c !== null).map((c) => c.id),
-    ];
-    expect(new Set(ids).size, `${who}: no duplicate card ids`).toBe(84);
-
-    if (final) continue;
 
     // Hand size tracks damage, and locked registers hold exactly the cards
     // the damage level says are locked.

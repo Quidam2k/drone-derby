@@ -186,26 +186,47 @@ select:focus {
   -webkit-overflow-scrolling: touch;
 }
 
-/* ---- 3D camera overlay (phase 3D-2) -------------------------------------
-   Plain DOM layered over the WebGL canvas — the same trick 3D-4 uses for
-   speech bubbles. The strip itself is transparent to the pointer so it never
-   eats an orbit drag; only the buttons take input. */
-.board-3d-controls {
+/* ---- board wrapper (phase 3D-7) -----------------------------------------
+   BoardView's box: whichever renderer mounted, plus the renderer toggle. It
+   has to be transparent inside .game-layout's flex row (fit-content, no
+   padding) and it is the positioning context for the toggle — which sits
+   OUTSIDE .board-viewport on purpose, because that box scrolls on a panned
+   composed board and a fallback you have to scroll to find is not one. */
+.board-view {
+  position: relative;
+  width: fit-content;
+}
+
+/* ---- board overlay strips (phase 3D-2, shared since 3D-7) ---------------
+   Plain DOM layered over the board — the same trick 3D-4 uses for speech
+   bubbles. The strip itself is transparent to the pointer so it never eats an
+   orbit drag; only the buttons take input. Chrome is shared by the 3D camera
+   strip (top-right, inside Board3D) and the renderer toggle (top-left, in
+   BoardView); only the corner differs. Distinct corners so they cannot
+   collide, and in 2D the toggle is the only overlay — which is what makes
+   the fallback two-way. */
+.board-overlay-controls {
   position: absolute;
-  top: 0.4rem;
-  right: 0.4rem;
   display: flex;
   align-items: center;
   gap: 0.35rem;
   pointer-events: none;
   z-index: 2;
 }
-.board-3d-controls .follow-seg {
+.board-3d-controls {
+  top: 0.4rem;
+  right: 0.4rem;
+}
+.board-view-controls {
+  top: 0.4rem;
+  left: 0.4rem;
+}
+.board-overlay-controls :is(.follow-seg, .renderer-seg) {
   display: inline-flex;
   border-radius: 6px;
   overflow: hidden;
 }
-.board-3d-controls button {
+.board-overlay-controls button {
   pointer-events: auto;
   /* Dark and half-transparent so it reads as an overlay on any board art
      that 3D-3 lands, rather than a panel bolted to the screen. */
@@ -217,42 +238,48 @@ select:focus {
   padding: 0.35rem 0.5rem;
   cursor: pointer;
 }
-.board-3d-controls .follow-seg button {
+.board-overlay-controls :is(.follow-seg, .renderer-seg) button {
   border-radius: 0;
   border-right-width: 0;
 }
-.board-3d-controls .follow-seg button:first-child {
+.board-overlay-controls :is(.follow-seg, .renderer-seg) button:first-child {
   border-radius: 6px 0 0 6px;
 }
-.board-3d-controls .follow-seg button:last-child {
+.board-overlay-controls :is(.follow-seg, .renderer-seg) button:last-child {
   border-radius: 0 6px 6px 0;
   border-right-width: 1px;
 }
-.board-3d-controls button:hover:not(:disabled) {
+.board-overlay-controls button:hover:not(:disabled) {
   color: var(--text);
 }
-.board-3d-controls button.selected {
+.board-overlay-controls button.selected {
   color: var(--accent);
   background: rgb(20 22 31 / 92%);
   font-weight: 700;
 }
-.board-3d-controls button:disabled {
+.board-overlay-controls button:disabled {
   opacity: 0.4;
   cursor: default;
 }
-.board-3d-controls .reset-view {
+.board-overlay-controls .reset-view {
   border-radius: 6px;
   font-size: 0.85rem;
   padding: 0.25rem 0.45rem;
 }
 @media (max-width: 600px) {
-  /* Touch targets, and the strip must never crowd a narrow board. */
+  /* Touch targets, and the strips must never crowd a narrow board. */
   .board-3d-controls {
     top: 0.25rem;
     right: 0.25rem;
+  }
+  .board-view-controls {
+    top: 0.25rem;
+    left: 0.25rem;
+  }
+  .board-overlay-controls {
     gap: 0.25rem;
   }
-  .board-3d-controls button {
+  .board-overlay-controls button {
     min-height: 32px;
     padding: 0.35rem 0.45rem;
   }
@@ -331,6 +358,24 @@ select:focus {
   }
 }
 
+/* Curved belts: chevrons sit fixed on the arc and march entry → exit as a
+   staggered opacity wave (per-chevron animation-delay set inline). */
+.conveyor-curve-chevrons polyline {
+  opacity: 0.9;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .conveyor-curve-chevrons polyline {
+    animation: conveyor-march 1.8s linear infinite;
+  }
+  .conveyor-curve-chevrons.conveyor-express polyline {
+    animation-duration: 0.9s;
+  }
+  @keyframes conveyor-march {
+    0%, 55%, 100% { opacity: 0.3; }
+    15%, 35% { opacity: 1; }
+  }
+}
+
 /* Walls sit on cell edges; z-index above tiles, below robots. */
 .wall {
   position: absolute;
@@ -359,6 +404,15 @@ select:focus {
 .emitter-s { top: 0; left: 50%; transform: translateX(-50%); }
 .emitter-n { bottom: 0; left: 50%; transform: translateX(-50%); }
 
+/* Wall-mounted pusher piston: the sprite fills the tile and draws itself
+   against the mounted edge (rotation lives in the SVG, not here). */
+.pusher {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
 /* ---- robots + transient overlays ---------------------------------------- */
 
 .robots-layer {
@@ -385,6 +439,14 @@ select:focus {
     rgba(0, 0, 0, 0.22) 45%,
     rgba(0, 0, 0, 0) 72%
   );
+}
+
+/* Powered down (phase 33): systems off — the sprite goes grey and dim while
+   belts, gears and pushes still move it. Filter on the body, not .robot, so
+   the contact shadow stays full-strength under the dead chassis. */
+.robot.powered-down .robot-body {
+  opacity: 0.55;
+  filter: grayscale(0.8) brightness(0.8);
 }
 
 /* Programming-preview ghost: same sprite, translucent, drawn over the live
@@ -555,6 +617,63 @@ select:focus {
   flex-wrap: wrap;
 }
 
+/* Respawn facing picker — shown only the turn after a robot re-enters play. */
+.respawn-facing-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: 0.8rem auto 0;
+  padding: 0.4rem 0.7rem;
+  width: fit-content;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font-size: 0.85rem;
+}
+.respawn-facing-label {
+  color: var(--text-dim);
+  margin-right: 0.25rem;
+}
+.respawn-facing-row button {
+  min-width: 40px;
+  min-height: 36px;
+  font-size: 1.05rem;
+}
+.respawn-facing-row button.selected {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+/* Power-down (phase 33): the announce toggle in the programming footer, and
+   the one-tap stay/wake panel a powered-down seat gets instead of a hand. */
+.power-down-toggle.selected {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+}
+.powered-down-panel {
+  margin: 0.8rem auto 0;
+  padding: 0.8rem 1.1rem;
+  max-width: 34rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  text-align: center;
+}
+.powered-down-note {
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  margin: 0 0 0.8rem;
+}
+.powered-down-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
 .register-slot {
   width: 92px;
   height: 112px;
@@ -699,6 +818,38 @@ select:focus {
 }
 .continue-btn {
   margin-left: 0.75rem;
+}
+.reel-btn {
+  margin-left: 0.5rem;
+  color: var(--accent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+/* ---- highlight reel ------------------------------------------------------ */
+
+.reel-counter {
+  color: var(--accent);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+/* The beat's headline holds for the whole beat; the .caption under it still
+   tracks each event. Sized above the caption so the two read as a hierarchy. */
+.reel-title {
+  min-height: 1.9rem;
+  text-align: center;
+  margin: 0.7rem 0 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.reel-screen .caption {
+  margin-top: 0.15rem;
+  color: var(--text-dim);
+  font-size: 0.95rem;
+}
+.reel-controls {
+  gap: 0.6rem;
 }
 
 /* ---- online (lobby / join / async game) --------------------------------- */

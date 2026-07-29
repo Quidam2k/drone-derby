@@ -14,6 +14,7 @@
 
 import * as THREE from 'three';
 import type { BoardDef, Direction, Position, TileDef } from '../../engine';
+import { rotate } from '../../engine';
 import type { KitPiece, TileKit } from './tileKit';
 
 /** index.css custom properties, as hex. Keep in sync with :root there. */
@@ -172,6 +173,14 @@ interface Chevron {
   offset: number;
   /** Tiles per second. Matches the DOM belt animation's px/s at a 52px tile. */
   speed: number;
+  /**
+   * Second leg, for curved belts: the first half of the cycle rides `dir`
+   * (the entry travel axis) from the entry edge to the tile centre, the
+   * second half rides `dir2` (the exit axis) out, yaw switching at the
+   * midpoint. Unset on straight belts.
+   */
+  dir2?: THREE.Vector3;
+  yaw2?: number;
 }
 
 export interface BoardMeshes {
@@ -223,6 +232,10 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   // geometry from a floor plate, and it has to face the way the belt runs.
   const floorDecks = new Batch();
   const beltDecks = new Batch();
+  // Curved belt beds are a third piece: one CW-frame model (exit N, entry
+  // edge E), yawed so entry/exit line up; CCW reuses it with the exit edge
+  // taking the model's E slot — the bed carries no direction of its own.
+  const curveDecks = new Batch();
   const pitFloors = new Batch();
   const pitRims = new Batch();
   const chevrons: Chevron[] = [];
@@ -233,10 +246,17 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   /** Cell key -> its instance index in the checkpoint ring batch. */
   const ringIndex = new Map<string, number>();
   const spawns = new Batch();
+  const wrenches = new Batch();
+  // Fallback-only wrench glyph bars (the kit's hatch models the tool itself).
+  const wrenchGlyphs = new Batch();
   const labels: THREE.Mesh[] = [];
   const walls = new Batch();
   const emitterBodies = new Batch();
   const emitterLenses = new Batch();
+  const pusherHousings = new Batch();
+  // Two plate batches so each register variant keeps its own tint.
+  const pusherPlatesOdd = new Batch();
+  const pusherPlatesEven = new Batch();
 
   /**
    * The checkpoint/spawn number, as a digit lying on the tile. Pips were the
@@ -265,21 +285,31 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
       return;
     }
     bodies.add({ pos: centre(x, y, -SLAB / 2) });
-    if (def.kind === 'conveyor') beltDecks.add({ pos: centre(x, y, -0.015), yaw: DIR_YAW[def.dir] });
-    else floorDecks.add({ pos: centre(x, y, -0.015) });
+    if (def.kind === 'conveyor' && def.curve) {
+      curveDecks.add({
+        pos: centre(x, y, -0.015),
+        yaw: DIR_YAW[def.curve === 'cw' ? def.dir : rotate(def.dir, -1)],
+      });
+    } else if (def.kind === 'conveyor') {
+      beltDecks.add({ pos: centre(x, y, -0.015), yaw: DIR_YAW[def.dir] });
+    } else floorDecks.add({ pos: centre(x, y, -0.015) });
 
     switch (def.kind) {
       case 'conveyor': {
         const k = def.express ? 3 : 2;
         // 13px per 1.8s (normal) / 12px per 0.9s (express) at a 52px tile.
         const speed = def.express ? 0.256 : 0.139;
+        // On a curve the chevron rides in along the entry axis, out along the
+        // exit axis (see Chevron.dir2); a straight belt is one leg end to end.
+        const entry = def.curve ? rotate(def.dir, def.curve === 'cw' ? -1 : 1) : def.dir;
         for (let i = 0; i < k; i++) {
           chevrons.push({
             centre: centre(x, y, 0.014),
-            dir: DIR_VEC[def.dir],
-            yaw: DIR_YAW[def.dir],
+            dir: DIR_VEC[entry],
+            yaw: DIR_YAW[entry],
             offset: i / k,
             speed,
+            ...(def.curve ? { dir2: DIR_VEC[def.dir], yaw2: DIR_YAW[def.dir] } : {}),
           });
         }
         break;
@@ -323,6 +353,20 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
         }
         addLabel(x, y, def.n, '#9aa0b8', 0.34);
         break;
+      case 'wrench':
+        wrenches.add({ pos: centre(x, y, 0.025) });
+        if (!kit?.wrench) {
+          // Procedural glyph: a diagonal handle bar plus a stubby wide "head"
+          // (the same box squashed) at its NE end — wrench-ish at deck scale.
+          const diag = new THREE.Vector3(Math.SQRT1_2, 0, -Math.SQRT1_2);
+          wrenchGlyphs.add({ pos: centre(x, y, 0.07), yaw: Math.PI / 4 });
+          wrenchGlyphs.add({
+            pos: centre(x, y, 0.07).addScaledVector(diag, 0.21),
+            yaw: Math.PI / 4,
+            scale: new THREE.Vector3(0.45, 1, 1.9),
+          });
+        }
+        break;
       case 'floor':
         break;
     }
@@ -347,6 +391,20 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
     // Placed by the same function scene.ts starts the beam from, so the two
     // cannot disagree about where the muzzle is.
     emitterLenses.add({ pos: laserMuzzle(l), yaw: DIR_YAW[l.facing] });
+  }
+
+  for (const p of board.pushers ?? []) {
+    // Mounted on the wall BEHIND the push direction, like the laser barrel:
+    // housing flush against the edge, piston plate poised in front of it.
+    pusherHousings.add({
+      pos: centre(p.pos.x, p.pos.y, 0.16).addScaledVector(DIR_VEC[p.facing], -0.42),
+      yaw: DIR_YAW[p.facing],
+    });
+    const plates = p.registers.includes(1) ? pusherPlatesOdd : pusherPlatesEven;
+    plates.add({
+      pos: centre(p.pos.x, p.pos.y, 0.16).addScaledVector(DIR_VEC[p.facing], -0.28),
+      yaw: DIR_YAW[p.facing],
+    });
   }
 
   // -------------------------------------------------------------- materials
@@ -397,6 +455,9 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
     }),
   );
   const lineMat = mat(new THREE.MeshStandardMaterial({ color: C.line, roughness: 0.8 }));
+  const wrenchMat = mat(
+    new THREE.MeshStandardMaterial({ color: C.belt, roughness: 0.45, metalness: 0.5 }),
+  );
   const emitterMat = mat(
     new THREE.MeshStandardMaterial({ color: 0x4a5069, roughness: 0.5, metalness: 0.6 }),
   );
@@ -407,6 +468,14 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
       emissiveIntensity: 1.4,
       roughness: 0.3,
     }),
+  );
+  // Pusher plates keep code materials even with a kit loaded: which registers
+  // a piston fires on is a game rule, and the tint is how you read it.
+  const pusherOddMat = mat(
+    new THREE.MeshStandardMaterial({ color: 0xe0b341, roughness: 0.5, metalness: 0.35 }),
+  );
+  const pusherEvenMat = mat(
+    new THREE.MeshStandardMaterial({ color: C.belt, roughness: 0.5, metalness: 0.35 }),
   );
 
   // ------------------------------------------------------------------ build
@@ -423,6 +492,15 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
     beltDecks.build(
       pieceGeom(kit?.conveyor, deckPrimitive),
       kit?.conveyor?.material ?? beltFloorMat,
+      { receive: true },
+    ),
+  );
+  // A kit without the curve piece falls back to the flat deck primitive —
+  // the chevrons still bend, which is the readable part.
+  add(
+    curveDecks.build(
+      pieceGeom(kit?.conveyor_curve, deckPrimitive),
+      kit?.conveyor_curve?.material ?? beltFloorMat,
       { receive: true },
     ),
   );
@@ -474,6 +552,16 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
       { receive: true },
     ),
   );
+  add(
+    wrenches.build(
+      pieceGeom(kit?.wrench, () => new THREE.CylinderGeometry(0.36, 0.36, 0.04, 20)),
+      kit?.wrench?.material ?? lineMat,
+      { receive: true },
+    ),
+  );
+  if (wrenchGlyphs.count) {
+    add(wrenchGlyphs.build(geom(new THREE.BoxGeometry(0.46, 0.06, 0.1)), wrenchMat, { cast: true }));
+  }
   for (const label of labels) group.add(label);
   add(
     emitterBodies.build(
@@ -488,6 +576,16 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
       lensMat,
     ),
   );
+  add(
+    pusherHousings.build(
+      pieceGeom(kit?.pusher_housing, () => new THREE.BoxGeometry(0.72, 0.2, 0.14)),
+      kit?.pusher_housing?.material ?? emitterMat,
+      { cast: true },
+    ),
+  );
+  const pusherPlateGeom = pieceGeom(kit?.pusher_plate, () => new THREE.BoxGeometry(0.6, 0.14, 0.08));
+  add(pusherPlatesOdd.build(pusherPlateGeom, pusherOddMat, { cast: true }));
+  add(pusherPlatesEven.build(pusherPlateGeom, pusherEvenMat, { cast: true }));
 
   // Chevrons: one instanced mesh per speed class so express keeps its accent
   // colour, both re-placed every frame by tick().
@@ -541,8 +639,14 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
         // Chevrons cycle within their own tile; neighbours share the phase, so
         // the belt reads as continuous across cell boundaries.
         const frac = (((c.offset + elapsed * c.speed) % 1) + 1) % 1;
-        p.copy(c.centre).addScaledVector(c.dir, frac - 0.5);
-        q.setFromAxisAngle(up, c.yaw);
+        if (c.dir2 && frac >= 0.5) {
+          // Second leg of a curve: out from the centre along the exit axis.
+          p.copy(c.centre).addScaledVector(c.dir2, frac - 0.5);
+          q.setFromAxisAngle(up, c.yaw2 ?? c.yaw);
+        } else {
+          p.copy(c.centre).addScaledVector(c.dir, frac - 0.5);
+          q.setFromAxisAngle(up, c.yaw);
+        }
         mesh.setMatrixAt(i, m4.compose(p, q, one));
       });
       mesh.instanceMatrix.needsUpdate = true;

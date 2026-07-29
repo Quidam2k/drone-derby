@@ -12,6 +12,16 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
   },
   {
     "card": {
+      "id": "move2-740",
+      "priority": 740,
+      "type": "move2",
+    },
+    "player": "bob",
+    "register": 1,
+    "type": "card-revealed",
+  },
+  {
+    "card": {
       "id": "move2-730",
       "priority": 730,
       "type": "move2",
@@ -21,14 +31,30 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "type": "card-revealed",
   },
   {
-    "card": {
-      "id": "move1-630",
-      "priority": 630,
-      "type": "move1",
+    "from": {
+      "x": 3,
+      "y": 9,
     },
     "player": "bob",
-    "register": 1,
-    "type": "card-revealed",
+    "pushed": false,
+    "to": {
+      "x": 3,
+      "y": 8,
+    },
+    "type": "robot-moved",
+  },
+  {
+    "from": {
+      "x": 3,
+      "y": 8,
+    },
+    "player": "bob",
+    "pushed": false,
+    "to": {
+      "x": 3,
+      "y": 7,
+    },
+    "type": "robot-moved",
   },
   {
     "from": {
@@ -57,17 +83,17 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "type": "robot-moved",
   },
   {
+    "express": false,
     "from": {
       "x": 3,
-      "y": 9,
+      "y": 7,
     },
     "player": "bob",
-    "pushed": false,
     "to": {
-      "x": 3,
-      "y": 8,
+      "x": 4,
+      "y": 7,
     },
-    "type": "robot-moved",
+    "type": "conveyor-moved",
   },
   {
     "hit": undefined,
@@ -118,7 +144,7 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "type": "laser-fired",
   },
   {
-    "hit": "bob",
+    "hit": undefined,
     "path": [
       {
         "x": 9,
@@ -148,16 +174,22 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
         "x": 3,
         "y": 8,
       },
+      {
+        "x": 2,
+        "y": 8,
+      },
+      {
+        "x": 1,
+        "y": 8,
+      },
+      {
+        "x": 0,
+        "y": 8,
+      },
     ],
     "source": "board",
     "strength": 1,
     "type": "laser-fired",
-  },
-  {
-    "amount": 1,
-    "player": "bob",
-    "total": 1,
-    "type": "damage",
   },
   {
     "hit": undefined,
@@ -184,35 +216,31 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "hit": undefined,
     "path": [
       {
-        "x": 3,
-        "y": 7,
-      },
-      {
-        "x": 3,
+        "x": 4,
         "y": 6,
       },
       {
-        "x": 3,
+        "x": 4,
         "y": 5,
       },
       {
-        "x": 3,
+        "x": 4,
         "y": 4,
       },
       {
-        "x": 3,
+        "x": 4,
         "y": 3,
       },
       {
-        "x": 3,
+        "x": 4,
         "y": 2,
       },
       {
-        "x": 3,
+        "x": 4,
         "y": 1,
       },
       {
-        "x": 3,
+        "x": 4,
         "y": 0,
       },
     ],
@@ -227,6 +255,16 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
   },
   {
     "card": {
+      "id": "move3-820",
+      "priority": 820,
+      "type": "move3",
+    },
+    "player": "bob",
+    "register": 2,
+    "type": "card-revealed",
+  },
+  {
+    "card": {
       "id": "move2-770",
       "priority": 770,
       "type": "move2",
@@ -236,14 +274,44 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "type": "card-revealed",
   },
   {
-    "card": {
-      "id": "turnLeft-370",
-      "priority": 370,
-      "type": "turnLeft",
+    "from": {
+      "x": 4,
+      "y": 7,
     },
     "player": "bob",
-    "register": 2,
-    "type": "card-revealed",
+    "pushed": false,
+    "to": {
+      "x": 4,
+      "y": 6,
+    },
+    "type": "robot-moved",
+  },
+  {
+    "from": {
+      "x": 4,
+      "y": 6,
+    },
+    "player": "bob",
+    "pushed": false,
+    "to": {
+      "x": 4,
+      "y": 5,
+    },
+    "type": "robot-moved",
+  },
+  {
+    "at": {
+      "x": 4,
+      "y": 5,
+    },
+    "cause": "pit",
+    "player": "bob",
+    "type": "robot-fell",
+  },
+  {
+    "player": "bob",
+    "remaining": 2,
+    "type": "life-lost",
   },
   {
     "from": {
@@ -272,12 +340,6 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "type": "robot-moved",
   },
   {
-    "from": "N",
-    "player": "bob",
-    "to": "W",
-    "type": "robot-rotated",
-  },
-  {
     "hit": undefined,
     "path": [
       {
@@ -326,7 +388,7 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "type": "laser-fired",
   },
   {
-    "hit": "bob",
+    "hit": undefined,
     "path": [
       {
         "x": 9,
@@ -356,16 +418,22 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
         "x": 3,
         "y": 8,
       },
+      {
+        "x": 2,
+        "y": 8,
+      },
+      {
+        "x": 1,
+        "y": 8,
+      },
+      {
+        "x": 0,
+        "y": 8,
+      },
     ],
     "source": "board",
     "strength": 1,
     "type": "laser-fired",
-  },
-  {
-    "amount": 1,
-    "player": "bob",
-    "total": 2,
-    "type": "damage",
   },
   {
     "hit": undefined,
@@ -381,39 +449,8 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "type": "laser-fired",
   },
   {
-    "hit": undefined,
-    "path": [
-      {
-        "x": 2,
-        "y": 8,
-      },
-      {
-        "x": 1,
-        "y": 8,
-      },
-      {
-        "x": 0,
-        "y": 8,
-      },
-    ],
-    "shooter": "bob",
-    "source": "robot",
-    "strength": 1,
-    "type": "laser-fired",
-  },
-  {
     "register": 3,
     "type": "register-started",
-  },
-  {
-    "card": {
-      "id": "move1-540",
-      "priority": 540,
-      "type": "move1",
-    },
-    "player": "bob",
-    "register": 3,
-    "type": "card-revealed",
   },
   {
     "card": {
@@ -424,19 +461,6 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "player": "alice",
     "register": 3,
     "type": "card-revealed",
-  },
-  {
-    "from": {
-      "x": 3,
-      "y": 8,
-    },
-    "player": "bob",
-    "pushed": false,
-    "to": {
-      "x": 2,
-      "y": 8,
-    },
-    "type": "robot-moved",
   },
   {
     "from": {
@@ -500,7 +524,7 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "type": "laser-fired",
   },
   {
-    "hit": "bob",
+    "hit": undefined,
     "path": [
       {
         "x": 9,
@@ -534,16 +558,18 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
         "x": 2,
         "y": 8,
       },
+      {
+        "x": 1,
+        "y": 8,
+      },
+      {
+        "x": 0,
+        "y": 8,
+      },
     ],
     "source": "board",
     "strength": 1,
     "type": "laser-fired",
-  },
-  {
-    "amount": 1,
-    "player": "bob",
-    "total": 3,
-    "type": "damage",
   },
   {
     "hit": undefined,
@@ -563,35 +589,8 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "type": "laser-fired",
   },
   {
-    "hit": undefined,
-    "path": [
-      {
-        "x": 1,
-        "y": 8,
-      },
-      {
-        "x": 0,
-        "y": 8,
-      },
-    ],
-    "shooter": "bob",
-    "source": "robot",
-    "strength": 1,
-    "type": "laser-fired",
-  },
-  {
     "register": 4,
     "type": "register-started",
-  },
-  {
-    "card": {
-      "id": "move2-680",
-      "priority": 680,
-      "type": "move2",
-    },
-    "player": "bob",
-    "register": 4,
-    "type": "card-revealed",
   },
   {
     "card": {
@@ -602,32 +601,6 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "player": "alice",
     "register": 4,
     "type": "card-revealed",
-  },
-  {
-    "from": {
-      "x": 2,
-      "y": 8,
-    },
-    "player": "bob",
-    "pushed": false,
-    "to": {
-      "x": 1,
-      "y": 8,
-    },
-    "type": "robot-moved",
-  },
-  {
-    "from": {
-      "x": 1,
-      "y": 8,
-    },
-    "player": "bob",
-    "pushed": false,
-    "to": {
-      "x": 0,
-      "y": 8,
-    },
-    "type": "robot-moved",
   },
   {
     "from": "N",
@@ -684,7 +657,7 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "type": "laser-fired",
   },
   {
-    "hit": "bob",
+    "hit": undefined,
     "path": [
       {
         "x": 9,
@@ -732,12 +705,6 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "type": "laser-fired",
   },
   {
-    "amount": 1,
-    "player": "bob",
-    "total": 4,
-    "type": "damage",
-  },
-  {
     "hit": undefined,
     "path": [
       {
@@ -751,26 +718,8 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "type": "laser-fired",
   },
   {
-    "hit": undefined,
-    "path": [],
-    "shooter": "bob",
-    "source": "robot",
-    "strength": 1,
-    "type": "laser-fired",
-  },
-  {
     "register": 5,
     "type": "register-started",
-  },
-  {
-    "card": {
-      "id": "turnRight-220",
-      "priority": 220,
-      "type": "turnRight",
-    },
-    "player": "bob",
-    "register": 5,
-    "type": "card-revealed",
   },
   {
     "card": {
@@ -781,12 +730,6 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "player": "alice",
     "register": 5,
     "type": "card-revealed",
-  },
-  {
-    "from": "W",
-    "player": "bob",
-    "to": "N",
-    "type": "robot-rotated",
   },
   {
     "from": "W",
@@ -843,7 +786,7 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "type": "laser-fired",
   },
   {
-    "hit": "bob",
+    "hit": undefined,
     "path": [
       {
         "x": 9,
@@ -891,22 +834,6 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "type": "laser-fired",
   },
   {
-    "amount": 1,
-    "player": "bob",
-    "total": 5,
-    "type": "damage",
-  },
-  {
-    "card": {
-      "id": "turnRight-220",
-      "priority": 220,
-      "type": "turnRight",
-    },
-    "player": "bob",
-    "register": 5,
-    "type": "register-locked",
-  },
-  {
     "hit": undefined,
     "path": [
       {
@@ -948,45 +875,13 @@ exports[`determinism > golden EventLog: fixed seed, fixed programs → exact eve
     "type": "laser-fired",
   },
   {
-    "hit": undefined,
-    "path": [
-      {
-        "x": 0,
-        "y": 7,
-      },
-      {
-        "x": 0,
-        "y": 6,
-      },
-      {
-        "x": 0,
-        "y": 5,
-      },
-      {
-        "x": 0,
-        "y": 4,
-      },
-      {
-        "x": 0,
-        "y": 3,
-      },
-      {
-        "x": 0,
-        "y": 2,
-      },
-      {
-        "x": 0,
-        "y": 1,
-      },
-      {
-        "x": 0,
-        "y": 0,
-      },
-    ],
-    "shooter": "bob",
-    "source": "robot",
-    "strength": 1,
-    "type": "laser-fired",
+    "facing": "N",
+    "player": "bob",
+    "pos": {
+      "x": 3,
+      "y": 9,
+    },
+    "type": "robot-respawned",
   },
   {
     "turn": 1,

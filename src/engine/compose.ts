@@ -85,6 +85,13 @@ export function composeBoards(parts: BoardDef[], name: string): BoardDef {
         strength: l.strength,
       });
     }
+    for (const p of part.pushers ?? []) {
+      (board.pushers ??= []).push({
+        pos: { x: p.pos.x + xOff, y: p.pos.y + yOff },
+        facing: p.facing,
+        registers: [...p.registers],
+      });
+    }
 
     yOff += part.height;
   }

@@ -11,7 +11,7 @@
 
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import type { BoardDef, Direction, EngineEvent, PlayerId, Position } from '../../engine';
+import type { BoardDef, Direction, EngineEvent, EventLog, PlayerId, Position } from '../../engine';
 import type { RobotVisual, VisualState } from '../replay/visualState';
 import {
   getFocusPlayer,
@@ -21,8 +21,18 @@ import {
   subscribe,
 } from '../../services/viewSettings';
 import { buildBoard, laserMuzzle, type BoardMeshes } from './boardMesh';
-import { CameraDirector, cellCentre, eventFocus, ROBOT_RADIUS } from './camera';
+import { CameraDirector, cellCentre, cellShot, ROBOT_RADIUS } from './camera';
 import { attachViewControls } from './controls';
+import {
+  LOOKAHEAD,
+  lookaheadWindow,
+  MIN_RADIUS,
+  planShot,
+  REEL_RADIUS,
+  shouldReplace,
+  type DirectorContext,
+  type Shot,
+} from './directorMath';
 import {
   BEAM_OVERSHOOT,
   clamp01,
@@ -44,6 +54,34 @@ export interface BoardSceneInput {
   visual: VisualState;
   currentEvent?: EngineEvent | null;
   ghost?: { robot: RobotVisual; seat: number };
+  /**
+   * Replay look-ahead: the whole turn's log and the replay cursor. Optional —
+   * the live views (programming, online) have no future to look at and simply
+   * don't pass them, which leaves the director reacting to `currentEvent`
+   * alone, exactly as it should there.
+   *
+   * This is the whole reason the 3D-5 director can be still when the laser
+   * fires instead of setting off toward it as the beam ends. See
+   * ./directorMath's header.
+   */
+  events?: EventLog;
+  /** Events already applied. `events[cursor - 1]` is what is on screen. */
+  cursor?: number;
+  /**
+   * Present only while a HighlightReel is driving this board (Phase 3D-6).
+   *
+   * It buys the two things a reel may do and the live camera may not. FRAME
+   * TIGHT: the live camera is obliged to keep everyone's robot findable, a reel
+   * is not, and that single freedom is why reels are a separate thing rather
+   * than a camera mode. HARD CUT: when `beat` changes the camera does not ease,
+   * it cuts — legitimate only because the reel's beat counter ticks over on the
+   * same frame and cues it.
+   *
+   * `until` is the beat's exclusive end. Without it the look-ahead would reach
+   * past the beat and frame an event the reel is never going to show — which,
+   * at a beat that ends on a destruction, means drifting off the climax.
+   */
+  reel?: { beat: number; until: number };
 }
 
 /** Where a robot's speech bubble should sit, in CSS pixels over the canvas. */
@@ -73,16 +111,47 @@ export interface BoardScene {
    * airborne (`height` > 0) or invisible after a backwards scrub. `settled` is
    * false while anything is still easing or any effect is running, which is what
    * a screenshot should wait for.
+   *
+   * 3D-5 adds `screen`: the same rig projected to canvas CSS pixels, with
+   * `onScreen` false once it leaves the canvas. That is how the south-rim fall
+   * is checked — "did the robot stay in the picture" is a question about pixels,
+   * and answering it from a screenshot is exactly the eyeballing the rim
+   * overhang was added to stop.
    */
-  probe(): { player: PlayerId; x: number; y: number; height: number; visible: boolean }[];
+  probe(): {
+    player: PlayerId;
+    x: number;
+    y: number;
+    height: number;
+    visible: boolean;
+    screen: { x: number; y: number; onScreen: boolean };
+  }[];
   settled(): boolean;
   /**
    * The live camera state, so a Playwright drag can assert the camera moved
-   * rather than trusting a screenshot. `subject` is in board coordinates and
-   * is clamped to keep the framing over the board, so near an edge it lags
-   * the followed cell by design.
+   * rather than trusting a screenshot. `subject` is in board coordinates and is
+   * clamped to keep the framing over the board (with 3D-5's rim overhang), so
+   * near an edge it lags the shot's centre by design.
+   *
+   * `shot` is what the director decided and `cuts` counts how many times it has
+   * re-aimed since the scene started — the number this phase exists to bring
+   * down, and the one worth asserting on because a screenshot cannot show it.
+   *
+   * 3D-6 adds `hardCuts`: of those re-aims, how many were CUTS rather than
+   * eases. It is zero for the whole of a normal replay and equal to the beat
+   * count in a reel, which is the only honest way to check "cuts only on a
+   * beat boundary" — `cuts` alone counts both kinds and cannot tell them apart.
    */
-  view(): { yaw: number; tilt: number; zoom: number; follow: FollowMode; subject: { x: number; y: number } };
+  view(): {
+    yaw: number;
+    tilt: number;
+    zoom: number;
+    follow: FollowMode;
+    subject: { x: number; y: number };
+    shot: Shot | null;
+    cuts: number;
+    hardCuts: number;
+  };
 }
 
 const DANGER = 0xf25c54;
@@ -113,8 +182,15 @@ function bubbleMargin(width: number): { x: number; y: number } {
 /** Local axis of the beam cylinder, which is built lying along +X. */
 const BEAM_AXIS = new THREE.Vector3(1, 0, 0);
 
+// Queried on every update now that the director consults it too, so hold the
+// MediaQueryList rather than building one each time.
+const REDUCED_MOTION =
+  typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia('(prefers-reduced-motion: reduce)')
+    : null;
+
 function prefersReducedMotion(): boolean {
-  return window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  return REDUCED_MOTION?.matches ?? false;
 }
 
 export async function createBoardScene(
@@ -356,9 +432,10 @@ export async function createBoardScene(
    * world-space effects are all shorter than their event's 1x budget and simply
    * expire.
    *
-   * Deliberately absent: card-revealed, register-locked, life-lost,
-   * player-eliminated, turn-* and register-started. They have no place on the
-   * board — the caption, the register strip and the player strip show them.
+   * Deliberately absent: card-revealed, register-locked, register-unlocked,
+   * life-lost, player-eliminated, turn-* and register-started. They have no
+   * place on the board — the caption, the register strip and the player strip
+   * show them.
    */
   function dispatch(e: EngineEvent | null | undefined, still: boolean): void {
     updateBeam(e);
@@ -367,9 +444,19 @@ export async function createBoardScene(
       case 'damage':
         rigs.get(e.player)?.hit();
         break;
+      case 'repair': {
+        const fixed = current.visual.robots.find((r) => r.player === e.player);
+        if (fixed) effects.repair(cellCentre(fixed.pos, tmpPos));
+        break;
+      }
       case 'robot-blocked':
         effects.bump(cellCentre(e.at, tmpPos), DIR_STEP[e.dir]);
         rigs.get(e.player)?.recoil(e.dir, still);
+        break;
+      case 'pusher-fired':
+        // The piston slam reuses the wall-bump ring, kicked the way the shove
+        // goes; the movement itself arrives as robot-moved right after.
+        effects.bump(cellCentre(e.at, tmpPos), DIR_STEP[e.dir]);
         break;
       case 'robot-fell': {
         const rig = rigs.get(e.player);
@@ -517,28 +604,112 @@ export async function createBoardScene(
   observer.observe(canvas);
 
   // ------------------------------------------------------- who owns the subject
+  /** What ./directorMath needs to know about the board besides the events. */
+  const directorCtx: DirectorContext = {
+    get width() {
+      return board.width;
+    },
+    get height() {
+      return board.height;
+    },
+    robotAt: (player) => current.visual.robots.find((r) => r.player === player)?.pos ?? null,
+  };
+
+  /** So a follow-mode change can force a re-aim past the dwell rule. */
+  let lastMode: FollowMode | null = null;
+  /** Beat index the reel camera is on, so a change can be seen as a cut. */
+  let lastBeat: number | null = null;
+
   /**
-   * Point the director at whatever the current follow mode says. Idempotent,
-   * so it is safe to call on every update as well as on a mode change — and
-   * in `free` mode it deliberately does nothing at all, which is what keeps a
+   * Events of look-ahead the planner may use.
+   *
+   * The full LOOKAHEAD normally. In a reel it is clipped to the end of the
+   * current beat: the reel is a SUBSEQUENCE, so events past `until` are not
+   * about to happen — they are never going to happen — and letting them pull
+   * the framing is how a tight shot of a destruction drifts off it.
+   */
+  function lookaheadSpan(): number {
+    const reel = current.reel;
+    if (!reel) return LOOKAHEAD;
+    const start = Math.max(0, (current.cursor ?? 0) - 1);
+    return Math.max(1, Math.min(LOOKAHEAD, reel.until - start));
+  }
+
+  /**
+   * Point the director at whatever the current follow mode says. Idempotent, so
+   * it is safe to call on every update as well as on a mode change — and in
+   * `free` mode it deliberately does nothing at all, which is what keeps a
    * panned camera where the player left it.
+   *
+   * `action` is the mode 3D-5 rewrites. It no longer flies to the current
+   * event: it plans a shot over a LOOK-AHEAD WINDOW and then asks the dwell
+   * rule whether that shot is worth abandoning the one it is on. Both halves
+   * are pure and live in ./directorMath, where a whole turn can be folded
+   * through them in a node test rather than judged by eye.
+   *
+   * 3D-6 adds the reel branch: same planner, tighter floor, no dwell, and a
+   * hard cut on a beat boundary. See `BoardSceneInput.reel`.
    */
   function refocus(): void {
     const mode = getView().follow;
+    // Reduced motion pins the whole-board framing whatever the mode says.
+    director.setStill(prefersReducedMotion());
+    const modeChanged = mode !== lastMode;
+    lastMode = mode;
     if (mode === 'free') return;
     if (mode === 'robot') {
       const me = getFocusPlayer();
       const robot = me ? current.visual.robots.find((r) => r.player === me) : undefined;
       // A wider radius than a single event: "my bot's area" has to keep the
-      // pushes and the incoming lasers in frame, not just the chassis.
+      // pushes and the incoming lasers in frame, not just the chassis. The
+      // planner is bypassed entirely — the player has said what to look at.
       if (robot?.visible) {
-        director.focus(robot.pos, ROBOT_RADIUS);
+        director.focus(cellShot(robot.pos, ROBOT_RADIUS, 'robot'));
         return;
       }
       // Destroyed, eliminated, or no local player: fall back to the action
       // rather than freezing on an empty cell.
     }
-    director.focus(eventFocus(current.currentEvent, current.visual));
+    const reel = current.reel;
+    const window = current.events
+      ? lookaheadWindow(current.events, current.cursor ?? 0, lookaheadSpan())
+      : // Live views and any caller that hasn't opted into look-ahead: the
+        // current event alone, which is the 3D-1 behaviour minus the events
+        // that were never worth a shot.
+        current.currentEvent
+        ? [current.currentEvent]
+        : [];
+    const next = planShot(window, directorCtx, reel ? REEL_RADIUS : MIN_RADIUS);
+
+    if (reel) {
+      // The BEAT is the dwell. MIN_DWELL exists to stop the live camera
+      // thrashing between unrelated moments; inside a beat there is only one
+      // moment, so the hysteresis has nothing left to protect and would only
+      // stop the camera keeping up with a push it is already framing. Hence
+      // `Infinity` — hold nothing back, but still don't re-aim for something
+      // already comfortably in frame, which is what `contains` decides.
+      const beatChanged = reel.beat !== lastBeat;
+      lastBeat = reel.beat;
+      if (beatChanged || modeChanged) {
+        director.cutTo(next);
+      } else if (next && shouldReplace(director.currentShot(), next, Infinity)) {
+        // `next &&`, not just shouldReplace: a beat's lead-out is routinely
+        // life-lost then turn-ended, none of which is worth a shot, and the
+        // live rule answers that with the whole-board framing. In a reel that
+        // is a zoom-OUT over the last second of the climax — measured, and it
+        // undid exactly the tight framing the reel exists for. The beat holds
+        // its shot to the end; the next cut is the next beat.
+        director.focus(next);
+      }
+      return;
+    }
+    lastBeat = null;
+
+    // A mode change is the player asking for the camera back; it does not wait
+    // out a dwell timer that the previous mode started.
+    if (modeChanged || shouldReplace(director.currentShot(), next, director.heldSeconds())) {
+      director.focus(next);
+    }
   }
 
   const controls = attachViewControls(canvas, {
@@ -581,6 +752,7 @@ export async function createBoardScene(
       const rig = rigFor(r, seat);
       rig.setTarget(r.pos, r.facing);
       rig.setVisible(r.visible);
+      rig.setPoweredDown(r.poweredDown === true);
     });
 
     if (next.ghost) {
@@ -618,9 +790,6 @@ export async function createBoardScene(
       dispatch(e, still);
     }
 
-    // The director is deliberately dumb here: fly to wherever this event
-    // happened, unless the player has taken the subject. Interest scoring
-    // seeded from eventDuration is 3D-5.
     refocus();
     requestFrame();
   }
@@ -633,10 +802,19 @@ export async function createBoardScene(
     update,
     settled: () => settled,
     probe: () =>
-      [...rigs.entries()].map(([player, rig]) => ({
-        player,
-        ...rig.cell(),
-      })),
+      [...rigs.entries()].map(([player, rig]) => {
+        const w = canvas.clientWidth || 1;
+        const h = canvas.clientHeight || 1;
+        // No margin: this asks whether the chassis is on the canvas at all, not
+        // whether a bubble over it would be clipped.
+        tmpDir.copy(rig.object.position).project(director.camera);
+        const p = projectToViewport(tmpDir, w, h, { x: 0, y: 0 });
+        return {
+          player,
+          ...rig.cell(),
+          screen: { x: p.x, y: p.y, onScreen: p.visible },
+        };
+      }),
     // Angles come from the camera itself, not the settings, so this reports
     // where the camera *is* — mid-ease it lags the player's input and settles
     // onto it exactly, which is what makes it worth asserting on.
@@ -644,6 +822,9 @@ export async function createBoardScene(
       ...director.currentView(),
       follow: getView().follow,
       subject: director.subject(),
+      shot: director.currentShot(),
+      cuts: director.cuts(),
+      hardCuts: director.hardCuts(),
     }),
     dispose() {
       disposed = true;

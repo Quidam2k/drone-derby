@@ -43,9 +43,7 @@ export function makeState(board: BoardDef, robots: RobotState[]): GameState {
   return {
     board,
     robots,
-    decks: Object.fromEntries(
-      robots.map((r) => [r.player, { drawPile: buildDeck(), discardPile: [] }]),
-    ),
+    deck: { drawPile: buildDeck(), discardPile: [] },
     hands: Object.fromEntries(robots.map((r) => [r.player, []])),
     turn: 1,
     startPlayerIndex: 0,

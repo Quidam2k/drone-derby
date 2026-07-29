@@ -6,7 +6,9 @@ import {
   EmitterSprite,
   GearSprite,
   PitSprite,
+  PusherSprite,
   SpawnSprite,
+  WrenchSprite,
 } from '../board/sprites';
 import { useEditorStore, type ToolId } from '../../store/editorStore';
 
@@ -35,8 +37,10 @@ const TOOLS: { id: ToolId; icon: ReactNode; label: string }[] = [
   { id: 'gear', icon: <GearSprite cw />, label: 'Gear' },
   { id: 'checkpoint', icon: <CheckpointSprite n={1} />, label: 'Checkpoint' },
   { id: 'spawn', icon: <SpawnSprite n={1} />, label: 'Spawn dock' },
+  { id: 'wrench', icon: <WrenchSprite />, label: 'Repair (wrench)' },
   { id: 'wall', icon: WALL_ICON, label: 'Wall' },
   { id: 'laser', icon: <EmitterSprite facing="E" />, label: 'Laser' },
+  { id: 'pusher', icon: <PusherSprite facing="N" registers={[1, 3, 5]} />, label: 'Pusher' },
   { id: 'eraser', icon: ERASER_ICON, label: 'Eraser' },
 ];
 
@@ -51,8 +55,11 @@ export function ToolPalette() {
   const activeTool = useEditorStore((s) => s.activeTool);
   const conveyorDir = useEditorStore((s) => s.conveyorDir);
   const conveyorExpress = useEditorStore((s) => s.conveyorExpress);
+  const conveyorCurve = useEditorStore((s) => s.conveyorCurve);
   const gearCw = useEditorStore((s) => s.gearCw);
-  const { setTool, setConveyorDir, setConveyorExpress, setGearCw } = useEditorStore.getState();
+  const pusherOdd = useEditorStore((s) => s.pusherOdd);
+  const { setTool, setConveyorDir, setConveyorExpress, setConveyorCurve, setGearCw, setPusherOdd } =
+    useEditorStore.getState();
 
   return (
     <div className="tool-palette">
@@ -82,6 +89,32 @@ export function ToolPalette() {
                 {glyph}
               </button>
             ))}
+          </div>
+          <div className="tool-option-row">
+            <button
+              className={conveyorCurve === null ? 'selected' : ''}
+              onClick={() => setConveyorCurve(null)}
+              title="straight belt"
+              data-testid="conveyor-straight"
+            >
+              Straight
+            </button>
+            <button
+              className={conveyorCurve === 'ccw' ? 'selected' : ''}
+              onClick={() => setConveyorCurve('ccw')}
+              title="curved belt: riders carried in turn left"
+              data-testid="conveyor-curve-ccw"
+            >
+              ↺ left
+            </button>
+            <button
+              className={conveyorCurve === 'cw' ? 'selected' : ''}
+              onClick={() => setConveyorCurve('cw')}
+              title="curved belt: riders carried in turn right"
+              data-testid="conveyor-curve-cw"
+            >
+              ↻ right
+            </button>
           </div>
           <label className="tool-option-row">
             <input
@@ -116,9 +149,38 @@ export function ToolPalette() {
         </div>
       )}
 
-      {(activeTool === 'wall' || activeTool === 'laser') && (
+      {activeTool === 'pusher' && (
+        <div className="tool-options">
+          <div className="tool-option-row">
+            <button
+              className={pusherOdd ? 'selected' : ''}
+              onClick={() => setPusherOdd(true)}
+              title="fires on registers 1, 3 and 5"
+              data-testid="pusher-odd"
+            >
+              1 3 5
+            </button>
+            <button
+              className={!pusherOdd ? 'selected' : ''}
+              onClick={() => setPusherOdd(false)}
+              title="fires on registers 2 and 4"
+              data-testid="pusher-even"
+            >
+              2 4
+            </button>
+          </div>
+        </div>
+      )}
+
+      {(activeTool === 'wall' || activeTool === 'laser' || activeTool === 'pusher') && (
         <p className="tool-hint">
-          Click a cell edge to place {activeTool === 'wall' ? 'a wall on it' : 'an emitter firing across the cell'}. Click again to remove.
+          Click a cell edge to place{' '}
+          {activeTool === 'wall'
+            ? 'a wall on it'
+            : activeTool === 'laser'
+              ? 'an emitter firing across the cell'
+              : 'a pusher shoving across the cell'}
+          . Click again to remove.
         </p>
       )}
       <p className="tool-hint">Right-click erases. Drag to paint.</p>

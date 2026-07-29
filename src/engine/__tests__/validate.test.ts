@@ -92,6 +92,57 @@ describe('validateBoard', () => {
     expect(validateBoard(b).errors).toContain('laser emitter at (4,4) sits on a pit');
   });
 
+  it('rejects out-of-bounds and malformed pushers', () => {
+    const b = playable();
+    b.pushers = [{ pos: { x: 8, y: 0 }, facing: 'E', registers: [1, 3, 5] }];
+    expect(validateBoard(b).errors.some((e) => e.startsWith('pusher'))).toBe(true);
+
+    const c = playable();
+    c.pushers = [{ pos: { x: 2, y: 2 }, facing: 'X' as never, registers: [1] }];
+    expect(validateBoard(c).errors.some((e) => e.startsWith('pusher'))).toBe(true);
+  });
+
+  it('rejects pusher registers outside a non-empty subset of 1–5', () => {
+    for (const registers of [[], [0, 1], [1, 6], [1.5]]) {
+      const b = playable();
+      b.walls = [{ x: 2, y: 2, side: 'W' }];
+      b.pushers = [{ pos: { x: 2, y: 2 }, facing: 'E', registers }];
+      expect(validateBoard(b).errors, JSON.stringify(registers)).toContain(
+        'pusher at (2,2) needs registers from 1–5 (e.g. [1,3,5])',
+      );
+    }
+  });
+
+  it('rejects a pusher on a pit', () => {
+    const b = playable();
+    b.pushers = [{ pos: { x: 4, y: 4 }, facing: 'E', registers: [2, 4] }];
+    expect(validateBoard(b).errors).toContain('pusher at (4,4) sits on a pit');
+  });
+
+  it('warns when a pusher has no wall on its mounted edge', () => {
+    const b = playable();
+    b.pushers = [{ pos: { x: 2, y: 2 }, facing: 'E', registers: [1, 3, 5] }];
+    expect(
+      validateBoard(b).warnings.some((w) => w.includes('pusher at (2,2) has no wall')),
+    ).toBe(true);
+
+    // A wall on the mounted (W) edge — either cell's representation — clears it.
+    b.walls = [{ x: 1, y: 2, side: 'E' }];
+    expect(validateBoard(b).warnings.some((w) => w.includes('pusher'))).toBe(false);
+  });
+
+  it('rejects a malformed conveyor curve payload', () => {
+    const b = playable();
+    b.tiles[2][2] = { kind: 'conveyor', dir: 'E', express: false, curve: 'left' } as unknown as TileDef;
+    expect(validateBoard(b).errors).toContain('tile (2,2): conveyor curve must be "cw" or "ccw"');
+
+    // Absent curve stays valid, as do both legal values.
+    const c = playable();
+    setTile(c, 2, 2, { kind: 'conveyor', dir: 'E', express: false, curve: 'cw' });
+    setTile(c, 3, 2, { kind: 'conveyor', dir: 'S', express: false, curve: 'ccw' });
+    expect(validateBoard(c).errors).toEqual([]);
+  });
+
   it('warns on a board with no hazards', () => {
     const b = playable();
     setTile(b, 4, 4, { kind: 'floor' }); // remove the pit
@@ -110,6 +161,26 @@ describe('validateBoard', () => {
     // Chained into another belt: no warning.
     setTile(b, 3, 2, { kind: 'conveyor', dir: 'E', express: false });
     expect(validateBoard(b).warnings.some((w) => w.includes('express'))).toBe(false);
+  });
+
+  it('the express-line warning treats curves by their exit dir', () => {
+    // A lone express CURVE still warns — express only matters in a line.
+    const b = playable();
+    setTile(b, 2, 2, { kind: 'conveyor', dir: 'E', express: true, curve: 'cw' });
+    expect(validateBoard(b).errors).toEqual([]);
+    expect(validateBoard(b).warnings.some((w) => w.includes('express'))).toBe(true);
+
+    // A curve inside a belt line doesn't warn: feeds/fedBy compare exit dirs,
+    // which is exactly what a curve's `dir` still means.
+    setTile(b, 3, 2, { kind: 'conveyor', dir: 'E', express: false });
+    expect(validateBoard(b).warnings.some((w) => w.includes('express'))).toBe(false);
+
+    // And an express straight fed BY a curve is in a line too.
+    const c = playable();
+    setTile(c, 2, 2, { kind: 'conveyor', dir: 'E', express: false, curve: 'ccw' });
+    setTile(c, 3, 2, { kind: 'conveyor', dir: 'E', express: true });
+    setTile(c, 4, 2, { kind: 'conveyor', dir: 'E', express: false });
+    expect(validateBoard(c).warnings.some((w) => w.includes('express'))).toBe(false);
   });
 
   it('warns when a spawn sits in a laser line, respecting walls', () => {

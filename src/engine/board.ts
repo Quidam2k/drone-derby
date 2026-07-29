@@ -83,6 +83,7 @@ export function emptyBoard(name: string, width: number, height: number): BoardDe
     ),
     walls: [],
     lasers: [],
+    pushers: [],
   };
 }
 

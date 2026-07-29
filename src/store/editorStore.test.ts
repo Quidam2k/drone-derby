@@ -119,12 +119,29 @@ describe('editorStore', () => {
     expect(store().board.lasers).toEqual([]);
   });
 
-  it('eraseEdge clears both wall and laser on that edge', () => {
+  it('toggles pushers shoving away from the mounted edge; re-variant replaces', () => {
+    store().togglePusher(3, 3, 'W', [1, 3, 5]); // mounted west, shoves east
+    expect(store().board.pushers).toEqual([
+      { pos: { x: 3, y: 3 }, facing: 'E', registers: [1, 3, 5] },
+    ]);
+    // Same mount, other variant: replaced, not stacked.
+    store().togglePusher(3, 3, 'W', [2, 4]);
+    expect(store().board.pushers).toEqual([
+      { pos: { x: 3, y: 3 }, facing: 'E', registers: [2, 4] },
+    ]);
+    // Same mount, same variant: removed.
+    store().togglePusher(3, 3, 'W', [2, 4]);
+    expect(store().board.pushers).toEqual([]);
+  });
+
+  it('eraseEdge clears wall, laser and pusher on that edge', () => {
     store().toggleWall(2, 2, 'N');
     store().toggleLaser(2, 2, 'N');
+    store().togglePusher(2, 2, 'N', [1, 3, 5]);
     store().eraseEdge(2, 2, 'N');
     expect(store().board.walls).toEqual([]);
     expect(store().board.lasers).toEqual([]);
+    expect(store().board.pushers).toEqual([]);
   });
 
   it('resize preserves overlap, floor-fills growth, drops out-of-bounds extras', () => {
@@ -135,6 +152,8 @@ describe('editorStore', () => {
     store().setTool('laser');
     store().toggleLaser(0, 9, 'S');
     store().toggleLaser(3, 3, 'E');
+    store().togglePusher(9, 2, 'N', [2, 4]);
+    store().togglePusher(4, 4, 'W', [1, 3, 5]);
 
     store().resizeBoard(8, 8);
     const b = store().board;
@@ -143,6 +162,7 @@ describe('editorStore', () => {
     expect(b.tiles[2][2]).toEqual({ kind: 'pit' });
     expect(b.walls).toEqual([{ x: 1, y: 1, side: 'N' }]);
     expect(b.lasers).toEqual([{ pos: { x: 3, y: 3 }, facing: 'W', strength: 1 }]);
+    expect(b.pushers).toEqual([{ pos: { x: 4, y: 4 }, facing: 'E', registers: [1, 3, 5] }]);
 
     store().resizeBoard(12, 8);
     expect(store().board.tiles[0]).toHaveLength(12);

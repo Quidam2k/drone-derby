@@ -16,7 +16,7 @@ export interface BoardValidation {
   warnings: string[];
 }
 
-const TILE_KINDS = new Set(['floor', 'pit', 'conveyor', 'gear', 'checkpoint', 'spawn']);
+const TILE_KINDS = new Set(['floor', 'pit', 'conveyor', 'gear', 'checkpoint', 'spawn', 'wrench']);
 
 function isDirection(d: unknown): d is Direction {
   return DIRECTIONS.includes(d as Direction);
@@ -30,6 +30,9 @@ function tileError(t: TileDef, x: number, y: number): string | null {
   }
   if (t.kind === 'conveyor' && (!isDirection(t.dir) || typeof t.express !== 'boolean')) {
     return `${at}: conveyor needs a direction and an express flag`;
+  }
+  if (t.kind === 'conveyor' && t.curve !== undefined && t.curve !== 'cw' && t.curve !== 'ccw') {
+    return `${at}: conveyor curve must be "cw" or "ccw"`;
   }
   if (t.kind === 'gear' && typeof t.cw !== 'boolean') {
     return `${at}: gear needs a spin direction`;
@@ -149,6 +152,32 @@ export function validateBoard(board: BoardDef): BoardValidation {
     }
   }
 
+  if (board.pushers !== undefined && !Array.isArray(board.pushers)) {
+    errors.push('pushers must be a list');
+  } else {
+    for (const p of board.pushers ?? []) {
+      if (!p?.pos || !inBounds(board, p.pos) || !isDirection(p.facing)) {
+        errors.push(`pusher at (${p?.pos?.x},${p?.pos?.y}) is out of bounds or malformed`);
+        continue;
+      }
+      const regs = p.registers;
+      if (
+        !Array.isArray(regs) ||
+        regs.length === 0 ||
+        regs.some((r) => !Number.isInteger(r) || r < 1 || r > 5)
+      ) {
+        errors.push(
+          `pusher at (${p.pos.x},${p.pos.y}) needs registers from 1–5 (e.g. [1,3,5])`,
+        );
+        continue;
+      }
+      const tile = board.tiles[p.pos.y][p.pos.x];
+      if (tile && tile.kind === 'pit') {
+        errors.push(`pusher at (${p.pos.x},${p.pos.y}) sits on a pit`);
+      }
+    }
+  }
+
   if (errors.length > 0) return { errors, warnings };
 
   // ---- warnings (only worth computing on a structurally sound board) ----
@@ -189,6 +218,17 @@ export function validateBoard(board: BoardDef): BoardValidation {
       if (t.kind === 'spawn') {
         warnings.push(`spawn ${t.n} at (${p.x},${p.y}) sits in a board-laser line`);
       }
+    }
+  }
+
+  // The real fixture sits on a wall; without one it's mechanically harmless
+  // but looks like it floats (lenient, like lasers needing no backing wall).
+  for (const p of board.pushers ?? []) {
+    const mount = opposite(p.facing);
+    if (!wallBlocked(board, p.pos, mount)) {
+      warnings.push(
+        `pusher at (${p.pos.x},${p.pos.y}) has no wall on its ${mount} edge to mount on`,
+      );
     }
   }
 

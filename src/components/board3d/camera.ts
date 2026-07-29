@@ -1,26 +1,34 @@
-// Camera + the (deliberately dumb) director for the 3D board.
+// Camera for the 3D board — the three.js half of the director.
 //
-// The real interest-scoring director is 3D-5. This one does the minimum that
-// answers "does flying to the action feel good": every cursor step it asks the
-// current event where it happened and eases the camera onto that cell, falling
-// back to framing the whole board when the event has no place (turn/register
-// markers, card reveals) or when there is no event at all (live views).
+// WHAT DECIDES and WHAT EXECUTES are split. `./directorMath` decides: it scores
+// events, clusters them into a Shot, and applies the dwell rule, all as pure
+// data so a whole turn can be folded in a node test. This module executes: it
+// eases onto whatever Shot it is handed, solves the pull-back that keeps the
+// Shot's radius in frame, and composes all of that with the player's viewpoint.
 //
-// Phase 3D-2 splits ownership rather than replacing any of that: the director
-// still owns the *subject* (which cell, and how close the action wants to be)
-// while the player owns the *viewpoint* (yaw, tilt, and a zoom multiplier on
-// whatever distance the director asked for — see ./viewMath). They compose,
-// so a player who has orbited 40 degrees to see behind a wall keeps that angle
-// while the camera still flies to the laser hit. Only panning takes the
-// subject away from the director, and that is what flips the mode to `free`.
+// Phase 3D-2 split ownership between director and player and that is unchanged:
+// the director owns the *subject* (which cells, and how close the action wants
+// to be) while the player owns the *viewpoint* (yaw, tilt, and a zoom
+// multiplier on whatever distance the director asked for — see ./viewMath).
+// They compose, so a player who has orbited 40 degrees to see behind a wall
+// keeps that angle while the camera still flies to the laser hit. Only panning
+// takes the subject away from the director, and that is what flips the mode to
+// `free`.
+//
+// Phase 3D-5 changes three things here. `focus()` takes a Shot instead of a
+// bare cell, so a shot can ask for more than MIN_RADIUS and get it. The clamp
+// that keeps the framing over the board gains a bounded OVERHANG, so a robot
+// thrown off the south rim has canvas to be thrown into. And the ease is
+// distance-adaptive, so a cross-board re-aim reads as a whip instead of a slow
+// drift past everything in between.
 //
 // World space: one unit = one tile. Board cell (x, y) centres on
 // (x + 0.5, 0, y + 0.5), so +X is east and +Z is south — the same orientation
 // the DOM board reads in, with north up-screen.
 
 import * as THREE from 'three';
-import type { BoardDef, EngineEvent, Position } from '../../engine';
-import type { VisualState } from '../replay/visualState';
+import type { BoardDef, Position } from '../../engine';
+import { easeTau, MIN_RADIUS, type Shot } from './directorMath';
 import {
   boardHalfExtents,
   cameraOffset,
@@ -38,16 +46,23 @@ import {
  * uniform while still giving the chassis some perspective to sit in.
  */
 const FOV = 20;
-/** Tiles of half-extent kept in frame when the camera is on a single event. */
-const FOCUS_RADIUS = 3.6;
 /** Wider than a single event: "lock to my bot's *area*" wants the pushes and
  * the incoming lasers in frame too, not just the chassis. */
 export const ROBOT_RADIUS = 4.6;
 const PADDING = 1.1;
 /** Headroom above the board for robot height and the far rim, in tiles. */
 const RIM = 0.6;
-/** Seconds to cover ~63% of the remaining distance. Frame-rate independent. */
-const TAU = 0.36;
+/**
+ * Tiles the subject may sit OUTSIDE the board.
+ *
+ * 3D-4 left a known hole: the viewport is sized to the board with headroom only
+ * *above* it, and `focus()` clamped the subject so the framing stayed over the
+ * board — so a robot thrown off the SOUTH rim fell out of the bottom of the
+ * canvas with nothing to see. A bounded overhang gives a rim shot somewhere to
+ * put the throw. Bounded, because unbounded is a camera that can be panned into
+ * empty space by an event.
+ */
+const OVERHANG = 1.5;
 /**
  * The player's own input eases three times faster than the director's. A drag
  * has to feel like it is attached to your finger; an automatic fly-in has to
@@ -59,50 +74,26 @@ export function cellCentre(p: Position, out = new THREE.Vector3()): THREE.Vector
   return out.set(p.x + 0.5, 0, p.y + 0.5);
 }
 
-function robotPos(visual: VisualState, player: string): Position | null {
-  return visual.robots.find((r) => r.player === player)?.pos ?? null;
+/** Wall clock, so the dwell rule does not depend on frames being rendered. */
+function now(): number {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now();
 }
 
 /**
- * Where an event happened, or null for "no particular place".
- *
- * Every one of the 19 EngineEvent variants either carries a Position or names
- * a player whose position the VisualState knows — which is why the camera
- * needs no change to the event union (that would break replay).
+ * Two shots that frame the same thing. Interest and reason are deliberately
+ * ignored: they explain a shot, they do not change where the camera points, and
+ * counting a reason change as a re-aim would make `cuts()` meaningless.
  */
-export function eventFocus(e: EngineEvent | null | undefined, visual: VisualState): Position | null {
-  if (!e) return null;
-  switch (e.type) {
-    case 'robot-moved':
-    case 'conveyor-moved':
-      return e.to;
-    case 'robot-blocked':
-    case 'robot-fell':
-    case 'robot-destroyed':
-      return e.at;
-    case 'robot-respawned':
-      return e.pos;
-    case 'laser-fired': {
-      // Midpoint of the beam, so both muzzle and impact stay in frame.
-      const a = e.path[0];
-      const b = e.path[e.path.length - 1];
-      return a && b ? { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 } : null;
-    }
-    case 'robot-rotated':
-    case 'gear-rotated':
-    case 'damage':
-    case 'register-locked':
-    case 'life-lost':
-    case 'player-eliminated':
-    case 'checkpoint-claimed':
-    case 'game-won':
-    case 'card-revealed':
-      return robotPos(visual, e.player);
-    case 'turn-started':
-    case 'turn-ended':
-    case 'register-started':
-      return null;
-  }
+function sameShot(a: Shot | null, b: Shot | null): boolean {
+  if (!a || !b) return !a && !b;
+  return (
+    Math.abs(a.x - b.x) < 1e-3 && Math.abs(a.y - b.y) < 1e-3 && Math.abs(a.radius - b.radius) < 1e-3
+  );
+}
+
+/** A whole-cell Shot, for the callers that still think in single cells. */
+export function cellShot(pos: Position, radius = MIN_RADIUS, reason: Shot['reason'] = 'robot'): Shot {
+  return { x: pos.x, y: pos.y, radius, content: 0, interest: 1, reason };
 }
 
 export class CameraDirector {
@@ -115,10 +106,42 @@ export class CameraDirector {
   /** The director's own pull-back, before the player's zoom multiplier. */
   private base = 12;
   private distance = 12;
-  /** False once focus() is on a single cell rather than the whole board. */
+  /** False once focus() is on a shot rather than the whole board. */
   private wide = true;
   /** Half-extent the current focus wants in frame. */
-  private radius = FOCUS_RADIUS;
+  private radius = MIN_RADIUS;
+  /** The shot the director is on, or null for the whole board. */
+  private shot: Shot | null = null;
+  /**
+   * When the current shot was taken, on the wall clock.
+   *
+   * NOT accumulated from `step(dt)`, which would be the obvious thing and is
+   * wrong: this scene renders on demand, so the rAF loop stops entirely once
+   * the camera, the rigs and the effects have all settled. A dwell clock ticked
+   * by frames would therefore run at somewhere between 100% and 5% of real
+   * time depending on whether the board happens to have a conveyor animating —
+   * and a camera that freezes on its first shot of the turn on the boards
+   * without conveyors is a very confusing bug to find.
+   */
+  private shotAt = now();
+  /** Shots taken since the scene started. Only a counter, for assertions. */
+  private cutCount = 0;
+  /**
+   * Of those, how many were HARD cuts (`cutTo`) rather than eases.
+   *
+   * Separate because `cutCount` alone cannot answer the question the reel has
+   * to be held to — "does it cut only on a beat boundary?" — and inferring the
+   * answer from a re-aim count is exactly the eyeballing 3D-5 replaced.
+   */
+  private hardCutCount = 0;
+  /**
+   * prefers-reduced-motion: pin the whole-board framing and take the director
+   * out of the loop entirely. Camera motion is the biggest vestibular offender
+   * in this scene — 3D-2 shipped the player controls without handling it, and
+   * 3D-4's effects already have their still-mark rule. Player control still
+   * works: someone who asks for reduced motion has not asked to lose the orbit.
+   */
+  private still = false;
   /** Eased viewpoint, and where the player has asked it to go. */
   private readonly view: View = { ...DEFAULT_VIEW };
   private readonly wantedView: View = { ...DEFAULT_VIEW };
@@ -128,13 +151,18 @@ export class CameraDirector {
     this.aspect = aspect;
     this.camera = new THREE.PerspectiveCamera(FOV, aspect, 0.5, 200);
     this.setBoard(board);
-    this.focus(null);
     this.snap();
   }
 
   setBoard(board: BoardDef): void {
     this.board = board;
-    this.focus(null);
+    // Not focus(null): the shot may ALREADY be null, and focus() is idempotent
+    // — it would skip the re-centring the new board's dimensions need.
+    this.shot = null;
+    this.shotAt = now();
+    this.wide = true;
+    this.radius = MIN_RADIUS;
+    this.wanted.set(board.width / 2, 0, board.height / 2);
   }
 
   setAspect(aspect: number): void {
@@ -155,6 +183,33 @@ export class CameraDirector {
   /** Read-only copy of the eased viewpoint — used by the probe. */
   currentView(): View {
     return { ...this.view };
+  }
+
+  /** The shot being held, or null for the whole board. */
+  currentShot(): Shot | null {
+    return this.shot ? { ...this.shot } : null;
+  }
+
+  /** Seconds the current shot has been held — the dwell rule's input. */
+  heldSeconds(): number {
+    return (now() - this.shotAt) / 1000;
+  }
+
+  /** How many times the director has re-aimed. The headline number. */
+  cuts(): number {
+    return this.cutCount;
+  }
+
+  /** Of those, how many were hard cuts. Only a reel ever makes one. */
+  hardCuts(): number {
+    return this.hardCutCount;
+  }
+
+  /** Reduced motion pins the whole-board framing; see `still`. */
+  setStill(still: boolean): void {
+    if (still === this.still) return;
+    this.still = still;
+    if (still) this.focus(null);
   }
 
   /** The framed cell, in board coordinates. */
@@ -189,20 +244,68 @@ export class CameraDirector {
     return this.wide ? whole : Math.min(this.fit(this.radius, this.radius), whole);
   }
 
-  /** null = frame the whole board. */
-  focus(pos: Position | null, radius = FOCUS_RADIUS): void {
-    this.wide = !pos;
-    this.radius = radius;
-    if (!pos) {
+  /**
+   * Take a shot. `null` frames the whole board.
+   *
+   * Idempotent by design: re-handing the director the shot it is already on
+   * costs nothing and does NOT reset the dwell clock, because callers re-run
+   * the follow rule on every update and a dwell timer that restarts 120 times a
+   * turn is not a dwell timer.
+   */
+  focus(shot: Shot | null): void {
+    if (this.still) shot = null;
+    if (sameShot(this.shot, shot)) return;
+    this.shot = shot ? { ...shot } : null;
+    this.shotAt = now();
+    this.cutCount++;
+    this.wide = !shot;
+    this.radius = shot?.radius ?? MIN_RADIUS;
+    if (!shot) {
       this.wanted.set(this.board.width / 2, 0, this.board.height / 2);
       return;
     }
-    cellCentre(pos, this.wanted);
-    // Keep the framing over the board rather than sliding off its corner.
-    const margin = Math.min(radius, this.board.width / 2);
-    const marginZ = Math.min(radius, this.board.height / 2);
-    this.wanted.x = THREE.MathUtils.clamp(this.wanted.x, margin, this.board.width - margin);
-    this.wanted.z = THREE.MathUtils.clamp(this.wanted.z, marginZ, this.board.height - marginZ);
+    this.wanted.set(shot.x + 0.5, 0, shot.y + 0.5);
+    // Keep the framing over the board rather than sliding off its corner —
+    // but with OVERHANG tiles of give, so a shot that deliberately reaches past
+    // the rim (an edge fall) is not clamped back onto the board it left.
+    const margin = Math.min(this.radius, this.board.width / 2);
+    const marginZ = Math.min(this.radius, this.board.height / 2);
+    this.wanted.x = THREE.MathUtils.clamp(
+      this.wanted.x,
+      margin - OVERHANG,
+      this.board.width - margin + OVERHANG,
+    );
+    this.wanted.z = THREE.MathUtils.clamp(
+      this.wanted.z,
+      marginZ - OVERHANG,
+      this.board.height - marginZ + OVERHANG,
+    );
+  }
+
+  /**
+   * Take a shot WITHOUT easing onto it — a hard cut.
+   *
+   * The only caller is the highlight reel, on a beat boundary, and that is the
+   * whole justification. `easeTau`'s header says a hard cut with no
+   * shot-change cue reads as a rendering bug in a viewport this small; a reel
+   * has the cue, because its beat counter ticks over on exactly this frame.
+   *
+   * The subject and the pull-back snap; the player's yaw/tilt/zoom deliberately
+   * keep easing, because those belong to whoever is dragging and a cut is not
+   * an excuse to yank their viewpoint. Under reduced motion `focus()` has
+   * already coerced the shot to null and the framing does not move at all.
+   */
+  cutTo(shot: Shot | null): void {
+    const before = this.cutCount;
+    this.focus(shot);
+    // Only if the framing actually changed. `focus()` is idempotent, and under
+    // reduced motion it coerces every shot to null — so a pinned camera counts
+    // zero hard cuts, which is the assertion that matters there.
+    if (this.cutCount !== before) this.hardCutCount++;
+    this.target.copy(this.wanted);
+    this.base = this.baseDistance();
+    this.distance = composeDistance(this.base, this.view.zoom);
+    this.apply();
   }
 
   /**
@@ -235,7 +338,11 @@ export class CameraDirector {
 
   /** Advance the ease. Returns true while the camera is still moving. */
   step(dt: number): boolean {
-    const k = 1 - Math.exp(-dt / TAU);
+    // Distance-adaptive: a long re-aim whips, a short one drifts. Measured from
+    // where the camera IS to where it is going, so a re-aim interrupted
+    // mid-flight slows down as it closes rather than snapping.
+    const travel = Math.hypot(this.wanted.x - this.target.x, this.wanted.z - this.target.z);
+    const k = 1 - Math.exp(-dt / easeTau(travel));
     const kv = 1 - Math.exp(-dt / VIEW_TAU);
 
     // Viewpoint: the player's, eased fast. Yaw goes the short way round so a

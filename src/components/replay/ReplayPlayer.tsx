@@ -3,106 +3,18 @@
 // from Convex without running the engine.
 
 import { useEffect, useMemo, useState } from 'react';
-import type { EngineEvent, EventLog, GameState } from '../../engine';
+import type { EventLog, GameState } from '../../engine';
 import { countCheckpoints } from '../../engine';
 import { playForEvent, isMuted, setMuted } from '../../services/audio';
-import { Board } from '../board/Board';
-import { Board3D, board3dEnabled } from '../board3d/Board3D';
+import { BoardView } from '../board/BoardView';
 import { PlayerStrip } from '../board/PlayerStrip';
-import { CARD_LABEL } from '../cards';
+import { caption, eventDuration } from './eventPresentation';
+import { HighlightReel } from './HighlightReel';
+import { pickBeats } from './reelMath';
 import { tauntWindows, visibleTaunts } from './taunts';
 import { initialVisual, visualAt } from './visualState';
 
-/** ?render=3d swaps the WebGL board in; the DOM board is the default. */
-const BoardView = board3dEnabled() ? Board3D : Board;
-
 const SPEEDS = [0.5, 1, 2, 4] as const;
-
-/** Milliseconds each event holds the screen at 1× speed. */
-function eventDuration(e: EngineEvent): number {
-  switch (e.type) {
-    case 'turn-started':
-    case 'turn-ended':
-      return 400;
-    case 'register-started':
-      return 550;
-    case 'card-revealed':
-      return 450;
-    case 'robot-moved':
-    case 'conveyor-moved':
-      return 420;
-    case 'robot-rotated':
-    case 'gear-rotated':
-      return 380;
-    case 'robot-blocked':
-      return 450;
-    case 'laser-fired':
-      return 550;
-    case 'damage':
-      return 300;
-    case 'register-locked':
-      return 600;
-    case 'robot-fell':
-    case 'robot-destroyed':
-    case 'player-eliminated':
-      return 750;
-    case 'life-lost':
-      return 400;
-    case 'robot-respawned':
-      return 550;
-    case 'checkpoint-claimed':
-      return 650;
-    case 'game-won':
-      return 900;
-  }
-}
-
-function caption(e: EngineEvent): string {
-  switch (e.type) {
-    case 'turn-started':
-      return `Turn ${e.turn} begins`;
-    case 'register-started':
-      return `Register ${e.register}`;
-    case 'card-revealed':
-      return `${e.player} reveals ${CARD_LABEL[e.card.type]} (${e.card.priority})`;
-    case 'robot-moved':
-      return e.pushed ? `${e.player} is pushed` : `${e.player} moves`;
-    case 'robot-blocked':
-      return `${e.player} bumps into a wall`;
-    case 'robot-rotated':
-      return `${e.player} rotates`;
-    case 'conveyor-moved':
-      return e.express ? `Express conveyor carries ${e.player}` : `Conveyor carries ${e.player}`;
-    case 'gear-rotated':
-      return `Gear spins ${e.player}`;
-    case 'laser-fired': {
-      const source = e.source === 'board' ? 'Board laser' : `${e.shooter} fires and`;
-      return e.hit ? `${source} hits ${e.hit}` : e.source === 'board' ? 'Board laser fires' : `${e.shooter} fires`;
-    }
-    case 'damage':
-      return `${e.player} takes ${e.amount} damage (${e.total}/10)`;
-    case 'register-locked':
-      return `${e.player}'s register ${e.register} locks!`;
-    case 'robot-fell':
-      return e.cause === 'pit' ? `${e.player} falls into a pit!` : `${e.player} falls off the board!`;
-    case 'robot-destroyed':
-      return `${e.player} is destroyed!`;
-    case 'life-lost':
-      return `${e.player} loses a life (${e.remaining} left)`;
-    case 'player-eliminated':
-      return `${e.player} is eliminated!`;
-    case 'robot-respawned':
-      return `${e.player} respawns`;
-    case 'checkpoint-claimed':
-      return `${e.player} claims checkpoint ${e.checkpoint}!`;
-    case 'game-won':
-      return e.reason === 'checkpoints'
-        ? `${e.player} wins — all checkpoints claimed!`
-        : `${e.player} wins — last robot standing!`;
-    case 'turn-ended':
-      return `Turn ${e.turn} complete`;
-  }
-}
 
 interface ReplayPlayerProps {
   /** State the turn started from; the replay folds events on top of it. */
@@ -119,6 +31,13 @@ export function ReplayPlayer({ prevState, events, taunts, onDone }: ReplayPlayer
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState<number>(1);
   const [muted, setMutedLocal] = useState(() => isMuted());
+  const [reelOpen, setReelOpen] = useState(false);
+
+  // The reel's beats are picked HERE because the answer decides whether the
+  // button exists at all: a turn of nothing but reveals, moves and belt pulses
+  // has no highlight, and `pickBeats` returning [] is the honest outcome to
+  // render rather than an edge case to paper over.
+  const beats = useMemo(() => pickBeats(events), [events]);
 
   const atEnd = cursor >= events.length;
   const visual = useMemo(() => visualAt(initial, events, cursor), [initial, events, cursor]);
@@ -146,6 +65,22 @@ export function ReplayPlayer({ prevState, events, taunts, onDone }: ReplayPlayer
     }
   }, [cursor]);
 
+  // The reel REPLACES this screen rather than layering over it, and that is
+  // load-bearing in 3D: two mounted BoardViews would be two WebGL
+  // contexts, two copies of the tile kit, and a `window.__board3d` probe
+  // pointing at whichever won the race. ReplayPlayer stays mounted, so cursor,
+  // speed and mute are all exactly where they were when ✕ comes back.
+  if (reelOpen) {
+    return (
+      <HighlightReel
+        prevState={prevState}
+        events={events}
+        beats={beats}
+        onClose={() => setReelOpen(false)}
+      />
+    );
+  }
+
   return (
     <div className="screen replay-screen">
       <header className="replay-header">
@@ -156,11 +91,17 @@ export function ReplayPlayer({ prevState, events, taunts, onDone }: ReplayPlayer
       </header>
 
       <div className="game-layout">
+        {/* `events` + `cursor` are the 3D camera director's look-ahead: in a
+            replay the whole turn already exists, so it can be framed on the
+            laser before the beam appears instead of chasing it. The DOM board
+            ignores both. */}
         <BoardView
           board={prevState.board}
           visual={visual}
           currentEvent={currentEvent}
           bubbles={bubbles}
+          events={events}
+          cursor={cursor}
         />
         <PlayerStrip visual={visual} checkpointTarget={countCheckpoints(prevState.board)} />
       </div>
@@ -236,6 +177,22 @@ export function ReplayPlayer({ prevState, events, taunts, onDone }: ReplayPlayer
         >
           {muted ? '🔇' : '🔊'}
         </button>
+        {/* One edit, three screens: hot-seat, online catch-up and
+            HistoryBrowser all mount this player and all already hold the whole
+            EventLog, so they inherit the reel without knowing it exists. */}
+        {beats.length > 0 && (
+          <button
+            className="reel-btn"
+            onClick={() => {
+              setPlaying(false);
+              setReelOpen(true);
+            }}
+            title={`Watch the ${beats.length} best moments of this turn`}
+            data-testid="highlights"
+          >
+            ★ Highlights
+          </button>
+        )}
         <button className="primary continue-btn" disabled={!atEnd} onClick={onDone}>
           Continue
         </button>

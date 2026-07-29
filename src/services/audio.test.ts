@@ -71,7 +71,7 @@ describe('audio service', () => {
     }).not.toThrow();
   });
 
-  it('has exhaustive event-to-sound mapping for all 18 event types', async () => {
+  it('has exhaustive event-to-sound mapping for every event type', async () => {
     const { EVENT_SOUND } = await import('./audio');
 
     // Hand-written list of all EngineEvent types from src/engine/events.ts.
@@ -83,15 +83,21 @@ describe('audio service', () => {
       'robot-blocked',
       'robot-rotated',
       'conveyor-moved',
+      'conveyor-rotated',
       'gear-rotated',
+      'pusher-fired',
       'laser-fired',
       'damage',
+      'repair',
       'register-locked',
+      'register-unlocked',
       'robot-fell',
       'robot-destroyed',
       'life-lost',
       'player-eliminated',
       'robot-respawned',
+      'robot-powered-down',
+      'robot-powered-up',
       'checkpoint-claimed',
       'game-won',
       'turn-ended',

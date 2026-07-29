@@ -14,6 +14,8 @@ export type EngineEvent =
   | { type: 'robot-rotated'; player: PlayerId; from: Direction; to: Direction }
   | { type: 'conveyor-moved'; player: PlayerId; from: Position; to: Position; express: boolean }
   | { type: 'gear-rotated'; player: PlayerId; cw: boolean; from: Direction; to: Direction }
+  | { type: 'conveyor-rotated'; player: PlayerId; cw: boolean; from: Direction; to: Direction }
+  | { type: 'pusher-fired'; at: Position; dir: Direction; player: PlayerId }
   | {
       type: 'laser-fired';
       source: 'board' | 'robot';
@@ -25,7 +27,9 @@ export type EngineEvent =
       strength: number;
     }
   | { type: 'damage'; player: PlayerId; amount: number; total: number }
+  | { type: 'repair'; player: PlayerId; amount: number; total: number }
   | { type: 'register-locked'; player: PlayerId; register: number; card: Card | null }
+  | { type: 'register-unlocked'; player: PlayerId; register: number; card: Card | null }
   | {
       type: 'robot-fell';
       player: PlayerId;
@@ -37,6 +41,8 @@ export type EngineEvent =
   | { type: 'life-lost'; player: PlayerId; remaining: number }
   | { type: 'player-eliminated'; player: PlayerId }
   | { type: 'robot-respawned'; player: PlayerId; pos: Position; facing: Direction }
+  | { type: 'robot-powered-down'; player: PlayerId }
+  | { type: 'robot-powered-up'; player: PlayerId }
   | { type: 'checkpoint-claimed'; player: PlayerId; checkpoint: number }
   | { type: 'game-won'; player: PlayerId; reason: 'checkpoints' | 'last-standing' }
   | { type: 'turn-ended'; turn: number };
