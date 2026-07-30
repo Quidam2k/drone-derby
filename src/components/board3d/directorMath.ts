@@ -177,6 +177,11 @@ export function interestOf(e: EngineEvent): number {
       return e.source === 'robot' ? 0.4 : 0.15;
     case 'robot-respawned':
       return 0.65;
+    case 'robot-teleported':
+      // A robot blinking across the board is a story on par with a hit.
+      return 0.7;
+    case 'repulsed':
+      return 0.6;
     case 'robot-powered-down':
     case 'robot-powered-up':
       // The robot visibly dims/relights on its cell — worth a glance at end
@@ -190,6 +195,9 @@ export function interestOf(e: EngineEvent): number {
     case 'robot-blocked':
     case 'pusher-fired':
       return 0.5;
+    case 'crusher-crushed':
+      // The slam itself; the destruction that follows scores 0.9 anyway.
+      return 0.6;
     case 'robot-moved':
       return 0.35;
     case 'conveyor-moved':
@@ -230,6 +238,8 @@ export function eventPoints(e: EngineEvent, ctx: DirectorContext): { x: number; 
   switch (e.type) {
     case 'robot-moved':
     case 'conveyor-moved':
+    case 'robot-teleported':
+    case 'repulsed':
       // Both ends: a push that starts off-frame and ends on it reads as a
       // teleport.
       return [
@@ -238,6 +248,7 @@ export function eventPoints(e: EngineEvent, ctx: DirectorContext): { x: number; 
       ];
     case 'robot-blocked':
     case 'robot-destroyed':
+    case 'crusher-crushed':
       return [{ x: e.at.x, y: e.at.y }];
     case 'pusher-fired': {
       // Both ends of the shove, like robot-moved.

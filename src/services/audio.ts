@@ -52,6 +52,12 @@ export const EVENT_SOUND = {
   'robot-fell': 'explosion',
   'robot-destroyed': 'explosion',
   'life-lost': 'life-lost',
+  // No new clips (phase 36): the crusher slam borrows the pusher's
+  // mechanical thud, teleporting borrows the respawn shimmer, and a
+  // repulsor fling borrows the collision bump.
+  'crusher-crushed': 'thud',
+  'robot-teleported': 'respawn',
+  'repulsed': 'bump',
   'player-eliminated': 'eliminated',
   'robot-respawned': 'respawn',
   // No new clips (phase 33): powering down borrows the register-lock clunk,

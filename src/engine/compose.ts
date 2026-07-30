@@ -76,7 +76,7 @@ export function composeBoards(parts: BoardDef[], name: string): BoardDef {
     }
 
     for (const w of part.walls) {
-      board.walls.push({ x: w.x + xOff, y: w.y + yOff, side: w.side });
+      board.walls.push({ ...w, x: w.x + xOff, y: w.y + yOff });
     }
     for (const l of part.lasers) {
       board.lasers.push({
@@ -90,6 +90,18 @@ export function composeBoards(parts: BoardDef[], name: string): BoardDef {
         pos: { x: p.pos.x + xOff, y: p.pos.y + yOff },
         facing: p.facing,
         registers: [...p.registers],
+      });
+    }
+    for (const c of part.crushers ?? []) {
+      (board.crushers ??= []).push({
+        pos: { x: c.pos.x + xOff, y: c.pos.y + yOff },
+        registers: [...c.registers],
+      });
+    }
+    for (const f of part.flamers ?? []) {
+      (board.flamers ??= []).push({
+        pos: { x: f.pos.x + xOff, y: f.pos.y + yOff },
+        registers: [...f.registers],
       });
     }
 

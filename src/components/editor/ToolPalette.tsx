@@ -1,13 +1,22 @@
 import type { ReactNode } from 'react';
-import type { Direction } from '../../engine';
+import type { Direction, PortalColor } from '../../engine';
 import {
   CheckpointSprite,
   ConveyorSprite,
+  CrusherSprite,
+  DrainSprite,
   EmitterSprite,
+  FlamerSprite,
   GearSprite,
   PitSprite,
+  PortalSprite,
   PusherSprite,
+  RadiationSprite,
+  RepulsorSprite,
   SpawnSprite,
+  TeleporterSprite,
+  TrapdoorSprite,
+  WasteSprite,
   WrenchSprite,
 } from '../board/sprites';
 import { useEditorStore, type ToolId } from '../../store/editorStore';
@@ -33,16 +42,30 @@ const ERASER_ICON = (
 const TOOLS: { id: ToolId; icon: ReactNode; label: string }[] = [
   { id: 'floor', icon: FLOOR_ICON, label: 'Floor (erase)' },
   { id: 'pit', icon: <PitSprite />, label: 'Pit' },
+  { id: 'drain', icon: <DrainSprite />, label: 'Drain (a pit with a grate)' },
+  { id: 'trapdoor', icon: <TrapdoorSprite registers={[1, 3, 5]} />, label: 'Trap-door pit' },
+  { id: 'radiation', icon: <RadiationSprite />, label: 'Radiation floor' },
+  { id: 'waste', icon: <WasteSprite />, label: 'Radioactive waste' },
+  { id: 'portal', icon: <PortalSprite color="red" />, label: 'Portal (paired)' },
+  { id: 'teleporter', icon: <TeleporterSprite />, label: 'Teleporter' },
+  { id: 'repulsor', icon: <RepulsorSprite />, label: 'Repulsor field' },
   { id: 'conveyor', icon: <ConveyorSprite dir="E" express={false} />, label: 'Conveyor' },
   { id: 'gear', icon: <GearSprite cw />, label: 'Gear' },
   { id: 'checkpoint', icon: <CheckpointSprite n={1} />, label: 'Checkpoint' },
   { id: 'spawn', icon: <SpawnSprite n={1} />, label: 'Spawn dock' },
   { id: 'wrench', icon: <WrenchSprite />, label: 'Repair (wrench)' },
+  { id: 'crusher', icon: <CrusherSprite registers={[1, 3, 5]} />, label: 'Crusher' },
+  { id: 'flamer', icon: <FlamerSprite registers={[1, 3, 5]} />, label: 'Flamer' },
   { id: 'wall', icon: WALL_ICON, label: 'Wall' },
   { id: 'laser', icon: <EmitterSprite facing="E" />, label: 'Laser' },
   { id: 'pusher', icon: <PusherSprite facing="N" registers={[1, 3, 5]} />, label: 'Pusher' },
   { id: 'eraser', icon: ERASER_ICON, label: 'Eraser' },
 ];
+
+const PORTAL_COLORS: PortalColor[] = ['red', 'blue', 'green', 'purple', 'orange'];
+
+/** Tools sharing the 1/3/5 vs 2/4 register-schedule preset. */
+const SCHEDULED_TOOLS: ToolId[] = ['trapdoor', 'crusher', 'flamer'];
 
 const DIR_ARROWS: { dir: Direction; glyph: string }[] = [
   { dir: 'N', glyph: '↑' },
@@ -58,8 +81,20 @@ export function ToolPalette() {
   const conveyorCurve = useEditorStore((s) => s.conveyorCurve);
   const gearCw = useEditorStore((s) => s.gearCw);
   const pusherOdd = useEditorStore((s) => s.pusherOdd);
-  const { setTool, setConveyorDir, setConveyorExpress, setConveyorCurve, setGearCw, setPusherOdd } =
-    useEditorStore.getState();
+  const fixtureOdd = useEditorStore((s) => s.fixtureOdd);
+  const portalColor = useEditorStore((s) => s.portalColor);
+  const wallOneWay = useEditorStore((s) => s.wallOneWay);
+  const {
+    setTool,
+    setConveyorDir,
+    setConveyorExpress,
+    setConveyorCurve,
+    setGearCw,
+    setPusherOdd,
+    setFixtureOdd,
+    setPortalColor,
+    setWallOneWay,
+  } = useEditorStore.getState();
 
   return (
     <div className="tool-palette">
@@ -167,6 +202,79 @@ export function ToolPalette() {
               data-testid="pusher-even"
             >
               2 4
+            </button>
+          </div>
+        </div>
+      )}
+
+      {SCHEDULED_TOOLS.includes(activeTool) && (
+        <div className="tool-options">
+          <div className="tool-option-row">
+            <button
+              className={fixtureOdd ? 'selected' : ''}
+              onClick={() => setFixtureOdd(true)}
+              title="active on registers 1, 3 and 5"
+              data-testid="fixture-odd"
+            >
+              1 3 5
+            </button>
+            <button
+              className={!fixtureOdd ? 'selected' : ''}
+              onClick={() => setFixtureOdd(false)}
+              title="active on registers 2 and 4"
+              data-testid="fixture-even"
+            >
+              2 4
+            </button>
+          </div>
+        </div>
+      )}
+
+      {activeTool === 'portal' && (
+        <div className="tool-options">
+          <div className="tool-option-row">
+            {PORTAL_COLORS.map((c) => (
+              <button
+                key={c}
+                className={portalColor === c ? 'selected' : ''}
+                onClick={() => setPortalColor(c)}
+                title={`${c} portal pair`}
+                data-testid={`portal-color-${c}`}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          <p className="tool-hint">Portals work in same-color pairs — place exactly two.</p>
+        </div>
+      )}
+
+      {activeTool === 'wall' && (
+        <div className="tool-options">
+          <div className="tool-option-row">
+            <button
+              className={wallOneWay === null ? 'selected' : ''}
+              onClick={() => setWallOneWay(null)}
+              title="blocks both directions"
+              data-testid="wall-solid"
+            >
+              Solid
+            </button>
+            <button
+              className={wallOneWay === 'out' ? 'selected' : ''}
+              onClick={() => setWallOneWay('out')}
+              title="one-way: blocks leaving the clicked cell through this edge"
+              data-testid="wall-oneway-out"
+            >
+              1-way out
+            </button>
+            <button
+              className={wallOneWay === 'in' ? 'selected' : ''}
+              onClick={() => setWallOneWay('in')}
+              title="one-way: blocks entering the clicked cell through this edge"
+              data-testid="wall-oneway-in"
+            >
+              1-way in
             </button>
           </div>
         </div>

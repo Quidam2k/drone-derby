@@ -3,7 +3,7 @@
 // account is needed; Phase 6b adds Convex persistence on top.
 
 import { create } from 'zustand';
-import type { BoardDef, BoardValidation, Direction, TileDef } from '../engine';
+import type { BoardDef, BoardValidation, Direction, PortalColor, TileDef } from '../engine';
 import {
   MAX_BOARD_SIZE,
   MIN_BOARD_SIZE,
@@ -16,11 +16,20 @@ import {
 export type ToolId =
   | 'floor'
   | 'pit'
+  | 'drain'
+  | 'trapdoor'
+  | 'radiation'
+  | 'waste'
+  | 'portal'
+  | 'teleporter'
+  | 'repulsor'
   | 'conveyor'
   | 'gear'
   | 'checkpoint'
   | 'spawn'
   | 'wrench'
+  | 'crusher'
+  | 'flamer'
   | 'wall'
   | 'laser'
   | 'pusher'
@@ -100,6 +109,12 @@ interface EditorStore {
   gearCw: boolean;
   /** True = classic 1/3/5 pusher; false = 2/4. */
   pusherOdd: boolean;
+  /** Shared schedule preset for trap-doors, crushers and flamers (1/3/5 vs 2/4). */
+  fixtureOdd: boolean;
+  /** Pair color the portal tool paints. */
+  portalColor: PortalColor;
+  /** Wall tool variant: null = solid; 'out'/'in' = one-way relative to the clicked cell. */
+  wallOneWay: 'in' | 'out' | null;
   validation: BoardValidation;
   /** Snapshot history; history[historyIndex] === current board. */
   history: BoardDef[];
@@ -111,14 +126,21 @@ interface EditorStore {
   setConveyorCurve: (curve: 'cw' | 'ccw' | null) => void;
   setGearCw: (cw: boolean) => void;
   setPusherOdd: (odd: boolean) => void;
+  setFixtureOdd: (odd: boolean) => void;
+  setPortalColor: (color: PortalColor) => void;
+  setWallOneWay: (oneWay: 'in' | 'out' | null) => void;
   setName: (name: string) => void;
 
   /** Apply the active tile tool at (x,y); no-op for wall/laser tools. */
   paintTile: (x: number, y: number) => void;
   /** Force a cell back to floor (right-click erase, any tool). */
   eraseTile: (x: number, y: number) => void;
-  /** Add/remove a wall on the given cell edge (both edge representations). */
-  toggleWall: (x: number, y: number, side: Direction) => void;
+  /**
+   * Add/remove a wall on the given cell edge (both edge representations).
+   * `oneWay` is relative to the clicked cell; same edge with the same
+   * variant removes, a different variant replaces.
+   */
+  toggleWall: (x: number, y: number, side: Direction, oneWay?: 'in' | 'out' | null) => void;
   /** Add/remove a laser emitter mounted on the given cell edge, firing inward. */
   toggleLaser: (x: number, y: number, side: Direction) => void;
   /**
@@ -200,6 +222,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     conveyorCurve: null,
     gearCw: true,
     pusherOdd: true,
+    fixtureOdd: true,
+    portalColor: 'red',
+    wallOneWay: null,
     validation: validateBoard(initial),
     history: [initial],
     historyIndex: 0,
@@ -210,6 +235,9 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     setConveyorCurve: (conveyorCurve) => set({ conveyorCurve }),
     setGearCw: (gearCw) => set({ gearCw }),
     setPusherOdd: (pusherOdd) => set({ pusherOdd }),
+    setFixtureOdd: (fixtureOdd) => set({ fixtureOdd }),
+    setPortalColor: (portalColor) => set({ portalColor }),
+    setWallOneWay: (wallOneWay) => set({ wallOneWay }),
 
     setName: (name) => {
       // Renaming shouldn't spam undo history: mutate in place + revalidate.
@@ -222,9 +250,34 @@ export const useEditorStore = create<EditorStore>((set, get) => {
     },
 
     paintTile: (x, y) => {
-      const { activeTool, conveyorDir, conveyorExpress, conveyorCurve, gearCw, board } = get();
+      const {
+        activeTool,
+        conveyorDir,
+        conveyorExpress,
+        conveyorCurve,
+        gearCw,
+        fixtureOdd,
+        portalColor,
+        board,
+      } = get();
       if (activeTool === 'eraser') {
         get().eraseTile(x, y);
+        return;
+      }
+      const schedule = fixtureOdd ? [1, 3, 5] : [2, 4];
+      // Crushers and flamers are cell FIXTURES (separate arrays), painted by
+      // cell like tiles: ensure one is present with the current schedule.
+      if (activeTool === 'crusher' || activeTool === 'flamer') {
+        update((draft) => {
+          const list =
+            activeTool === 'crusher' ? (draft.crushers ??= []) : (draft.flamers ??= []);
+          const i = list.findIndex((c) => c.pos.x === x && c.pos.y === y);
+          if (i >= 0 && JSON.stringify(list[i].registers) === JSON.stringify(schedule)) {
+            return false; // already there in this variant (drag dedupe)
+          }
+          if (i >= 0) list[i] = { pos: { x, y }, registers: [...schedule] };
+          else list.push({ pos: { x, y }, registers: [...schedule] });
+        });
         return;
       }
       let tile: TileDef;
@@ -234,6 +287,27 @@ export const useEditorStore = create<EditorStore>((set, get) => {
           break;
         case 'pit':
           tile = { kind: 'pit' };
+          break;
+        case 'drain':
+          tile = { kind: 'pit', style: 'drain' };
+          break;
+        case 'trapdoor':
+          tile = { kind: 'trapdoor', registers: [...schedule] };
+          break;
+        case 'radiation':
+          tile = { kind: 'radiation' };
+          break;
+        case 'waste':
+          tile = { kind: 'waste' };
+          break;
+        case 'portal':
+          tile = { kind: 'portal', color: portalColor };
+          break;
+        case 'teleporter':
+          tile = { kind: 'teleporter' };
+          break;
+        case 'repulsor':
+          tile = { kind: 'repulsor' };
           break;
         case 'conveyor':
           // Straight belts stay `curve`-less so painted tiles deep-equal the
@@ -273,15 +347,45 @@ export const useEditorStore = create<EditorStore>((set, get) => {
 
     eraseTile: (x, y) =>
       update((draft) => {
-        if (draft.tiles[y][x].kind === 'floor') return false;
-        draft.tiles[y][x] = { kind: 'floor' };
+        let changed = false;
+        if (draft.tiles[y][x].kind !== 'floor') {
+          draft.tiles[y][x] = { kind: 'floor' };
+          changed = true;
+        }
+        // Cell fixtures go with the tile on a right-click erase.
+        for (const list of [draft.crushers, draft.flamers]) {
+          const i = (list ?? []).findIndex((c) => c.pos.x === x && c.pos.y === y);
+          if (i >= 0) {
+            list!.splice(i, 1);
+            changed = true;
+          }
+        }
+        return changed;
       }),
 
-    toggleWall: (x, y, side) =>
+    toggleWall: (x, y, side, oneWay = null) =>
       update((draft) => {
         const i = edgeWallIndex(draft, x, y, side);
-        if (i >= 0) draft.walls.splice(i, 1);
-        else draft.walls.push({ x, y, side });
+        if (i < 0) {
+          draft.walls.push(oneWay ? { x, y, side, oneWay } : { x, y, side });
+          return;
+        }
+        // The stored wall may sit on the neighbor cell's representation, in
+        // which case its oneWay meaning flips relative to the clicked cell.
+        const w = draft.walls[i];
+        const storedOnClicked = w.x === x && w.y === y && w.side === side;
+        const effective = !w.oneWay
+          ? null
+          : storedOnClicked
+            ? w.oneWay
+            : w.oneWay === 'in'
+              ? 'out'
+              : 'in';
+        draft.walls.splice(i, 1);
+        if (effective !== oneWay) {
+          // Different variant: replace (normalized onto the clicked cell).
+          draft.walls.push(oneWay ? { x, y, side, oneWay } : { x, y, side });
+        }
       }),
 
     toggleLaser: (x, y, side) =>
@@ -357,6 +461,12 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         pushers: (board.pushers ?? [])
           .filter((p) => p.pos.x < w && p.pos.y < h)
           .map((p) => ({ ...p, pos: { ...p.pos }, registers: [...p.registers] })),
+        crushers: (board.crushers ?? [])
+          .filter((c) => c.pos.x < w && c.pos.y < h)
+          .map((c) => ({ pos: { ...c.pos }, registers: [...c.registers] })),
+        flamers: (board.flamers ?? [])
+          .filter((f) => f.pos.x < w && f.pos.y < h)
+          .map((f) => ({ pos: { ...f.pos }, registers: [...f.registers] })),
       };
       commit(next);
     },

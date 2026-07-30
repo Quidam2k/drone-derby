@@ -26,10 +26,23 @@ export type EngineEvent =
       hit?: PlayerId;
       strength: number;
     }
-  | { type: 'damage'; player: PlayerId; amount: number; total: number }
+  | {
+      type: 'damage';
+      player: PlayerId;
+      amount: number;
+      total: number;
+      /** Absent = laser fire (the original source). Environmental otherwise. */
+      source?: 'flamer' | 'radiation' | 'waste';
+    }
+  /** The slam visual; the kill itself follows as a normal robot-destroyed. */
+  | { type: 'crusher-crushed'; player: PlayerId; at: Position }
   | { type: 'repair'; player: PlayerId; amount: number; total: number }
   | { type: 'register-locked'; player: PlayerId; register: number; card: Card | null }
   | { type: 'register-unlocked'; player: PlayerId; register: number; card: Card | null }
+  /** Instant relocation through a portal pair or a teleporter jump. */
+  | { type: 'robot-teleported'; player: PlayerId; from: Position; to: Position; via: 'portal' | 'teleporter' }
+  /** Summary of a repulsor-field fling, emitted AFTER its robot-moved steps. */
+  | { type: 'repulsed'; player: PlayerId; from: Position; to: Position }
   | {
       type: 'robot-fell';
       player: PlayerId;

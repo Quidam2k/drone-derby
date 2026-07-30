@@ -10,5 +10,6 @@ coverage/
 .DS_Store
 Thumbs.db
 screengrab/
+input/
 .playwright-mcp/
 __pycache__/

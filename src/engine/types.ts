@@ -34,9 +34,64 @@ export type PlayerId = string;
  */
 export type Program = (Card | null)[];
 
+export type PortalColor = 'red' | 'blue' | 'green' | 'purple' | 'orange';
+
 export type TileDef =
   | { kind: 'floor' }
-  | { kind: 'pit' }
+  | {
+      kind: 'pit';
+      /**
+       * Renderer-only art variant (Radioactive's drains are pits with grate
+       * art). The engine never reads this field.
+       */
+      style?: 'drain';
+    }
+  | {
+      kind: 'trapdoor';
+      /**
+       * Trap-door pit (expansion rule): a covered pit that opens on the
+       * listed registers (1-based). While open it is a pit for the ENTIRE
+       * register phase — a robot starting the phase on it, or entering it by
+       * any means during the phase, falls. Closed, it is plain floor.
+       */
+      registers: number[];
+    }
+  | {
+      /** Robot ending the TURN here takes 1 damage (register 5's laser segment). */
+      kind: 'radiation';
+    }
+  | {
+      /** Robot ending ANY register phase here takes 1 damage (laser segment). */
+      kind: 'waste';
+    }
+  | {
+      /**
+       * Paired by color: a robot entering a portal during movement-card
+       * execution (walked or chain-pushed) relocates to the same-color twin
+       * and continues its movement from there. Twin occupied → inert floor.
+       */
+      kind: 'portal';
+      color: PortalColor;
+    }
+  | {
+      /**
+       * A robot executing a MOVEMENT card while standing here appears
+       * (card squares + 2) forward — Back-Up: 2 forward, per the printed
+       * guide — ignoring everything in between. Destination occupied → the
+       * teleporter doesn't operate and the card executes normally. Rotate
+       * cards are unaffected.
+       */
+      kind: 'teleporter';
+    }
+  | {
+      /**
+       * Repulsor field: a robot that runs into this square during card
+       * movement (or is chain-pushed into it) is flung straight back by
+       * the moving robot's card value, chain-pushing everything behind it,
+       * and the card's remaining movement is lost. Inert to belts/pushers.
+       */
+      kind: 'repulsor';
+    }
   | {
       kind: 'conveyor';
       /** EXIT direction — where a rider is carried next pulse. */
@@ -62,6 +117,13 @@ export interface WallDef {
   x: number;
   y: number;
   side: Direction;
+  /**
+   * One-way wall (expansion rule). 'out' blocks only LEAVING the cell
+   * through this edge; 'in' blocks only ENTERING the cell through it.
+   * Absent = normal two-way wall. Applies to movement and laser fire alike
+   * (both go through wallBlocked).
+   */
+  oneWay?: 'in' | 'out';
 }
 
 /**
@@ -87,6 +149,27 @@ export interface PusherDef {
   registers: number[];
 }
 
+/**
+ * Overhead crusher (expansion rule). On the registers listed (1-based) it
+ * slams down during Board Elements step 5 (after gears) and destroys any
+ * robot in its cell outright.
+ */
+export interface CrusherDef {
+  pos: Position;
+  registers: number[];
+}
+
+/**
+ * Flamer jet (expansion rule). Active on the registers listed (1-based).
+ * Burns 1 damage: per active-flamer square a robot moves onto or through
+ * during card movement, per rotate card executed on one, and again at the
+ * laser segment for a robot ending the register phase on one.
+ */
+export interface FlamerDef {
+  pos: Position;
+  registers: number[];
+}
+
 export interface BoardDef {
   name: string;
   width: number;
@@ -97,6 +180,10 @@ export interface BoardDef {
   lasers: LaserDef[];
   /** Optional so stored boards/states predating pushers stay valid (absent = none). */
   pushers?: PusherDef[];
+  /** Optional like pushers (absent = none). */
+  crushers?: CrusherDef[];
+  /** Optional like pushers (absent = none). */
+  flamers?: FlamerDef[];
 }
 
 export interface RobotState {

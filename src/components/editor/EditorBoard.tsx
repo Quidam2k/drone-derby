@@ -16,6 +16,7 @@ export function EditorBoard() {
   const board = useEditorStore((s) => s.board);
   const activeTool = useEditorStore((s) => s.activeTool);
   const pusherOdd = useEditorStore((s) => s.pusherOdd);
+  const wallOneWay = useEditorStore((s) => s.wallOneWay);
   const { paintTile, eraseTile, toggleWall, toggleLaser, togglePusher, eraseEdge, beginStroke, endStroke } =
     useEditorStore.getState();
 
@@ -160,7 +161,7 @@ export function EditorBoard() {
                       onPointerDown={(e) => {
                         e.stopPropagation();
                         if (e.button !== 0) return;
-                        if (activeTool === 'wall') toggleWall(x, y, side);
+                        if (activeTool === 'wall') toggleWall(x, y, side, wallOneWay);
                         else if (activeTool === 'pusher')
                           togglePusher(x, y, side, pusherOdd ? [1, 3, 5] : [2, 4]);
                         else toggleLaser(x, y, side);

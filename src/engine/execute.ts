@@ -8,6 +8,7 @@ import {
   samePos,
   step,
   tileAt,
+  twinPortal,
   wallBlocked,
 } from './board';
 import { dealHands, discardHand, isRegisterLocked, lockedRegisterCount } from './deck';
@@ -43,6 +44,21 @@ interface Ctx {
   effective: Map<PlayerId, (Card | null)[]>;
   /** Highest checkpoint on the board = winning target. */
   target: number;
+  /** Register currently executing (1–5); 0 outside the register loop. Lets
+   * movement treat scheduled hazards (trap-doors) as live mid-move. */
+  register: number;
+  /**
+   * True while a movement card is executing (the printed Robots Move
+   * segment). Gates the elements that only react to card-driven movement:
+   * flamer move-through burns, portals, repulsor fields. Belt pulses and
+   * pusher pistons (Board Elements) leave it false.
+   */
+  cardMove: boolean;
+  /** Squares on the executing movement card — the repulsor fling distance. */
+  cardValue: number;
+  /** True while a repulsor fling is in flight: field-driven movement burns
+   * flamers but re-triggers neither portals nor other repulsors. */
+  repulsing: boolean;
 }
 
 /**
@@ -56,8 +72,10 @@ interface Ctx {
  *  b. execute each card; moves resolve step-by-step with wall blocking and
  *     chain pushing; pits/edges kill the moment a robot enters/exits
  *  c. express conveyors pulse, then all conveyors pulse, then pushers fire
- *     (on their listed registers), then gears rotate
- *  d. board lasers fire, then all robot lasers fire (simultaneously)
+ *     (on their listed registers), then gears rotate, then crushers slam
+ *     (on their listed registers)
+ *  d. board + robot lasers fire in one simultaneous segment, then waste /
+ *     radiation floors burn (radiation only on register 5)
  *  e. checkpoints: touching any updates the archive; claiming must be in order
  *  f. win check: all checkpoints claimed, or last robot standing
  */
@@ -75,6 +93,10 @@ export function executeTurn(
     events: [],
     effective: new Map(),
     target: countCheckpoints(s.board),
+    register: 0,
+    cardMove: false,
+    cardValue: 0,
+    repulsing: false,
   };
 
   prepareTurn(ctx, programs);
@@ -83,7 +105,13 @@ export function executeTurn(
   powerDownRepair(ctx);
 
   for (let register = 1; register <= 5; register++) {
+    ctx.register = register;
     emit(ctx, { type: 'register-started', register });
+
+    // Trap-doors scheduled for this register are open for the WHOLE phase:
+    // anyone standing on one at phase start falls before cards act.
+    openTrapdoors(ctx);
+    if (gameEnded(ctx)) break;
 
     // (a) reveal in acting order
     const order = actingOrder(ctx, register);
@@ -104,17 +132,19 @@ export function executeTurn(
     conveyorPulse(ctx, false);
     firePushers(ctx, register);
     rotateGears(ctx);
+    fireCrushers(ctx, register);
     if (gameEnded(ctx)) break;
 
-    // (d) lasers
-    fireBoardLasers(ctx);
-    fireRobotLasers(ctx);
+    // (d) lasers, then environmental floor damage (same printed segment)
+    fireLasers(ctx);
+    hazardFloorDamage(ctx, register);
     if (gameEnded(ctx)) break;
 
     // (e) + (f) checkpoints and win check
     touchCheckpoints(ctx);
     if (gameEnded(ctx)) break;
   }
+  ctx.register = 0; // end-of-turn phases run with no register hazards live
 
   // Card cleanup runs even when the game ended mid-register: the 84-card
   // invariant has to hold for the final state too. Only the next turn's
@@ -163,6 +193,19 @@ function isActive(ctx: Ctx, idx: number): boolean {
 
 function robotIndexAt(ctx: Ctx, pos: Position): number {
   return ctx.s.robots.findIndex((r) => !r.destroyed && !r.eliminated && samePos(r.pos, pos));
+}
+
+/**
+ * Does standing on `pos` right now mean falling? Pits always; trap-doors
+ * only while their schedule lists the current register (they are open for
+ * that ENTIRE phase — belts, pushes and card moves all drop robots in).
+ */
+function fallsAt(ctx: Ctx, pos: Position): boolean {
+  const tile = tileAt(ctx.s.board, pos);
+  return (
+    tile.kind === 'pit' ||
+    (tile.kind === 'trapdoor' && tile.registers.includes(ctx.register))
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -225,26 +268,98 @@ function executeCard(ctx: Ctx, idx: number, card: Card): void {
   switch (card.type) {
     case 'turnLeft':
       rotateRobot(ctx, idx, -1);
+      flamerRotateBurn(ctx, idx);
       break;
     case 'turnRight':
       rotateRobot(ctx, idx, 1);
+      flamerRotateBurn(ctx, idx);
       break;
     case 'uTurn':
       rotateRobot(ctx, idx, 2);
+      flamerRotateBurn(ctx, idx);
       break;
     case 'move1':
-      moveRobot(ctx, idx, 1, false);
+      cardMoveRobot(ctx, idx, 1, false);
       break;
     case 'move2':
-      moveRobot(ctx, idx, 2, false);
+      cardMoveRobot(ctx, idx, 2, false);
       break;
     case 'move3':
-      moveRobot(ctx, idx, 3, false);
+      cardMoveRobot(ctx, idx, 3, false);
       break;
     case 'backUp':
-      moveRobot(ctx, idx, 1, true);
+      cardMoveRobot(ctx, idx, 1, true);
       break;
   }
+}
+
+/**
+ * A movement card executing — the only movement that triggers teleporters,
+ * portals, repulsor fields and flamer move-through burns (printed timing:
+ * all fire during Robots Move; belts and pistons are Board Elements).
+ */
+function cardMoveRobot(ctx: Ctx, idx: number, steps: number, backward: boolean): void {
+  // Teleporter under the robot: it appears (card squares + 2) forward —
+  // Back-Up appears 2 squares FORWARD, per the printed guide's own example —
+  // ignoring everything in between. If that fails (destination occupied)
+  // the card executes normally.
+  if (tileAt(ctx.s.board, ctx.s.robots[idx].pos).kind === 'teleporter') {
+    if (teleportJump(ctx, idx, backward ? 2 : steps + 2)) return;
+  }
+  ctx.cardMove = true;
+  ctx.cardValue = steps;
+  moveRobot(ctx, idx, steps, backward);
+  ctx.cardMove = false;
+  ctx.cardValue = 0;
+}
+
+/**
+ * Teleporter jump: `distance` squares in the robot's facing, ignoring all
+ * intervening board elements, walls and robots. Returns false when the
+ * teleporter doesn't operate (destination occupied → move normally).
+ * Judgment call (unprinted): a destination past the rim is an edge death,
+ * framed at the last in-bounds cell along the jump line.
+ */
+function teleportJump(ctx: Ctx, idx: number, distance: number): boolean {
+  const { s } = ctx;
+  const robot = s.robots[idx];
+  const from = { ...robot.pos };
+  let dest = from;
+  for (let i = 0; i < distance; i++) dest = step(dest, robot.facing);
+  if (!inBounds(s.board, dest)) {
+    let last = from;
+    for (;;) {
+      const next = step(last, robot.facing);
+      if (!inBounds(s.board, next)) break;
+      last = next;
+    }
+    killRobot(ctx, idx, { type: 'robot-fell', player: robot.player, cause: 'edge', at: last });
+    return true;
+  }
+  if (robotIndexAt(ctx, dest) !== -1) return false;
+  robot.pos = { ...dest };
+  emit(ctx, {
+    type: 'robot-teleported',
+    player: robot.player,
+    from,
+    to: { ...dest },
+    via: 'teleporter',
+  });
+  if (fallsAt(ctx, dest)) {
+    killRobot(ctx, idx, { type: 'robot-fell', player: robot.player, cause: 'pit', at: dest });
+  }
+  return true;
+}
+
+/** Executing a rotate card ON an active flamer burns 1 (printed rule). */
+function flamerRotateBurn(ctx: Ctx, idx: number): void {
+  if (flamerActiveAt(ctx, ctx.s.robots[idx].pos)) applyDamage(ctx, idx, 1, 'flamer');
+}
+
+function flamerActiveAt(ctx: Ctx, pos: Position): boolean {
+  return (ctx.s.board.flamers ?? []).some(
+    (f) => samePos(f.pos, pos) && f.registers.includes(ctx.register),
+  );
 }
 
 function rotateRobot(ctx: Ctx, idx: number, quarterTurnsCW: number): void {
@@ -281,6 +396,14 @@ function tryStep(ctx: Ctx, idx: number, dir: Direction, moverPushed = false): bo
     }
     const next = step(scan, dir);
     if (!inBounds(s.board, next)) break; // chain head gets shoved off the edge
+    // Repulsor field (card movement only; field-driven flight doesn't
+    // re-trigger): the robot that would enter is flung straight back by the
+    // field instead, chain-pushing everything behind it — including the
+    // mover — and the card's remaining movement is lost (return false).
+    if (ctx.cardMove && !ctx.repulsing && tileAt(s.board, next).kind === 'repulsor') {
+      repulse(ctx, chain[chain.length - 1], dir);
+      return false;
+    }
     const occupant = robotIndexAt(ctx, next);
     if (occupant === -1) break;
     chain.push(occupant);
@@ -298,11 +421,57 @@ function tryStep(ctx: Ctx, idx: number, dir: Direction, moverPushed = false): bo
     }
     robot.pos = to;
     emit(ctx, { type: 'robot-moved', player: robot.player, from, to, pushed: i > 0 || moverPushed });
-    if (tileAt(s.board, to).kind === 'pit') {
-      killRobot(ctx, chain[i], { type: 'robot-fell', player: robot.player, cause: 'pit', at: to });
+    if (ctx.cardMove) {
+      // Moving onto/through an active flamer burns 1 per square entered
+      // (walked or chain-pushed — both are the Robots Move segment).
+      if (flamerActiveAt(ctx, to)) applyDamage(ctx, chain[i], 1, 'flamer');
+      // A portal relocates its entrant to the twin (unless occupied) and
+      // movement continues from there. Field-driven flight stays put.
+      if (!robot.destroyed && !ctx.repulsing) maybePortal(ctx, chain[i]);
+    }
+    if (!robot.destroyed && fallsAt(ctx, robot.pos)) {
+      killRobot(ctx, chain[i], {
+        type: 'robot-fell',
+        player: robot.player,
+        cause: 'pit',
+        at: { ...robot.pos },
+      });
     }
   }
   return true;
+}
+
+/**
+ * Repulsor fling: the robot that ran (or was pushed) into the field is
+ * shoved directly away — opposite the travel direction — by the moving
+ * robot's card value, with normal chain pushing, wall blocking and falls.
+ * The summary event trails its robot-moved steps so replay movement stays
+ * driven by the moves; the event is the flash, not the motion.
+ */
+function repulse(ctx: Ctx, idx: number, dir: Direction): void {
+  const robot = ctx.s.robots[idx];
+  const from = { ...robot.pos };
+  const back = opposite(dir);
+  ctx.repulsing = true;
+  for (let i = 0; i < ctx.cardValue; i++) {
+    if (!isActive(ctx, idx)) break;
+    if (!tryStep(ctx, idx, back, true)) break;
+  }
+  ctx.repulsing = false;
+  emit(ctx, { type: 'repulsed', player: robot.player, from, to: { ...robot.pos } });
+}
+
+/** Relocate a robot standing on a portal to its twin, if the twin is free. */
+function maybePortal(ctx: Ctx, idx: number): void {
+  const { s } = ctx;
+  const robot = s.robots[idx];
+  const tile = tileAt(s.board, robot.pos);
+  if (tile.kind !== 'portal') return;
+  const twin = twinPortal(s.board, robot.pos, tile.color);
+  if (!twin || robotIndexAt(ctx, twin) !== -1) return; // unpaired/occupied → inert
+  const from = { ...robot.pos };
+  robot.pos = { ...twin };
+  emit(ctx, { type: 'robot-teleported', player: robot.player, from, to: { ...twin }, via: 'portal' });
 }
 
 // ---------------------------------------------------------------------------
@@ -399,8 +568,29 @@ function conveyorPulse(ctx: Ctx, expressOnly: boolean): void {
         emit(ctx, { type: 'conveyor-rotated', player: robot.player, cw, from, to: robot.facing });
       }
     }
-    if (tileAt(s.board, p.to).kind === 'pit') {
+    if (fallsAt(ctx, p.to)) {
       killRobot(ctx, p.idx, { type: 'robot-fell', player: robot.player, cause: 'pit', at: p.to });
+    }
+  }
+}
+
+/**
+ * Phase-start sweep for trap-door pits (expansion rule): a trap-door whose
+ * schedule lists the current register is open for the whole phase, so any
+ * robot standing on one when the register begins falls immediately.
+ */
+function openTrapdoors(ctx: Ctx): void {
+  const { s } = ctx;
+  for (let idx = 0; idx < s.robots.length; idx++) {
+    if (!isActive(ctx, idx)) continue;
+    const robot = s.robots[idx];
+    if (fallsAt(ctx, robot.pos)) {
+      killRobot(ctx, idx, {
+        type: 'robot-fell',
+        player: robot.player,
+        cause: 'pit',
+        at: { ...robot.pos },
+      });
     }
   }
 }
@@ -424,6 +614,24 @@ function firePushers(ctx: Ctx, register: number): void {
       player: ctx.s.robots[idx].player,
     });
     tryStep(ctx, idx, pusher.facing, true);
+  }
+}
+
+/**
+ * Overhead crushers (expansion rule): Board Elements step 5, after gears.
+ * A crusher whose printed registers include the current one destroys the
+ * robot in its cell outright. crusher-crushed is the slam visual; the kill
+ * itself is the standard robot-destroyed path (replay needs no new removal
+ * logic). An empty crusher slams silently — no event without a subject.
+ */
+function fireCrushers(ctx: Ctx, register: number): void {
+  for (const crusher of ctx.s.board.crushers ?? []) {
+    if (!crusher.registers.includes(register)) continue;
+    const idx = robotIndexAt(ctx, crusher.pos);
+    if (idx === -1) continue;
+    const robot = ctx.s.robots[idx];
+    emit(ctx, { type: 'crusher-crushed', player: robot.player, at: { ...crusher.pos } });
+    killRobot(ctx, idx, { type: 'robot-destroyed', player: robot.player, at: { ...robot.pos } });
   }
 }
 
@@ -470,53 +678,99 @@ function traceBeam(
   return { path, hit: -1 };
 }
 
-function fireBoardLasers(ctx: Ctx): void {
-  for (const laser of ctx.s.board.lasers) {
+/**
+ * Resolve Laser Fire — printed rule: board AND robot lasers fire in ONE
+ * simultaneous segment. Every beam is traced from the same position
+ * snapshot before any damage lands, so a robot destroyed by a board laser
+ * still returns fire this segment, and its body still blocks other beams.
+ * The event stream stays sequential: board laser-fired events first, then
+ * robot laser-fired events, then all damage in that same order.
+ */
+function fireLasers(ctx: Ctx): void {
+  const { s } = ctx;
+  interface Shot {
+    event: EngineEvent;
+    hit: number;
+    strength: number;
+  }
+  const shots: Shot[] = [];
+  for (const laser of s.board.lasers) {
     const { path, hit } = traceBeam(ctx, laser.pos, laser.facing, true);
-    emit(ctx, {
-      type: 'laser-fired',
-      source: 'board',
-      path,
-      hit: hit === -1 ? undefined : ctx.s.robots[hit].player,
+    shots.push({
+      event: {
+        type: 'laser-fired',
+        source: 'board',
+        path,
+        hit: hit === -1 ? undefined : s.robots[hit].player,
+        strength: laser.strength,
+      },
+      hit,
       strength: laser.strength,
     });
-    if (hit !== -1) applyDamage(ctx, hit, laser.strength);
   }
-}
-
-function fireRobotLasers(ctx: Ctx): void {
-  const { s } = ctx;
-  // All robots fire simultaneously: trace every beam before applying damage.
-  const shots: { shooter: number; path: Position[]; hit: number }[] = [];
   for (let idx = 0; idx < s.robots.length; idx++) {
     if (!isActive(ctx, idx)) continue;
     const robot = s.robots[idx];
     // Powered down: all systems off — it doesn't fire, but it still gets hit
     // (isActive is untouched, so beams and robotIndexAt still find it).
     if (robot.poweredDown) continue;
-    shots.push({ shooter: idx, ...traceBeam(ctx, robot.pos, robot.facing, false) });
-  }
-  for (const shot of shots) {
-    emit(ctx, {
-      type: 'laser-fired',
-      source: 'robot',
-      shooter: s.robots[shot.shooter].player,
-      path: shot.path,
-      hit: shot.hit === -1 ? undefined : s.robots[shot.hit].player,
+    const { path, hit } = traceBeam(ctx, robot.pos, robot.facing, false);
+    shots.push({
+      event: {
+        type: 'laser-fired',
+        source: 'robot',
+        shooter: robot.player,
+        path,
+        hit: hit === -1 ? undefined : s.robots[hit].player,
+        strength: ROBOT_LASER_STRENGTH,
+      },
+      hit,
       strength: ROBOT_LASER_STRENGTH,
     });
   }
+  for (const shot of shots) emit(ctx, shot.event);
   for (const shot of shots) {
-    if (shot.hit !== -1) applyDamage(ctx, shot.hit, ROBOT_LASER_STRENGTH);
+    if (shot.hit !== -1) applyDamage(ctx, shot.hit, shot.strength);
   }
 }
 
-function applyDamage(ctx: Ctx, idx: number, amount: number): void {
+/**
+ * Environmental floor damage, printed as part of Resolve Laser Fire:
+ * radioactive waste burns a robot ending ANY register phase on it;
+ * a radiation floor burns a robot ending the TURN on it (register 5 only).
+ * (Waste's option-card draw is cut with the option deck, by design.)
+ */
+function hazardFloorDamage(ctx: Ctx, register: number): void {
+  const { s } = ctx;
+  for (let idx = 0; idx < s.robots.length; idx++) {
+    if (!isActive(ctx, idx)) continue;
+    const pos = s.robots[idx].pos;
+    const tile = tileAt(s.board, pos);
+    if (tile.kind === 'waste') applyDamage(ctx, idx, 1, 'waste');
+    else if (tile.kind === 'radiation' && register === 5) applyDamage(ctx, idx, 1, 'radiation');
+    // Ending the register phase on an active flamer burns 1 more (printed:
+    // "an additional 1 point of damage" during Resolve Laser Fire).
+    if (flamerActiveAt(ctx, pos)) applyDamage(ctx, idx, 1, 'flamer');
+  }
+}
+
+function applyDamage(
+  ctx: Ctx,
+  idx: number,
+  amount: number,
+  source?: 'flamer' | 'radiation' | 'waste',
+): void {
   const robot = ctx.s.robots[idx];
   if (robot.destroyed || robot.eliminated) return;
   const before = robot.damage;
   robot.damage = Math.min(10, robot.damage + amount);
-  emit(ctx, { type: 'damage', player: robot.player, amount, total: robot.damage });
+  emit(ctx, {
+    type: 'damage',
+    player: robot.player,
+    amount,
+    total: robot.damage,
+    ...(source ? { source } : {}),
+  });
 
   if (robot.damage >= 10) {
     killRobot(ctx, idx, { type: 'robot-destroyed', player: robot.player, at: robot.pos });

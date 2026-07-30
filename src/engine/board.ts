@@ -1,4 +1,4 @@
-import type { BoardDef, Direction, Position, TileDef } from './types';
+import type { BoardDef, Direction, PortalColor, Position, TileDef } from './types';
 
 export const DIRECTIONS: Direction[] = ['N', 'E', 'S', 'W'];
 
@@ -39,15 +39,33 @@ export function tileAt(board: BoardDef, pos: Position): TileDef {
 /**
  * Is the edge between `from` and the adjacent cell in `dir` blocked by a
  * wall? Checks both the near cell's wall and the far cell's facing wall.
+ * One-way walls only count against their blocking direction: 'out' blocks
+ * leaving its own cell through the edge, 'in' blocks entering it. Lasers
+ * share this check, so a one-way wall passes beams the same way it passes
+ * robots.
  */
 export function wallBlocked(board: BoardDef, from: Position, dir: Direction): boolean {
   const to = step(from, dir);
   const back = opposite(dir);
   return board.walls.some(
     (w) =>
-      (w.x === from.x && w.y === from.y && w.side === dir) ||
-      (w.x === to.x && w.y === to.y && w.side === back),
+      // Wall on the near cell: crossing means LEAVING that cell through it.
+      (w.x === from.x && w.y === from.y && w.side === dir && w.oneWay !== 'in') ||
+      // Wall on the far cell: crossing means ENTERING that cell through it.
+      (w.x === to.x && w.y === to.y && w.side === back && w.oneWay !== 'out'),
   );
+}
+
+/** The other portal of `color`, or null if there isn't exactly a twin. */
+export function twinPortal(board: BoardDef, pos: Position, color: PortalColor): Position | null {
+  for (let y = 0; y < board.height; y++) {
+    for (let x = 0; x < board.width; x++) {
+      if (x === pos.x && y === pos.y) continue;
+      const t = board.tiles[y][x];
+      if (t.kind === 'portal' && t.color === color) return { x, y };
+    }
+  }
+  return null;
 }
 
 /** Highest checkpoint number on the board (the winning target). */
@@ -84,6 +102,8 @@ export function emptyBoard(name: string, width: number, height: number): BoardDe
     walls: [],
     lasers: [],
     pushers: [],
+    crushers: [],
+    flamers: [],
   };
 }
 

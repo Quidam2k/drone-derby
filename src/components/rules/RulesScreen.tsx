@@ -8,12 +8,22 @@ import type { ReactNode } from 'react';
 import {
   CheckpointSprite,
   ConveyorSprite,
+  CrusherSprite,
+  DrainSprite,
   EmitterSprite,
+  FlamerSprite,
   GearSprite,
   PitSprite,
+  PortalSprite,
   PusherSprite,
+  RadiationSprite,
+  RepulsorSprite,
   RobotSprite,
   SpawnSprite,
+  TeleporterSprite,
+  TrapdoorSprite,
+  WasteSprite,
+  WrenchSprite,
 } from '../board/sprites';
 
 /** Back to wherever the player came from (join link, lobby, hot-seat setup). */
@@ -123,11 +133,11 @@ export function RulesScreen() {
           <li>
             The floor moves: <strong>express belts pulse first, then all belts pulse</strong> (so
             express carries you 2 spaces), then pushers fire on their printed registers, then
-            gears rotate whoever's standing on them 90°.
+            gears rotate whoever's standing on them 90°, then crushers slam.
           </li>
           <li>
-            Lasers fire: board lasers first, then every robot fires a laser straight ahead. Each
-            hit is 1+ damage.
+            Lasers fire — board lasers and every robot's forward laser, all at once. Each hit is
+            1+ damage, and even a robot destroyed this instant still gets its shot off.
           </li>
           <li>
             End the register standing on a checkpoint to <strong>touch</strong> it (that's your
@@ -182,6 +192,49 @@ export function RulesScreen() {
           <LegendRow sprite={<PitSprite />} name="Pit" tileClass="rules-tile-pit">
             fall in — walk, get pushed, or get conveyed — and you're destroyed. Costs a life.
           </LegendRow>
+          <LegendRow sprite={<DrainSprite />} name="Drain" tileClass="rules-tile-pit">
+            a pit wearing a grate. The grate does nothing. It's still a pit.
+          </LegendRow>
+          <LegendRow sprite={<TrapdoorSprite registers={[1, 3, 5]} />} name="Trap-door pit">
+            a covered pit that opens on the registers printed on it — and stays open for that{' '}
+            <strong>whole register</strong>. Standing on one when it opens, or entering while it's
+            open, drops you in. Closed, it's ordinary floor.
+          </LegendRow>
+          <LegendRow sprite={<WrenchSprite />} name="Repair site (wrench)">
+            end the <strong>turn</strong> here to discard 1 damage. Also moves your respawn point
+            here, like touching a checkpoint.
+          </LegendRow>
+          <LegendRow sprite={<RadiationSprite />} name="Radiation floor">
+            end the <strong>turn</strong> standing here and take 1 damage. Passing through is
+            free — it's where you sleep that matters.
+          </LegendRow>
+          <LegendRow sprite={<WasteSprite />} name="Radioactive waste">
+            nastier: end <strong>any register</strong> on it, take 1 damage. Five registers
+            napping in the sludge is 5 damage.
+          </LegendRow>
+          <LegendRow sprite={<PortalSprite color="red" />} name="Portal">
+            step (or get pushed) in and you pop out of the same-colored twin, continuing your
+            move from there. If someone's parked on the twin, the portal is just floor.
+          </LegendRow>
+          <LegendRow sprite={<TeleporterSprite />} name="Teleporter">
+            play a movement card while standing on one and you appear{' '}
+            <strong>the card's spaces + 2</strong> straight ahead, sailing over walls, pits and
+            robots (Back Up: 2 ahead). If the landing square is taken, you just drive normally.
+            Turning on one is safe.
+          </LegendRow>
+          <LegendRow sprite={<RepulsorSprite />} name="Repulsor field">
+            drive into it and it flings you straight back — as many squares as your card was
+            worth — and eats the rest of the card. Push someone into it and <em>they</em> get
+            flung by your card, right back through you.
+          </LegendRow>
+          <LegendRow sprite={<CrusherSprite registers={[2, 4]} />} name="Crusher">
+            overhead press that slams on its printed registers, right after the gears turn. Under
+            it when it fires = destroyed. Watch the belts that feed it.
+          </LegendRow>
+          <LegendRow sprite={<FlamerSprite registers={[1, 3, 5]} />} name="Flamer">
+            a fire jet, live on its printed registers. Moving through a live one burns 1 damage,
+            turning on it burns 1, and ending the register on it burns 1 more.
+          </LegendRow>
           <LegendRow sprite={<CheckpointSprite n={1} />} name="Checkpoint">
             tag these in numbered order to win. Any checkpoint you touch becomes your respawn
             point, even out of order.
@@ -210,17 +263,21 @@ export function RulesScreen() {
         </div>
         <p className="setup-hint">
           Walls sit on tile edges (bright edge lines on the board) and block movement, pushes,
-          belts, and lasers.
+          belts, and lasers. <strong>One-way walls</strong> (red/green edges) only block crossings
+          toward their red side — robots and lasers pass freely from the green side.
         </p>
       </section>
 
       <section>
         <h2>Damage</h2>
         <p>
-          Every laser hit sticks — there are no repair stations. Damage shrinks next turn's hand
-          (9 − damage cards). At <strong>5 damage your registers start locking</strong>, from
-          register 5 downward: a locked register repeats whatever card is stuck in it every turn.
-          At <strong>10 damage you're destroyed</strong>.
+          Damage shrinks next turn's hand (9 − damage cards). At{' '}
+          <strong>5 damage your registers start locking</strong>, from register 5 downward: a
+          locked register repeats whatever card is stuck in it every turn. At{' '}
+          <strong>10 damage you're destroyed</strong>. To shed damage, end the turn on a wrench
+          or a checkpoint (−1), or announce a <strong>power-down</strong>: your robot spends the
+          next turn doing nothing — still shovable, still shootable — and wipes{' '}
+          <em>all</em> its damage at the start of it.
         </p>
       </section>
 
@@ -229,8 +286,9 @@ export function RulesScreen() {
         <p>
           You have <strong>3 lives</strong>. Pits, driving off the board, and 10 damage each cost
           one. A destroyed robot sits out the rest of the turn, then respawns at its last touched
-          checkpoint (or its spawn dock) facing north — with 2 damage as a souvenir. Out of lives,
-          out of the game; if everyone else is eliminated, the last robot standing wins.
+          checkpoint (or its spawn dock) — with 2 damage as a souvenir. You pick which way it
+          faces while programming your next turn. Out of lives, out of the game; if everyone else
+          is eliminated, the last robot standing wins.
         </p>
       </section>
 
