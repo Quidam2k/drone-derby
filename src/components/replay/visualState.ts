@@ -72,6 +72,12 @@ export function applyEvent(v: VisualState, e: EngineEvent): VisualState {
     case 'robot-moved':
     case 'conveyor-moved':
       return updateRobot(v, e.player, { pos: { ...e.to } });
+    case 'robot-teleported':
+      return updateRobot(v, e.player, { pos: { ...e.to } });
+    // The fling's motion already arrived as robot-moved steps; re-asserting
+    // the endpoint is idempotent (the event itself is the flash).
+    case 'repulsed':
+      return updateRobot(v, e.player, { pos: { ...e.to } });
     case 'robot-rotated':
     case 'gear-rotated':
     case 'conveyor-rotated':
@@ -109,6 +115,7 @@ export function applyEvent(v: VisualState, e: EngineEvent): VisualState {
     case 'card-revealed':
     case 'robot-blocked':
     case 'pusher-fired':
+    case 'crusher-crushed':
     case 'laser-fired':
     case 'register-locked':
     case 'register-unlocked':

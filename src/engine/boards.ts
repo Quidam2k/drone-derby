@@ -1,6 +1,9 @@
 import type { BoardDef, Direction } from './types';
 import { emptyBoard, setTile } from './board';
 import { composeBoards } from './compose';
+import { gearBox, pinwheel, reactorCore, shakeNBake } from './authentic';
+
+export { gearBox, pinwheel, reactorCore, shakeNBake } from './authentic';
 
 /**
  * Built-in 10×10 board exercising every element: 4 spawn docks, 3 checkpoints,
@@ -476,5 +479,24 @@ export const BUILTIN_BOARDS: Record<string, { name: string; factory: () => Board
   'grand-circuit': {
     name: 'Grand Circuit',
     factory: () => composeBoards([spinCycle(), dockyard()], 'Grand Circuit'),
+  },
+  // Authentic boards, transcribed from the photographed 1994-era originals
+  // (src/engine/authentic.ts). Composed over the dockyard: the printed
+  // boards carry no docks of their own.
+  'reactor-core': {
+    name: 'Reactor Core',
+    factory: () => composeBoards([reactorCore(), dockyard()], 'Reactor Core'),
+  },
+  'gear-box': {
+    name: 'Gear Box',
+    factory: () => composeBoards([gearBox(), dockyard()], 'Gear Box'),
+  },
+  'pinwheel': {
+    name: 'Pinwheel',
+    factory: () => composeBoards([pinwheel(), dockyard()], 'Pinwheel'),
+  },
+  'shake-n-bake': {
+    name: "Shake 'n' Bake",
+    factory: () => composeBoards([shakeNBake(), dockyard()], "Shake 'n' Bake"),
   },
 };

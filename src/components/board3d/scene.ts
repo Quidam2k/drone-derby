@@ -458,6 +458,27 @@ export async function createBoardScene(
         // goes; the movement itself arrives as robot-moved right after.
         effects.bump(cellCentre(e.at, tmpPos), DIR_STEP[e.dir]);
         break;
+      case 'crusher-crushed':
+        // The slam itself; the kill follows as robot-destroyed (explosion).
+        effects.impact(cellCentre(e.at, tmpPos));
+        effects.bump(cellCentre(e.at, tmpPos), null);
+        break;
+      case 'robot-teleported': {
+        // A blink, not a drive: snap the rig to the destination (setTarget
+        // already pointed it there this update) and mark both ends.
+        const rig = rigs.get(e.player);
+        if (rig) rig.snap();
+        effects.repair(cellCentre(e.from, tmpPos));
+        effects.land(cellCentre(e.to, tmpPos));
+        break;
+      }
+      case 'repulsed': {
+        // The fling's motion already arrived as robot-moved steps; this is
+        // the field's discharge, kicked the way the robot flew.
+        const kick = { x: Math.sign(e.to.x - e.from.x), z: Math.sign(e.to.y - e.from.y) };
+        effects.bump(cellCentre(e.from, tmpPos), kick.x || kick.z ? kick : null);
+        break;
+      }
       case 'robot-fell': {
         const rig = rigs.get(e.player);
         if (!rig) break;

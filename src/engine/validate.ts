@@ -16,10 +16,35 @@ export interface BoardValidation {
   warnings: string[];
 }
 
-const TILE_KINDS = new Set(['floor', 'pit', 'conveyor', 'gear', 'checkpoint', 'spawn', 'wrench']);
+const TILE_KINDS = new Set([
+  'floor',
+  'pit',
+  'trapdoor',
+  'radiation',
+  'waste',
+  'portal',
+  'teleporter',
+  'repulsor',
+  'conveyor',
+  'gear',
+  'checkpoint',
+  'spawn',
+  'wrench',
+]);
+
+const PORTAL_COLORS = new Set(['red', 'blue', 'green', 'purple', 'orange']);
 
 function isDirection(d: unknown): d is Direction {
   return DIRECTIONS.includes(d as Direction);
+}
+
+/** Register schedules (pushers, trap-doors, crushers): non-empty, 1–5. */
+function badRegisters(regs: unknown): boolean {
+  return (
+    !Array.isArray(regs) ||
+    regs.length === 0 ||
+    regs.some((r) => !Number.isInteger(r) || r < 1 || r > 5)
+  );
 }
 
 /** Structural sanity of one tile; malformed tiles come from JSON imports. */
@@ -27,6 +52,15 @@ function tileError(t: TileDef, x: number, y: number): string | null {
   const at = `tile (${x},${y})`;
   if (!t || typeof t !== 'object' || !TILE_KINDS.has(t.kind)) {
     return `${at} is not a valid tile`;
+  }
+  if (t.kind === 'pit' && t.style !== undefined && t.style !== 'drain') {
+    return `${at}: pit style must be "drain" or absent`;
+  }
+  if (t.kind === 'trapdoor' && badRegisters(t.registers)) {
+    return `${at}: trap-door needs registers from 1–5 (e.g. [1,3,5])`;
+  }
+  if (t.kind === 'portal' && !PORTAL_COLORS.has(t.color)) {
+    return `${at}: portal needs a color (red, blue, green, purple, orange)`;
   }
   if (t.kind === 'conveyor' && (!isDirection(t.dir) || typeof t.express !== 'boolean')) {
     return `${at}: conveyor needs a direction and an express flag`;
@@ -100,6 +134,7 @@ export function validateBoard(board: BoardDef): BoardValidation {
 
   const spawns: number[] = [];
   const checkpoints: number[] = [];
+  const portalCounts = new Map<string, number>();
   let hazards = 0;
   for (let y = 0; y < board.height; y++) {
     for (let x = 0; x < board.width; x++) {
@@ -111,7 +146,20 @@ export function validateBoard(board: BoardDef): BoardValidation {
       }
       if (t.kind === 'spawn') spawns.push(t.n);
       if (t.kind === 'checkpoint') checkpoints.push(t.n);
-      if (t.kind === 'pit' || t.kind === 'conveyor' || t.kind === 'gear') hazards++;
+      if (t.kind === 'portal') {
+        portalCounts.set(t.color, (portalCounts.get(t.color) ?? 0) + 1);
+      }
+      if (
+        t.kind === 'pit' ||
+        t.kind === 'trapdoor' ||
+        t.kind === 'radiation' ||
+        t.kind === 'waste' ||
+        t.kind === 'repulsor' ||
+        t.kind === 'conveyor' ||
+        t.kind === 'gear'
+      ) {
+        hazards++;
+      }
     }
   }
 
@@ -125,12 +173,22 @@ export function validateBoard(board: BoardDef): BoardValidation {
   }
   errors.push(...numberingErrors('checkpoint', checkpoints));
 
+  for (const [color, count] of portalCounts) {
+    if (count !== 2) {
+      errors.push(`portals come in pairs: ${color} has ${count} (needs exactly 2)`);
+    }
+  }
+
   if (!Array.isArray(board.walls)) {
     errors.push('walls must be a list');
   } else {
     for (const w of board.walls) {
       if (!w || !inBounds(board, { x: w.x, y: w.y }) || !isDirection(w.side)) {
         errors.push(`wall at (${w?.x},${w?.y}) side ${w?.side} is out of bounds or malformed`);
+        continue;
+      }
+      if (w.oneWay !== undefined && w.oneWay !== 'in' && w.oneWay !== 'out') {
+        errors.push(`wall at (${w.x},${w.y}) side ${w.side}: oneWay must be "in" or "out"`);
       }
     }
   }
@@ -160,12 +218,7 @@ export function validateBoard(board: BoardDef): BoardValidation {
         errors.push(`pusher at (${p?.pos?.x},${p?.pos?.y}) is out of bounds or malformed`);
         continue;
       }
-      const regs = p.registers;
-      if (
-        !Array.isArray(regs) ||
-        regs.length === 0 ||
-        regs.some((r) => !Number.isInteger(r) || r < 1 || r > 5)
-      ) {
+      if (badRegisters(p.registers)) {
         errors.push(
           `pusher at (${p.pos.x},${p.pos.y}) needs registers from 1–5 (e.g. [1,3,5])`,
         );
@@ -174,6 +227,48 @@ export function validateBoard(board: BoardDef): BoardValidation {
       const tile = board.tiles[p.pos.y][p.pos.x];
       if (tile && tile.kind === 'pit') {
         errors.push(`pusher at (${p.pos.x},${p.pos.y}) sits on a pit`);
+      }
+    }
+  }
+
+  if (board.crushers !== undefined && !Array.isArray(board.crushers)) {
+    errors.push('crushers must be a list');
+  } else {
+    for (const c of board.crushers ?? []) {
+      if (!c?.pos || !inBounds(board, c.pos)) {
+        errors.push(`crusher at (${c?.pos?.x},${c?.pos?.y}) is out of bounds or malformed`);
+        continue;
+      }
+      if (badRegisters(c.registers)) {
+        errors.push(
+          `crusher at (${c.pos.x},${c.pos.y}) needs registers from 1–5 (e.g. [2,4])`,
+        );
+        continue;
+      }
+      const tile = board.tiles[c.pos.y][c.pos.x];
+      if (tile && tile.kind === 'pit') {
+        errors.push(`crusher at (${c.pos.x},${c.pos.y}) sits over a pit`);
+      }
+    }
+  }
+
+  if (board.flamers !== undefined && !Array.isArray(board.flamers)) {
+    errors.push('flamers must be a list');
+  } else {
+    for (const f of board.flamers ?? []) {
+      if (!f?.pos || !inBounds(board, f.pos)) {
+        errors.push(`flamer at (${f?.pos?.x},${f?.pos?.y}) is out of bounds or malformed`);
+        continue;
+      }
+      if (badRegisters(f.registers)) {
+        errors.push(
+          `flamer at (${f.pos.x},${f.pos.y}) needs registers from 1–5 (e.g. [1,2,4])`,
+        );
+        continue;
+      }
+      const tile = board.tiles[f.pos.y][f.pos.x];
+      if (tile && tile.kind === 'pit') {
+        errors.push(`flamer at (${f.pos.x},${f.pos.y}) sits on a pit`);
       }
     }
   }

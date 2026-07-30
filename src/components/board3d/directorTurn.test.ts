@@ -68,11 +68,14 @@ function legacyFocus(
   switch (e.type) {
     case 'robot-moved':
     case 'conveyor-moved':
+    case 'robot-teleported':
+    case 'repulsed':
       return e.to;
     case 'robot-blocked':
     case 'robot-fell':
     case 'robot-destroyed':
     case 'pusher-fired':
+    case 'crusher-crushed':
       return e.at;
     case 'robot-respawned':
       return e.pos;

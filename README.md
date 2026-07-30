@@ -125,8 +125,9 @@ Paste-ready invite message:
 
 ### Screens
 
-- [ ] Lobby: create game, board picker shows 6 built-in thumbnail cards
-      (Grand Circuit's tall 12×17 thumb stays inside its card)
+- [ ] Lobby: create game, board picker shows 10 built-in thumbnail cards
+      (the tall composed thumbs — Grand Circuit and the four authentic
+      boards — stay inside their cards)
 - [ ] How to play (`#/rules`): opens from the lobby card, the join
       screen's "First time?" link (back returns to the invite), and
       hot-seat setup; "Your first game" walkthrough sits on top;
@@ -209,6 +210,38 @@ Paste-ready invite message:
       board (12×17, the composed one): launch from the south docks
       through the baffle walls, then the whole Spin Cycle race above;
       Spin Cycle's old spawn row is plain floor
+- [ ] **Reactor Core** (authentic, transcribed from the Radioactive
+      expansion board; 12×19 over the dockyard) — nearly every tile is
+      radiation: END THE TURN on green and take 1 damage; the bright
+      mottled waste burns 1 per REGISTER ended on it. Four teleporters
+      hurl you (card + 2) squares past walls and drains; belt lines feed
+      them — and continue out the rims as death runs. The bare-metal
+      rest pockets are one-way-walled: you can always leave, but belts
+      can't shove you in — flag 2 sits in one (enter from N/W only).
+      Drains are pits with grates. Check the one-way walls read
+      red/green in both renderers
+- [ ] **Gear Box** (authentic; 12×19 over the dockyard) — 20 meshed
+      gears spin the middle; repulsor fields fling you back your card's
+      value (chain-pushing whoever's behind); two DOUBLE lasers (2
+      damage) including the walled cage at the board's east; a 2-cell
+      pit chasm; three corner teleporters fed by belt spirals. Verify a
+      repulsor fling mid-Move-3 eats the rest of the card
+- [ ] **Pinwheel** (authentic; 12×19 over the dockyard) — four belt
+      spokes all turning left spin the floor counterclockwise; two
+      FLAMERS burn both squares of their printed flame on registers
+      1/2/4 (N) and 2/4/5 (S) — moving through, rotating on, or ending
+      a phase on an active one costs 1 each; two DOUBLE lasers cross
+      the middle; eight trap-door pits open on their printed registers
+      (stand on one when it opens and you fall); radiation corners with
+      waste pools; the purple portal pair links the corners — step in
+      while the twin is empty and you pop out across the board
+- [ ] **Shake 'n' Bake** (authentic; 12×19 over the dockyard) — every
+      belt is express and every line feeds the four-flamer oven in the
+      middle; the oven's one-way doors (green side out) let belts and
+      pushes shove you IN but nothing walks back out — check red/green
+      band art on all 12 one-ways; something in the oven burns on every
+      register, so escape via the blue/orange portal pairs or eat 1 a
+      phase; eight trap-doors in stacked pairs guard the portals
 - [ ] Repair (any board): end a damaged robot's turn on a wrench tile or
       a checkpoint flag → 1 damage comes off (replay caption + a pip
       drops); at 5+ damage, repairing back below the threshold unlocks

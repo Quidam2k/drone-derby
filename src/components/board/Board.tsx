@@ -7,7 +7,7 @@
 import { useRef, type CSSProperties } from 'react';
 import type { BoardDef, Direction, EngineEvent, EventLog, PlayerId, Position } from '../../engine';
 import type { RobotVisual, VisualState } from '../replay/visualState';
-import { Tile } from './Tile';
+import { Tile, type WallSeg } from './Tile';
 import { RobotSprite } from './sprites';
 
 const DIR_ANGLE: Record<Direction, number> = { N: 0, E: 90, S: 180, W: 270 };
@@ -127,16 +127,21 @@ interface BoardProps {
   reel?: { beat: number; until: number };
 }
 
-/** Walls, laser emitters and pushers grouped by `"x,y"` cell key, in Tile-prop shape. */
+/** Walls, emitters, pushers, crushers and flamers grouped by `"x,y"` cell key, in Tile-prop shape. */
 export function boardCellMaps(board: BoardDef): {
-  wallsByCell: Map<string, Direction[]>;
+  wallsByCell: Map<string, WallSeg[]>;
   emittersByCell: Map<string, Direction[]>;
   pushersByCell: Map<string, { facing: Direction; registers: number[] }[]>;
+  crushersByCell: Map<string, { registers: number[] }[]>;
+  flamersByCell: Map<string, { registers: number[] }[]>;
 } {
-  const wallsByCell = new Map<string, Direction[]>();
+  const wallsByCell = new Map<string, WallSeg[]>();
   for (const w of board.walls) {
     const key = `${w.x},${w.y}`;
-    wallsByCell.set(key, [...(wallsByCell.get(key) ?? []), w.side]);
+    wallsByCell.set(key, [
+      ...(wallsByCell.get(key) ?? []),
+      { side: w.side, ...(w.oneWay ? { oneWay: w.oneWay } : {}) },
+    ]);
   }
   const emittersByCell = new Map<string, Direction[]>();
   for (const l of board.lasers) {
@@ -151,13 +156,24 @@ export function boardCellMaps(board: BoardDef): {
       { facing: p.facing, registers: p.registers },
     ]);
   }
-  return { wallsByCell, emittersByCell, pushersByCell };
+  const crushersByCell = new Map<string, { registers: number[] }[]>();
+  for (const c of board.crushers ?? []) {
+    const key = `${c.pos.x},${c.pos.y}`;
+    crushersByCell.set(key, [...(crushersByCell.get(key) ?? []), { registers: c.registers }]);
+  }
+  const flamersByCell = new Map<string, { registers: number[] }[]>();
+  for (const f of board.flamers ?? []) {
+    const key = `${f.pos.x},${f.pos.y}`;
+    flamersByCell.set(key, [...(flamersByCell.get(key) ?? []), { registers: f.registers }]);
+  }
+  return { wallsByCell, emittersByCell, pushersByCell, crushersByCell, flamersByCell };
 }
 
 export function Board({ board, visual, currentEvent, bubbles, ghost }: BoardProps) {
   const angles = useSmoothAngles(visual.robots);
   const ghostAngle = useGhostAngle(ghost);
-  const { wallsByCell, emittersByCell, pushersByCell } = boardCellMaps(board);
+  const { wallsByCell, emittersByCell, pushersByCell, crushersByCell, flamersByCell } =
+    boardCellMaps(board);
 
   return (
     <div className="board-viewport">
@@ -179,6 +195,8 @@ export function Board({ board, visual, currentEvent, bubbles, ghost }: BoardProp
               walls={wallsByCell.get(`${x},${y}`) ?? []}
               emitterFacings={emittersByCell.get(`${x},${y}`) ?? []}
               pushers={pushersByCell.get(`${x},${y}`)}
+              crushers={crushersByCell.get(`${x},${y}`)}
+              flamers={flamersByCell.get(`${x},${y}`)}
             />
           )),
         )}

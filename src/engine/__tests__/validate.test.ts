@@ -16,10 +16,24 @@ function playable(): BoardDef {
 
 describe('validateBoard', () => {
   it('passes every built-in board with no errors or warnings', () => {
+    // Pinwheel genuinely prints four isolated single-cell express belts
+    // (copper rollers in the photo), which trips the express-line lint.
+    // Authenticity beats the lint — those four warnings are expected.
+    const printedExceptions: Record<string, string[]> = {
+      'pinwheel': [
+        "express conveyor at (10,0) isn't part of a belt line — express has no effect",
+        "express conveyor at (11,1) isn't part of a belt line — express has no effect",
+        "express conveyor at (0,10) isn't part of a belt line — express has no effect",
+        "express conveyor at (1,11) isn't part of a belt line — express has no effect",
+      ],
+    };
     for (const [key, { name, factory }] of Object.entries(BUILTIN_BOARDS)) {
       const board = factory();
       expect(board.name, key).toBe(name);
-      expect(validateBoard(board), key).toEqual({ errors: [], warnings: [] });
+      expect(validateBoard(board), key).toEqual({
+        errors: [],
+        warnings: printedExceptions[key] ?? [],
+      });
     }
   });
 

@@ -340,6 +340,27 @@ select:focus {
   box-shadow: inset 0 0 calc(var(--tile) * 0.3) #000;
 }
 
+.tile-trapdoor {
+  background: #171a24;
+}
+
+.tile-radiation {
+  background: #232a18;
+}
+
+.tile-waste {
+  background: #1c2a1a;
+}
+
+.tile-portal,
+.tile-teleporter {
+  background: #171a24;
+}
+
+.tile-repulsor {
+  background: #1f1815;
+}
+
 .tile-conveyor {
   background: #262c3d;
 }
@@ -388,6 +409,19 @@ select:focus {
 .wall-e { right: -2px; top: 1px; bottom: 1px; width: 5px; }
 .wall-w { left: -2px; top: 1px; bottom: 1px; width: 5px; }
 
+/* One-way walls: solid wall from the red side, open from the green side.
+   The red half of the strip faces the direction the wall blocks:
+   `oneway-out` blocks leaving its own cell (red faces the cell interior),
+   `oneway-in` blocks entering it (red faces outward). */
+.wall-n.oneway-out { background: linear-gradient(to top, #e05555 45%, #58c470 55%); }
+.wall-n.oneway-in { background: linear-gradient(to bottom, #e05555 45%, #58c470 55%); }
+.wall-s.oneway-out { background: linear-gradient(to bottom, #e05555 45%, #58c470 55%); }
+.wall-s.oneway-in { background: linear-gradient(to top, #e05555 45%, #58c470 55%); }
+.wall-e.oneway-out { background: linear-gradient(to right, #e05555 45%, #58c470 55%); }
+.wall-e.oneway-in { background: linear-gradient(to left, #e05555 45%, #58c470 55%); }
+.wall-w.oneway-out { background: linear-gradient(to left, #e05555 45%, #58c470 55%); }
+.wall-w.oneway-in { background: linear-gradient(to right, #e05555 45%, #58c470 55%); }
+
 /* Board-laser emitter: a barrel sprite mounted on the wall BEHIND the beam
    direction (emitter-e fires east, so it sits on the west edge). */
 .emitter {
@@ -407,6 +441,23 @@ select:focus {
 /* Wall-mounted pusher piston: the sprite fills the tile and draws itself
    against the mounted edge (rotation lives in the SVG, not here). */
 .pusher {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Overhead crusher and flamer jet: cell overlays like the pusher. The
+   crusher hangs ABOVE robots (z-index over .robots-layer's 3) — it is
+   overhead machinery; the flamer sits at fixture level. */
+.crusher {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0.9;
+}
+.flamer {
   position: absolute;
   inset: 0;
   z-index: 2;

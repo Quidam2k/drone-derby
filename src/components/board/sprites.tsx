@@ -6,7 +6,7 @@
 
 import { useId } from 'react';
 
-import type { Direction } from '../../engine';
+import type { Direction, PortalColor } from '../../engine';
 
 const DIR_ANGLE: Record<Direction, number> = { N: 0, E: 90, S: 180, W: 270 };
 
@@ -34,6 +34,287 @@ export function PitSprite() {
         strokeWidth="2.5"
         strokeLinecap="round"
       />
+    </svg>
+  );
+}
+
+/** Drain (Radioactive): a pit with a grate — engine-identical, art-distinct. */
+const DRAIN_BARS = [-12, -6, 0, 6, 12].map((dy) => ({
+  y: 26 + dy,
+  hw: Math.sqrt(18 * 18 - dy * dy),
+}));
+
+export function DrainSprite() {
+  return (
+    <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+      <circle cx="26" cy="26" r="21" fill="#0a0b11" stroke="#4a5069" strokeWidth="2.5" />
+      {DRAIN_BARS.map(({ y, hw }) => (
+        <line
+          key={y}
+          x1={26 - hw}
+          y1={y}
+          x2={26 + hw}
+          y2={y}
+          stroke="#39415a"
+          strokeWidth="3"
+          strokeLinecap="round"
+        />
+      ))}
+      <circle cx="26" cy="26" r="21" fill="none" stroke="rgba(0, 0, 0, 0.6)" strokeWidth="4" />
+    </svg>
+  );
+}
+
+/**
+ * Trap-door pit: a closed square hatch with hinges, hazard rim, and its
+ * register schedule stamped on the cover. Open state is engine-side only —
+ * the DOM board shows the fall via the robot vanishing (robot-fell).
+ */
+export function TrapdoorSprite({ registers }: { registers: number[] }) {
+  return (
+    <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+      <rect
+        x="4"
+        y="4"
+        width="44"
+        height="44"
+        rx="4"
+        fill="none"
+        stroke="var(--wall)"
+        strokeWidth="3"
+        strokeDasharray="6 5"
+        opacity="0.55"
+      />
+      <rect x="8" y="8" width="36" height="36" rx="2" fill="#20242f" />
+      <line x1="26" y1="8" x2="26" y2="44" stroke="#0a0b11" strokeWidth="2.5" />
+      {[13, 33].map((y) => (
+        <g key={y}>
+          <rect x="9.5" y={y} width="3.5" height="7" rx="1.5" fill="#4a5069" />
+          <rect x="39" y={y} width="3.5" height="7" rx="1.5" fill="#4a5069" />
+        </g>
+      ))}
+      <text
+        x="26"
+        y="27"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="#e0b341"
+        fontSize="12"
+        fontWeight="700"
+        letterSpacing="2"
+      >
+        {registers.join(' ')}
+      </text>
+    </svg>
+  );
+}
+
+/** One blade of the radiation trefoil, drawn pointing N and rotated. */
+const RADIATION_BLADE =
+  'M 22 19.1 L 16 8.7 A 20 20 0 0 1 36 8.7 L 30 19.1 A 8 8 0 0 0 22 19.1 Z';
+
+export function RadiationSprite() {
+  return (
+    <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+      <circle cx="26" cy="26" r="21.5" fill="rgba(184, 214, 60, 0.1)" stroke="#8a9c2e" strokeWidth="2" />
+      {[0, 120, 240].map((a) => (
+        <path key={a} d={RADIATION_BLADE} fill="#d3e34a" transform={`rotate(${a} 26 26)`} />
+      ))}
+      <circle cx="26" cy="26" r="4" fill="#d3e34a" />
+    </svg>
+  );
+}
+
+/** Radioactive-waste sludge: an irregular glowing green puddle. */
+export function WasteSprite() {
+  return (
+    <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+      <path
+        d="M 10 22 C 8 12, 20 6, 28 9 C 38 5, 46 14, 44 22 C 48 30, 42 42, 32 43 C 24 47, 12 44, 10 35 C 6 30, 7 26, 10 22 Z"
+        fill="#3f7d36"
+        stroke="#8bd44a"
+        strokeWidth="2"
+        opacity="0.92"
+      />
+      {[
+        [18, 20, 3],
+        [33, 16, 2.2],
+        [30, 33, 3.4],
+        [17, 34, 2],
+      ].map(([cx, cy, r]) => (
+        <circle key={`${cx},${cy}`} cx={cx} cy={cy} r={r} fill="#8bd44a" opacity="0.7" />
+      ))}
+    </svg>
+  );
+}
+
+const PORTAL_FILL: Record<PortalColor, string> = {
+  red: '#e05555',
+  blue: '#57a7e8',
+  green: '#58c470',
+  purple: '#a06ae0',
+  orange: '#e09a4a',
+};
+
+/** Portal: hex housing with a color-keyed swirl — twins share the color. */
+export function PortalSprite({ color }: { color: PortalColor }) {
+  const c = PORTAL_FILL[color];
+  return (
+    <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+      <polygon
+        points="26,5 44.2,15.5 44.2,36.5 26,47 7.8,36.5 7.8,15.5"
+        fill="#2c3145"
+        stroke={c}
+        strokeWidth="2.5"
+      />
+      <circle cx="26" cy="26" r="12.5" fill="#0a0b11" />
+      {[0, 120, 240].map((a) => (
+        <path
+          key={a}
+          d="M 26 15.5 A 10.5 10.5 0 0 1 36.5 26"
+          fill="none"
+          stroke={c}
+          strokeWidth="3.5"
+          strokeLinecap="round"
+          transform={`rotate(${a} 26 26)`}
+        />
+      ))}
+      <circle cx="26" cy="26" r="4" fill={c} />
+    </svg>
+  );
+}
+
+/** Teleporter: the Radioactive red-rimmed disc with a blue swirl core. */
+export function TeleporterSprite() {
+  return (
+    <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+      <circle cx="26" cy="26" r="21" fill="#7d3436" stroke="#4d1f21" strokeWidth="2" />
+      <circle cx="26" cy="26" r="14.5" fill="#141826" />
+      {[0, 180].map((a) => (
+        <path
+          key={a}
+          d="M 26 13.5 A 12.5 12.5 0 0 1 38.5 26 A 6.5 6.5 0 0 1 32 32.5"
+          fill="none"
+          stroke="#57a7e8"
+          strokeWidth="3"
+          strokeLinecap="round"
+          transform={`rotate(${a} 26 26)`}
+        />
+      ))}
+      <circle cx="26" cy="26" r="3.5" fill="#dde3f2" />
+    </svg>
+  );
+}
+
+/** Repulsor field: dark octagonal device arcing with orange energy. */
+export function RepulsorSprite() {
+  return (
+    <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+      <polygon
+        points="34,6.6 45.4,18 45.4,34 34,45.4 18,45.4 6.6,34 6.6,18 18,6.6"
+        fill="#33241f"
+        stroke="#5a4436"
+        strokeWidth="2.5"
+      />
+      {[
+        '13,20 24,25 19,32 30,37',
+        '39,20 28,25 33,32 22,37',
+        '26,10 22,18 30,22 26,29',
+      ].map((pts) => (
+        <polyline
+          key={pts}
+          points={pts}
+          fill="none"
+          stroke="#ff7847"
+          strokeWidth="2.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ))}
+      <circle cx="26" cy="26" r="3" fill="#ffb347" />
+    </svg>
+  );
+}
+
+/**
+ * Overhead crusher: corner posts and a hovering press plate with its
+ * register schedule. A cell overlay (like PusherSprite), not a tile kind —
+ * the floor beneath stays whatever it is.
+ */
+export function CrusherSprite({ registers }: { registers: number[] }) {
+  return (
+    <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+      {[
+        [3, 3],
+        [42, 3],
+        [3, 42],
+        [42, 42],
+      ].map(([x, y]) => (
+        <rect key={`${x},${y}`} x={x} y={y} width="7" height="7" rx="1.5" fill="#4a5069" />
+      ))}
+      <rect
+        x="10"
+        y="10"
+        width="32"
+        height="32"
+        rx="3"
+        fill="#5a6180"
+        stroke="#2c3145"
+        strokeWidth="2"
+        opacity="0.92"
+      />
+      {[15, 25, 35].map((x) => (
+        <path key={x} d={`M ${x} 40.5 l 6 -6`} stroke="rgba(224, 179, 65, 0.75)" strokeWidth="3" />
+      ))}
+      <text
+        x="26"
+        y="24"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="#dde3f2"
+        fontSize="11"
+        fontWeight="700"
+        letterSpacing="2"
+      >
+        {registers.join(' ')}
+      </text>
+    </svg>
+  );
+}
+
+/**
+ * Flamer jet: a floor nozzle with a flame column and the registers it is
+ * live on stamped in the fire. A cell overlay like CrusherSprite.
+ */
+export function FlamerSprite({ registers }: { registers: number[] }) {
+  return (
+    <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+      <rect x="14" y="42" width="24" height="7" rx="2" fill="#4a5069" />
+      {[18, 26, 34].map((x) => (
+        <rect key={x} x={x - 1.5} y="43.5" width="3" height="4" fill="#2c3145" />
+      ))}
+      <path
+        d="M 26 5 C 35 14, 39 23, 36 32 C 34 39, 30 42, 26 42 C 22 42, 18 39, 16 32 C 13 23, 17 14, 26 5 Z"
+        fill="#ff9636"
+        stroke="#c2571d"
+        strokeWidth="1.5"
+      />
+      <path
+        d="M 26 16 C 31 22, 33 27, 31 32 C 30 37, 28 39, 26 39 C 24 39, 22 37, 21 32 C 19 27, 21 22, 26 16 Z"
+        fill="#ffd05a"
+      />
+      <text
+        x="26"
+        y="30"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="#7d1d10"
+        fontSize="10.5"
+        fontWeight="700"
+        letterSpacing="1"
+      >
+        {registers.join(' ')}
+      </text>
     </svg>
   );
 }

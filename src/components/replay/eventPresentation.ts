@@ -32,6 +32,10 @@ export function eventDuration(e: EngineEvent): number {
     case 'robot-moved':
     case 'conveyor-moved':
       return 420;
+    case 'robot-teleported':
+      return 550;
+    case 'repulsed':
+      return 450;
     case 'robot-rotated':
     case 'gear-rotated':
     case 'conveyor-rotated':
@@ -39,6 +43,7 @@ export function eventDuration(e: EngineEvent): number {
     case 'robot-blocked':
       return 450;
     case 'pusher-fired':
+    case 'crusher-crushed':
       return 450;
     case 'laser-fired':
       return 550;
@@ -88,6 +93,14 @@ export function caption(e: EngineEvent): string {
       return `The bend swings ${e.player} around`;
     case 'pusher-fired':
       return `Pusher shoves ${e.player}`;
+    case 'crusher-crushed':
+      return `Crusher slams down on ${e.player}!`;
+    case 'robot-teleported':
+      return e.via === 'portal'
+        ? `${e.player} slips through the portal`
+        : `Teleporter hurls ${e.player} forward`;
+    case 'repulsed':
+      return `Repulsor field flings ${e.player} back`;
     case 'laser-fired': {
       const source = e.source === 'board' ? 'Board laser' : `${e.shooter} fires and`;
       return e.hit ? `${source} hits ${e.hit}` : e.source === 'board' ? 'Board laser fires' : `${e.shooter} fires`;

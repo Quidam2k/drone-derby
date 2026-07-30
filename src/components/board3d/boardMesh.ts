@@ -38,6 +38,15 @@ const C = {
 /** Tile thickness. Deep enough that a pit reads as a shaft, not a dark decal. */
 const SLAB = 0.5;
 
+/** Portal pair colors, matching PORTAL_FILL in board/sprites.tsx. */
+const PORTAL_HEX: Record<string, number> = {
+  red: 0xe05555,
+  blue: 0x57a7e8,
+  green: 0x58c470,
+  purple: 0xa06ae0,
+  orange: 0xe09a4a,
+};
+
 const DIR_VEC: Record<Direction, THREE.Vector3> = {
   N: new THREE.Vector3(0, 0, -1),
   E: new THREE.Vector3(1, 0, 0),
@@ -126,7 +135,8 @@ class Batch {
   }
 }
 
-/** A digit drawn to an offscreen canvas, for the checkpoint/spawn numbers. */
+/** Text drawn to an offscreen canvas: checkpoint/spawn digits, register
+ * schedules on trap-doors/crushers/flamers. Wider than tall for schedules. */
 function labelTexture(text: string, color: string): THREE.CanvasTexture {
   const size = 64;
   const canvas = document.createElement('canvas');
@@ -134,7 +144,8 @@ function labelTexture(text: string, color: string): THREE.CanvasTexture {
   const ctx = canvas.getContext('2d');
   if (ctx) {
     ctx.fillStyle = color;
-    ctx.font = `700 ${size * 0.72}px 'Segoe UI', system-ui, sans-serif`;
+    const px = text.length > 2 ? size * 0.34 : size * 0.72;
+    ctx.font = `700 ${px}px 'Segoe UI', system-ui, sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(text, size / 2, size * 0.54);
@@ -257,24 +268,49 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   // Two plate batches so each register variant keeps its own tint.
   const pusherPlatesOdd = new Batch();
   const pusherPlatesEven = new Batch();
+  // Expansion elements (Phase 38). All primitives — the Blender kit pieces
+  // are deferred, and the primitive fallback is the designed contract.
+  const drainBars = new Batch();
+  const trapdoorPlates = new Batch();
+  const radiationDiscs = new Batch();
+  const wastePatches = new Batch();
+  const portalRings = new Batch(); // per-instance tint = pair color
+  const portalCores = new Batch();
+  const teleporterRings = new Batch();
+  const teleporterCores = new Batch();
+  const repulsorBodies = new Batch();
+  const repulsorCores = new Batch();
+  const oneWayReds = new Batch();
+  const oneWayGreens = new Batch();
+  const crusherPosts = new Batch();
+  const crusherPlates = new Batch();
+  const flamerNozzles = new Batch();
+  const flamerFlames = new Batch();
 
   /**
    * The checkpoint/spawn number, as a digit lying on the tile. Pips were the
    * first attempt and read as a face, not a number — the DOM board draws the
    * actual digit and the 3D board has to be as legible.
    */
-  function addLabel(x: number, y: number, n: number, color: string, size: number) {
+  function addLabel(
+    x: number,
+    y: number,
+    text: string | number,
+    color: string,
+    size: number,
+    height = 0.045,
+  ) {
     const mesh = new THREE.Mesh(
       geom(new THREE.PlaneGeometry(size, size).rotateX(-Math.PI / 2)),
       mat(
         new THREE.MeshBasicMaterial({
-          map: labelTexture(String(n), color),
+          map: labelTexture(String(text), color),
           transparent: true,
           depthWrite: false,
         }),
       ),
     );
-    mesh.position.set(x + 0.5, 0.045, y + 0.5);
+    mesh.position.set(x + 0.5, height, y + 0.5);
     labels.push(mesh);
   }
 
@@ -282,6 +318,15 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
     if (def.kind === 'pit') {
       pitFloors.add({ pos: centre(x, y, -SLAB - 0.12) });
       pitRims.add({ pos: centre(x, y, -0.02) });
+      // A drain is a pit wearing a grate: bars across the opening.
+      if (def.style === 'drain') {
+        for (const off of [-0.28, -0.14, 0, 0.14, 0.28]) {
+          drainBars.add({
+            pos: new THREE.Vector3(x + 0.5, -0.01, y + 0.5 + off),
+            scale: new THREE.Vector3(Math.sqrt(1 - (off / 0.44) ** 2), 1, 1),
+          });
+        }
+      }
       return;
     }
     bodies.add({ pos: centre(x, y, -SLAB / 2) });
@@ -353,6 +398,35 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
         }
         addLabel(x, y, def.n, '#9aa0b8', 0.34);
         break;
+      case 'trapdoor':
+        // Closed hatch: a dark plate sitting just proud of the deck, its
+        // schedule stamped on top. The open state is engine-side only.
+        trapdoorPlates.add({ pos: centre(x, y, 0.035) });
+        addLabel(x, y, def.registers.join(' '), '#e0b341', 0.6, 0.085);
+        break;
+      case 'radiation':
+        radiationDiscs.add({ pos: centre(x, y, 0.03) });
+        break;
+      case 'waste':
+        // Irregular-ish: a flattened, slightly rotated elliptical puddle.
+        wastePatches.add({
+          pos: centre(x, y, 0.03),
+          yaw: ((x * 7 + y * 13) % 8) * (Math.PI / 8),
+          scale: new THREE.Vector3(1, 1, 0.82),
+        });
+        break;
+      case 'portal':
+        portalRings.add({ pos: centre(x, y, 0.05), color: PORTAL_HEX[def.color] });
+        portalCores.add({ pos: centre(x, y, 0.04), color: PORTAL_HEX[def.color] });
+        break;
+      case 'teleporter':
+        teleporterRings.add({ pos: centre(x, y, 0.05) });
+        teleporterCores.add({ pos: centre(x, y, 0.035) });
+        break;
+      case 'repulsor':
+        repulsorBodies.add({ pos: centre(x, y, 0.08) });
+        repulsorCores.add({ pos: centre(x, y, 0.17) });
+        break;
       case 'wrench':
         wrenches.add({ pos: centre(x, y, 0.025) });
         if (!kit?.wrench) {
@@ -377,10 +451,45 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   }
 
   for (const w of board.walls) {
-    walls.add({
-      pos: centre(w.x, w.y, 0.17).addScaledVector(DIR_VEC[w.side], 0.5),
+    const edge = centre(w.x, w.y, 0.17).addScaledVector(DIR_VEC[w.side], 0.5);
+    if (!w.oneWay) {
+      walls.add({ pos: edge, yaw: DIR_YAW[w.side] });
+      continue;
+    }
+    // One-way wall: two half-thickness slabs, red on the side the wall
+    // blocks from ('out' blocks leaving the cell → red faces the interior),
+    // green on the passable side — same read as the DOM edge gradient.
+    const inward = -0.033; // toward the wall's own cell
+    const redOffset = w.oneWay === 'out' ? inward : -inward;
+    oneWayReds.add({
+      pos: edge.clone().addScaledVector(DIR_VEC[w.side], redOffset),
       yaw: DIR_YAW[w.side],
     });
+    oneWayGreens.add({
+      pos: edge.clone().addScaledVector(DIR_VEC[w.side], -redOffset),
+      yaw: DIR_YAW[w.side],
+    });
+  }
+
+  for (const c of board.crushers ?? []) {
+    const { x, y } = c.pos;
+    for (const [dx, dz] of [
+      [-0.4, -0.4],
+      [0.4, -0.4],
+      [-0.4, 0.4],
+      [0.4, 0.4],
+    ]) {
+      crusherPosts.add({ pos: new THREE.Vector3(x + 0.5 + dx, 0.26, y + 0.5 + dz) });
+    }
+    crusherPlates.add({ pos: centre(x, y, 0.5) });
+    addLabel(x, y, c.registers.join(' '), '#dde3f2', 0.6, 0.56);
+  }
+
+  for (const f of board.flamers ?? []) {
+    const { x, y } = f.pos;
+    flamerNozzles.add({ pos: centre(x, y, 0.05) });
+    flamerFlames.add({ pos: centre(x, y, 0.3) });
+    addLabel(x, y, f.registers.join(' '), '#7d1d10', 0.5, 0.52);
   }
 
   for (const l of board.lasers) {
@@ -476,6 +585,70 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   );
   const pusherEvenMat = mat(
     new THREE.MeshStandardMaterial({ color: C.belt, roughness: 0.5, metalness: 0.35 }),
+  );
+  // Expansion-element materials (primitive path — kit pieces deferred).
+  const grateMat = mat(
+    new THREE.MeshStandardMaterial({ color: 0x39415a, roughness: 0.55, metalness: 0.5 }),
+  );
+  const hatchMat = mat(new THREE.MeshStandardMaterial({ color: 0x20242f, roughness: 0.8 }));
+  const radiationMat = mat(
+    new THREE.MeshStandardMaterial({
+      color: 0xd3e34a,
+      emissive: new THREE.Color(0xd3e34a),
+      emissiveIntensity: 0.5,
+      roughness: 0.6,
+    }),
+  );
+  const wasteMat = mat(
+    new THREE.MeshStandardMaterial({
+      color: 0x3f7d36,
+      emissive: new THREE.Color(0x58c470),
+      emissiveIntensity: 0.18,
+      roughness: 0.9,
+    }),
+  );
+  // Portal rings/cores tint per instance (pair color), so the base is white.
+  const portalMat = mat(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 }));
+  const teleRingMat = mat(
+    new THREE.MeshStandardMaterial({ color: 0x7d3436, roughness: 0.5, metalness: 0.3 }),
+  );
+  const teleCoreMat = mat(
+    new THREE.MeshStandardMaterial({
+      color: 0x57a7e8,
+      emissive: new THREE.Color(0x57a7e8),
+      emissiveIntensity: 0.7,
+      roughness: 0.35,
+    }),
+  );
+  const repulsorMat = mat(
+    new THREE.MeshStandardMaterial({ color: 0x33241f, roughness: 0.7, metalness: 0.3 }),
+  );
+  const repulsorCoreMat = mat(
+    new THREE.MeshStandardMaterial({
+      color: 0xff7847,
+      emissive: new THREE.Color(0xff7847),
+      emissiveIntensity: 1.1,
+      roughness: 0.3,
+    }),
+  );
+  const oneWayRedMat = mat(
+    new THREE.MeshStandardMaterial({ color: 0xe05555, roughness: 0.45, metalness: 0.35 }),
+  );
+  const oneWayGreenMat = mat(
+    new THREE.MeshStandardMaterial({ color: 0x58c470, roughness: 0.45, metalness: 0.35 }),
+  );
+  const crusherMat = mat(
+    new THREE.MeshStandardMaterial({ color: 0x5a6180, roughness: 0.5, metalness: 0.45 }),
+  );
+  const flameMat = mat(
+    new THREE.MeshStandardMaterial({
+      color: 0xff9636,
+      emissive: new THREE.Color(0xff9636),
+      emissiveIntensity: 1.2,
+      roughness: 0.4,
+      transparent: true,
+      opacity: 0.85,
+    }),
   );
 
   // ------------------------------------------------------------------ build
@@ -586,6 +759,64 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   const pusherPlateGeom = pieceGeom(kit?.pusher_plate, () => new THREE.BoxGeometry(0.6, 0.14, 0.08));
   add(pusherPlatesOdd.build(pusherPlateGeom, pusherOddMat, { cast: true }));
   add(pusherPlatesEven.build(pusherPlateGeom, pusherEvenMat, { cast: true }));
+
+  // Expansion elements — all primitives (kit pieces deferred by design).
+  add(drainBars.build(geom(new THREE.BoxGeometry(0.82, 0.05, 0.07)), grateMat, { cast: true }));
+  add(
+    trapdoorPlates.build(geom(new THREE.BoxGeometry(0.82, 0.06, 0.82)), hatchMat, {
+      cast: true,
+      receive: true,
+    }),
+  );
+  add(
+    radiationDiscs.build(
+      geom(new THREE.CylinderGeometry(0.36, 0.36, 0.03, 20)),
+      radiationMat,
+      { receive: true },
+    ),
+  );
+  add(
+    wastePatches.build(geom(new THREE.CylinderGeometry(0.44, 0.46, 0.035, 14)), wasteMat, {
+      receive: true,
+    }),
+  );
+  add(
+    portalRings.build(
+      geom(new THREE.TorusGeometry(0.32, 0.06, 8, 24).rotateX(Math.PI / 2)),
+      portalMat,
+      { cast: true },
+    ),
+  );
+  add(portalCores.build(geom(new THREE.CylinderGeometry(0.16, 0.16, 0.025, 16)), portalMat));
+  add(
+    teleporterRings.build(
+      geom(new THREE.TorusGeometry(0.36, 0.055, 8, 24).rotateX(Math.PI / 2)),
+      teleRingMat,
+      { cast: true },
+    ),
+  );
+  add(teleporterCores.build(geom(new THREE.CylinderGeometry(0.2, 0.2, 0.025, 16)), teleCoreMat));
+  add(
+    repulsorBodies.build(
+      geom(new THREE.CylinderGeometry(0.4, 0.44, 0.14, 8)),
+      repulsorMat,
+      { cast: true, receive: true },
+    ),
+  );
+  add(repulsorCores.build(geom(new THREE.SphereGeometry(0.09, 10, 8)), repulsorCoreMat));
+  const oneWayGeom = geom(new THREE.BoxGeometry(0.98, 0.34, 0.055));
+  add(oneWayReds.build(oneWayGeom, oneWayRedMat, { cast: true, receive: true }));
+  add(oneWayGreens.build(oneWayGeom, oneWayGreenMat, { cast: true, receive: true }));
+  add(crusherPosts.build(geom(new THREE.BoxGeometry(0.1, 0.52, 0.1)), emitterMat, { cast: true }));
+  add(
+    crusherPlates.build(geom(new THREE.BoxGeometry(0.72, 0.09, 0.72)), crusherMat, {
+      cast: true,
+    }),
+  );
+  add(flamerNozzles.build(geom(new THREE.CylinderGeometry(0.14, 0.18, 0.1, 10)), emitterMat, {
+    cast: true,
+  }));
+  add(flamerFlames.build(geom(new THREE.ConeGeometry(0.15, 0.42, 10)), flameMat, { cast: true }));
 
   // Chevrons: one instanced mesh per speed class so express keeps its accent
   // colour, both re-placed every frame by tick().
