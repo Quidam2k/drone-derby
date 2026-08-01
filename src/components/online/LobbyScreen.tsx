@@ -9,6 +9,7 @@ import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { navigate } from '../../services/route';
 import { isMuted, setMuted } from '../../services/audio';
+import { APP_VERSION } from '../../services/telemetry';
 import type { BoardDef } from '../../engine';
 import { BUILTIN_BOARDS } from '../../engine';
 import { BoardPicker, type BoardOption } from '../board/BoardThumb';
@@ -222,6 +223,11 @@ function LobbyInner() {
           ))
         )}
       </section>
+
+      {/* Build stamp so playtesters can read their version back to us. */}
+      <footer className="lobby-footer">
+        <span className="version-tag">{APP_VERSION}</span>
+      </footer>
     </div>
   );
 }

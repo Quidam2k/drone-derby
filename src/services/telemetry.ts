@@ -6,13 +6,20 @@
 import { api } from '../../convex/_generated/api';
 import { convex } from './convex';
 
-export type TelemetryKind = 'error' | 'unhandledrejection' | 'react-error' | 'note';
+export type TelemetryKind = 'error' | 'unhandledrejection' | 'react-error' | 'note' | 'flow';
+
+/**
+ * Build stamp from `define` in vite.config.ts. The typeof guard covers
+ * contexts where define never ran (plain node importing this module).
+ */
+export const APP_VERSION: string =
+  typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
 
 export interface TelemetryEntry {
   kind: TelemetryKind;
   message: string;
   data?: unknown;
-  context: { href: string; ua: string; sessionId: string; ts: number };
+  context: { href: string; ua: string; sessionId: string; ts: number; appVersion: string };
 }
 
 const BUFFER_KEY = 'dd-telemetry';
@@ -42,6 +49,7 @@ export function logTelemetry(kind: TelemetryKind, message: string, data?: unknow
         ua: typeof navigator !== 'undefined' ? navigator.userAgent : '',
         sessionId,
         ts: now,
+        appVersion: APP_VERSION,
       },
     };
 
@@ -60,6 +68,15 @@ export function logTelemetry(kind: TelemetryKind, message: string, data?: unknow
   } catch {
     // Telemetry must never crash — or recurse into — the app it watches.
   }
+}
+
+/**
+ * Client-side game-flow breadcrumb (kind 'flow') — mirrors the server's
+ * logFlow in convex/helpers.ts. For lifecycle moments the server can't see:
+ * renderer fallback, push-subscribe failure, PWA install.
+ */
+export function logFlowEvent(event: string, data?: unknown): void {
+  logTelemetry('flow', event, data);
 }
 
 /** The local ring buffer (for console spelunking after an offline session). */

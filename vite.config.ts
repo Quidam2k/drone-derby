@@ -3,8 +3,29 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+
+// Build stamp baked into the bundle (telemetry context + lobby footer):
+// pkg.version + git short hash + build date, e.g. "2.0.0+c3e8b77+20260731".
+// Playtesters read it back to us; telemetry rows carry it so a crash can be
+// matched to the exact deploy.
+const pkg = JSON.parse(readFileSync(path.resolve(__dirname, 'package.json'), 'utf8')) as {
+  version: string;
+};
+let gitHash = 'unknown';
+try {
+  gitHash = execSync('git rev-parse --short HEAD', { cwd: __dirname }).toString().trim();
+} catch {
+  // No git (e.g. a bare CI checkout) — 'unknown' still versions the build by date.
+}
+const buildDate = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+const appVersion = `${pkg.version}+${gitHash}+${buildDate}`;
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(appVersion),
+  },
   plugins: [
     react(),
     VitePWA({

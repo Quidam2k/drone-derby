@@ -34,7 +34,7 @@
 // field is a number rather than a guess.
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { logTelemetry } from '../../services/telemetry';
+import { logFlowEvent, logTelemetry } from '../../services/telemetry';
 import {
   getFocusPlayer,
   getView,
@@ -202,6 +202,9 @@ export function Board3D({
         logTelemetry('error', '[board3d] scene failed to start', {
           error: err instanceof Error ? err.message : String(err),
           stack: err instanceof Error ? err.stack : undefined,
+        });
+        logFlowEvent('renderer-fallback', {
+          error: err instanceof Error ? err.message : String(err),
         });
         markRenderer3dFailed();
       }
