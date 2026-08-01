@@ -1,22 +1,25 @@
 # Session State
-Updated: 2026-07-31 (phase 42 start)
+Updated: 2026-07-31 ~21:20
 
 ## Current Task
-Playtest-polish cascade (cascades/2026-07-31-playtest-polish.md) —
-Phase 42: playtest telemetry (server flow events, version stamp,
-client flow events, digest query + script).
+Playtest-polish cascade (cascades/2026-07-31-playtest-polish.md).
+Phase 42 (telemetry) SHIPPED — commit 5583bd2, deployed to prod.
 
 ## Just Completed
-- Cascade plan approved and copied to cascades/2026-07-31-playtest-polish.md.
+- Phase 42: server flow rows (logFlow), version stamp (__APP_VERSION__ +
+  lobby footer), client flow events, telemetry:digest/:clear +
+  scripts/telemetry-digest.mjs. E2E-verified on dev deployment (funnel
+  1/1/1/2/1), prod deployed + smoked. Details:
+  notes/2026-07-31-playtest-polish-session.md.
 
 ## Next Steps
-1. Phase 42 implementation: convex/helpers.ts logFlow, games.ts call
-   sites, vite define __APP_VERSION__, telemetry.ts 'flow' kind +
-   logFlowEvent, digest internalQuery + scripts/telemetry-digest.mjs.
-2. typecheck + test, verify digest on dev deployment, commit, deploy.
-3. Then Phase 43 (flag placement at game creation).
+1. Phase 43 — flag placement at game creation: src/engine/placement.ts
+   (applyFlagPlacements, checkpointPositions) + tests, FlagPlacer.tsx,
+   createGame flagPlacements arg (server re-applies + validates),
+   hot-seat SetupScreen wiring. Deploy after (playtest gate).
+2. Then 44 (editor UX), 45 (UI pass), 46-48 (visual), 49 (optional), 50.
 
 ## Key Files
-convex/telemetry.ts, convex/games.ts, convex/helpers.ts,
-src/services/telemetry.ts, vite.config.ts,
-cascades/2026-07-31-playtest-polish.md
+cascades/2026-07-31-playtest-polish.md (plan + decisions log),
+convex/games.ts, src/engine/validate.ts, src/components/board/,
+notes/2026-07-31-playtest-polish-session.md
