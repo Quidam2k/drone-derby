@@ -1,25 +1,27 @@
 # Session State
-Updated: 2026-07-31 ~21:20
+Updated: 2026-07-31 ~21:40
 
 ## Current Task
 Playtest-polish cascade (cascades/2026-07-31-playtest-polish.md).
-Phase 42 (telemetry) SHIPPED — commit 5583bd2, deployed to prod.
+Phases 42+43 SHIPPED — the playtest gate is closed, friends can play.
 
 ## Just Completed
-- Phase 42: server flow rows (logFlow), version stamp (__APP_VERSION__ +
-  lobby footer), client flow events, telemetry:digest/:clear +
-  scripts/telemetry-digest.mjs. E2E-verified on dev deployment (funnel
-  1/1/1/2/1), prod deployed + smoked. Details:
+- Phase 43: flag placement at game creation (commit 4993feb, deployed to
+  prod, smoked at 2.0.0+4993feb). Engine placement.ts (strict helper —
+  see cascade cross-phase decisions), FlagPlacer expander in online
+  create + hot-seat setup, createGame flagPlacements re-applied
+  server-side. 504 tests green. Details:
   notes/2026-07-31-playtest-polish-session.md.
 
 ## Next Steps
-1. Phase 43 — flag placement at game creation: src/engine/placement.ts
-   (applyFlagPlacements, checkpointPositions) + tests, FlagPlacer.tsx,
-   createGame flagPlacements arg (server re-applies + validates),
-   hot-seat SetupScreen wiring. Deploy after (playtest gate).
-2. Then 44 (editor UX), 45 (UI pass), 46-48 (visual), 49 (optional), 50.
+1. Phase 44 — editor UX overhaul: tool grouping with section headers,
+   per-tool hotkeys, "New from template…" modal (BUILTIN_BOARDS thumbs),
+   renumberCheckpoints store action + ValidationPanel button. Files:
+   ToolPalette, EditorToolbar, ValidationPanel, EditorScreen,
+   src/store/editorStore.ts, index.css. No deploy needed until 50.
+2. Then 45 (UI pass), 46-48 (visual), 49 (optional), 50 (ship).
 
 ## Key Files
 cascades/2026-07-31-playtest-polish.md (plan + decisions log),
-convex/games.ts, src/engine/validate.ts, src/components/board/,
+src/components/editor/*, src/store/editorStore.ts,
 notes/2026-07-31-playtest-polish-session.md
