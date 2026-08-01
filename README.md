@@ -128,6 +128,11 @@ Paste-ready invite message:
 - [ ] Lobby: create game, board picker shows 10 built-in thumbnail cards
       (the tall composed thumbs — Grand Circuit and the four authentic
       boards — stay inside their cards)
+- [ ] Flag placement: "Customize flags" under the board picker (online
+      create AND hot-seat setup) expands to a clickable board — click
+      floor to add a flag, click a flag to remove it, reset restores the
+      printed layout; the created game plays with the custom flags, and
+      an untouched expander leaves the board exactly as printed
 - [ ] How to play (`#/rules`): opens from the lobby card, the join
       screen's "First time?" link (back returns to the invite), and
       hot-seat setup; "Your first game" walkthrough sits on top;

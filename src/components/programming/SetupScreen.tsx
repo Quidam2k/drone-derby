@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import type { BoardDef } from '../../engine';
-import { BUILTIN_BOARDS } from '../../engine';
+import type { BoardDef, Position } from '../../engine';
+import { applyFlagPlacements, BUILTIN_BOARDS } from '../../engine';
 import { BoardPicker, type BoardOption } from '../board/BoardThumb';
+import { FlagPlacer } from '../board/FlagPlacer';
 
 const MIN_PLAYERS = 2;
 const MAX_PLAYERS = 4;
@@ -19,6 +20,8 @@ interface SetupScreenProps {
 export function SetupScreen({ onStart }: SetupScreenProps) {
   const [names, setNames] = useState<string[]>(['', '']);
   const [boardKey, setBoardKey] = useState('proving-grounds');
+  /** Custom flag positions; null = the board's printed flags (untouched). */
+  const [flags, setFlags] = useState<Position[] | null>(null);
 
   const trimmed = names.map((n) => n.trim());
   const valid =
@@ -66,12 +69,31 @@ export function SetupScreen({ onStart }: SetupScreenProps) {
         </button>
       )}
 
-      <BoardPicker options={BOARD_OPTIONS} value={boardKey} onChange={setBoardKey} />
+      <BoardPicker
+        options={BOARD_OPTIONS}
+        value={boardKey}
+        onChange={(v) => {
+          setBoardKey(v);
+          setFlags(null); // custom flags are per-board
+        }}
+      />
+      <FlagPlacer
+        board={BOARD_OPTIONS.find((o) => o.value === boardKey)!.board}
+        placements={flags}
+        onChange={setFlags}
+      />
 
       <button
         className="primary big"
-        disabled={!valid}
-        onClick={() => onStart(trimmed, BUILTIN_BOARDS[boardKey].factory())}
+        disabled={!valid || flags?.length === 0}
+        onClick={() =>
+          onStart(
+            trimmed,
+            flags
+              ? applyFlagPlacements(BUILTIN_BOARDS[boardKey].factory(), flags)
+              : BUILTIN_BOARDS[boardKey].factory(),
+          )
+        }
         data-testid="start-game"
       >
         Start game
