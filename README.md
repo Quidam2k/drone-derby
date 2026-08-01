@@ -267,10 +267,25 @@ Paste-ready invite message:
 - **Anything that just feels wrong** — tap the **🐞 button** (bottom-left
   on every screen) and type a quick note. It records your note plus the
   current route/game so it can be found later.
-- Reading the logs: `npx convex run telemetry:recent --prod` (or without
+- **Every report carries the build version** — the small stamp at the
+  bottom of the lobby (e.g. `2.0.0+c3e8b77+20260731`). Ask playtesters to
+  read it back when reporting by hand.
+
+### Reading playtest logs
+
+- **The digest** is the first stop:
+  `node scripts/telemetry-digest.mjs --prod` (add `--hours 24` to narrow;
+  drop `--prod` for local dev). One screen: the game funnel
+  (created → joined → started → turns → finished), turn errors, renderer
+  fallbacks, crash/note rows verbatim, sessions and versions seen. Game
+  mutations log server-side `flow` rows automatically (create/join/start/
+  submit/execute/finish/nudge), so the funnel needs no client cooperation.
+- Raw rows: `npx convex run telemetry:recent --prod` (or without
   `--prod` for local dev), or the `telemetry` table in the Convex
   dashboard. In the browser console, `ddTelemetry.dump()` shows the local
   buffer and `ddTelemetry.note('...')` files a note.
+- Pruning between rounds:
+  `npx convex run telemetry:clear '{"olderThanDays": 7}' --prod`.
 
 ## Repo map
 

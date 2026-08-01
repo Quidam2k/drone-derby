@@ -1179,6 +1179,16 @@ button.quiet {
 .status-chip.status-finished {
   opacity: 0.7;
 }
+.lobby-footer {
+  margin-top: 1.5rem;
+  text-align: center;
+}
+.version-tag {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  opacity: 0.6;
+  user-select: all;
+}
 .join-screen input {
   font-size: 1.1rem;
   text-align: center;

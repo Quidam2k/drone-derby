@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // No backend in tests — the service must degrade to the local buffer alone.
 vi.mock('./convex', () => ({ convexUrl: undefined, convex: null }));
 
-import { dumpTelemetry, logTelemetry } from './telemetry';
+import { APP_VERSION, dumpTelemetry, logFlowEvent, logTelemetry } from './telemetry';
 
 /** Minimal in-memory Storage for node runs. */
 function fakeStorage(): Storage {
@@ -70,5 +70,22 @@ describe('logTelemetry', () => {
     localStorage.setItem('dd-telemetry', 'not json{');
     expect(() => logTelemetry('note', 'after-corruption')).not.toThrow();
     expect(dumpTelemetry()).toEqual([]);
+  });
+
+  it('stamps every entry with the app version', () => {
+    logTelemetry('note', 'stamped');
+    const [entry] = dumpTelemetry() as { context: { appVersion: string } }[];
+    expect(entry.context.appVersion).toBe(APP_VERSION);
+    expect(APP_VERSION.length).toBeGreaterThan(0);
+  });
+});
+
+describe('logFlowEvent', () => {
+  it("buffers a kind:'flow' entry with the event as message", () => {
+    logFlowEvent('renderer-fallback', { error: 'no context' });
+    const [entry] = dumpTelemetry() as { kind: string; message: string; data?: unknown }[];
+    expect(entry.kind).toBe('flow');
+    expect(entry.message).toBe('renderer-fallback');
+    expect(entry.data).toEqual({ error: 'no context' });
   });
 });

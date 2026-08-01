@@ -8,7 +8,7 @@ import type { MutationCtx, QueryCtx } from './_generated/server';
 import type { Doc, Id } from './_generated/dataModel';
 import { internal } from './_generated/api';
 import { getAuthUserId } from '@convex-dev/auth/server';
-import { requireUserId } from './helpers';
+import { logFlow, requireUserId } from './helpers';
 import {
   BUILTIN_BOARDS,
   createGame as engineCreateGame,
@@ -222,6 +222,12 @@ export const createGame = mutation({
       ...(board ? { board } : {}),
     });
     await ctx.db.insert('players', { gameId, userId, name, seat: 0, lastSeenTurn: 0 });
+    await logFlow(
+      ctx,
+      'game-created',
+      { boardName: board ? board.name : BOARD_NAME, ...(args.builtin ? { builtin: args.builtin } : {}) },
+      gameId,
+    );
     return { gameId, inviteCode };
   },
 });
@@ -259,6 +265,7 @@ export const joinGame = mutation({
       seat: players.length,
       lastSeenTurn: 0,
     });
+    await logFlow(ctx, 'game-joined', { seat: players.length }, game._id);
     return { gameId: game._id };
   },
 });
@@ -285,6 +292,12 @@ export const startGame = mutation({
       game.seed,
     );
     await ctx.db.patch(game._id, { status: 'active', currentTurn: 1, state });
+    await logFlow(
+      ctx,
+      'game-started',
+      { playerCount: players.length, boardName: game.boardName },
+      game._id,
+    );
     await notifyOthers(ctx, game._id, players, userId, 'Game on — program your first turn!');
   },
 });
@@ -379,6 +392,8 @@ export const submitProgram = mutation({
       });
     }
 
+    await logFlow(ctx, 'program-submitted', { turn }, game._id);
+
     // Last active player in? Execute the turn authoritatively.
     const players = await gamePlayers(ctx, game._id);
     const submissions = await turnSubmissions(ctx, game._id, turn);
@@ -398,10 +413,38 @@ export const submitProgram = mutation({
       if (sub.powerDown) powerDown.push(name);
     }
 
-    const result = executeTurn(state, programs, game.seed + turn, {
-      respawnFacing: respawnFacings,
-      powerDown,
-    });
+    const startedAt = Date.now();
+    let result: ReturnType<typeof executeTurn>;
+    try {
+      result = executeTurn(state, programs, game.seed + turn, {
+        respawnFacing: respawnFacings,
+        powerDown,
+      });
+    } catch (err) {
+      // An engine crash here strands the whole game on this turn — exactly
+      // the event playtest telemetry exists to catch. Rethrowing would roll
+      // back this whole mutation INCLUDING the telemetry row (Convex
+      // mutations are transactions), so commit instead: the program stays
+      // submitted, the turn stays unexecuted, and the stack survives for
+      // `telemetry:digest`.
+      await logFlow(
+        ctx,
+        'turn-error',
+        {
+          turn,
+          error: err instanceof Error ? err.message : String(err),
+          stack: err instanceof Error ? err.stack : undefined,
+        },
+        game._id,
+      );
+      return { stale: false as const };
+    }
+    await logFlow(
+      ctx,
+      'turn-executed',
+      { turn, ms: Date.now() - startedAt, playerCount: players.length },
+      game._id,
+    );
     await ctx.db.insert('turns', {
       gameId: game._id,
       turn,
@@ -416,6 +459,14 @@ export const submitProgram = mutation({
       currentTurn: turn + 1,
       ...(finished ? { status: 'finished' as const, winner: result.state.winner } : {}),
     });
+    if (finished) {
+      await logFlow(
+        ctx,
+        'game-finished',
+        { turns: turn, winner: result.state.winner ?? null },
+        game._id,
+      );
+    }
     await notifyOthers(
       ctx,
       game._id,
@@ -486,6 +537,7 @@ export const nudge = mutation({
     if (targets.length === 0) throw new Error('Nobody to nudge right now');
 
     await ctx.db.patch(game._id, { lastNudgeAt: now });
+    await logFlow(ctx, 'nudge', { targets: targets.length }, game._id);
     await ctx.scheduler.runAfter(0, internal.push.send, {
       userIds: [...new Set(targets)],
       title: 'Drone Derby',

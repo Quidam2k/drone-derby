@@ -1,6 +1,8 @@
 // Browser push plumbing. The server half is convex/notifications.ts (storage)
 // and convex/push.ts (delivery); NotificationsButton owns the UI flow.
 
+import { logFlowEvent } from './telemetry';
+
 export function pushSupported(): boolean {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 }
@@ -37,20 +39,31 @@ export async function getExistingSubscription(): Promise<PushSubscription | null
 export async function subscribeToPush(
   vapidPublicKey: string,
 ): Promise<{ endpoint: string; keys: { p256dh: string; auth: string } }> {
-  const permission = await Notification.requestPermission();
-  if (permission !== 'granted') throw new Error('Notifications were not allowed');
-  const reg = await registration();
-  if (!reg) throw new Error('No service worker — use the installed/built app, not the dev server');
-  const sub = await reg.pushManager.subscribe({
-    userVisibleOnly: true,
-    applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
-  });
-  const json = sub.toJSON();
-  if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
-    await sub.unsubscribe();
-    throw new Error('Browser returned an incomplete push subscription');
+  try {
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') throw new Error('Notifications were not allowed');
+    const reg = await registration();
+    if (!reg) {
+      throw new Error('No service worker — use the installed/built app, not the dev server');
+    }
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+    });
+    const json = sub.toJSON();
+    if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) {
+      await sub.unsubscribe();
+      throw new Error('Browser returned an incomplete push subscription');
+    }
+    return { endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } };
+  } catch (err) {
+    // NotificationsButton shows the message; telemetry keeps the count so we
+    // learn how often playtesters bounce off notifications (and why).
+    logFlowEvent('push-subscribe-failed', {
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
   }
-  return { endpoint: json.endpoint, keys: { p256dh: json.keys.p256dh, auth: json.keys.auth } };
 }
 
 /** Returns the unsubscribed endpoint so the server row can be deleted too. */
