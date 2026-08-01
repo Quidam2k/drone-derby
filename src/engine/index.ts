@@ -40,6 +40,7 @@ export {
   wallBlocked,
 } from './board';
 export { BUILTIN_BOARDS, provingGrounds, spinCycle } from './boards';
+export { applyFlagPlacements, checkpointPositions } from './placement';
 export { composeBoards } from './compose';
 export {
   MAX_BOARD_SIZE,

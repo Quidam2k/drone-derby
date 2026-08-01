@@ -10,6 +10,7 @@ import { internal } from './_generated/api';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { logFlow, requireUserId } from './helpers';
 import {
+  applyFlagPlacements,
   BUILTIN_BOARDS,
   createGame as engineCreateGame,
   executeTurn,
@@ -176,6 +177,12 @@ export const createGame = mutation({
     boardId: v.optional(v.id('boards')),
     /** Play on a built-in board by BUILTIN_BOARDS key. Neither arg = Proving Grounds. */
     builtin: v.optional(v.string()),
+    /**
+     * Custom flag positions in flag order (tabletop rule: flags move from
+     * game to game). Re-applied to the SERVER's copy of the board — the
+     * client only ever sends positions, never a board.
+     */
+    flagPlacements: v.optional(v.array(v.object({ x: v.number(), y: v.number() }))),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -202,6 +209,22 @@ export const createGame = mutation({
       board = entry.factory();
     }
 
+    if (args.flagPlacements) {
+      // Applies to the server-resolved board — including the default Proving
+      // Grounds path, which then stores a snapshot it otherwise wouldn't.
+      let placed: BoardDef;
+      try {
+        placed = applyFlagPlacements(board ?? provingGrounds(), args.flagPlacements);
+      } catch (err) {
+        throw new Error(
+          `Bad flag placement: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+      const { errors } = validateBoard(placed);
+      if (errors.length > 0) throw new Error(`Board is not playable: ${errors[0]}`);
+      board = placed;
+    }
+
     let inviteCode = randomInviteCode();
     while (
       await ctx.db
@@ -225,7 +248,11 @@ export const createGame = mutation({
     await logFlow(
       ctx,
       'game-created',
-      { boardName: board ? board.name : BOARD_NAME, ...(args.builtin ? { builtin: args.builtin } : {}) },
+      {
+        boardName: board ? board.name : BOARD_NAME,
+        ...(args.builtin ? { builtin: args.builtin } : {}),
+        ...(args.flagPlacements ? { customFlags: args.flagPlacements.length } : {}),
+      },
       gameId,
     );
     return { gameId, inviteCode };

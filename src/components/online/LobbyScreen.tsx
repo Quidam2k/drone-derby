@@ -10,9 +10,10 @@ import type { Id } from '../../../convex/_generated/dataModel';
 import { navigate } from '../../services/route';
 import { isMuted, setMuted } from '../../services/audio';
 import { APP_VERSION } from '../../services/telemetry';
-import type { BoardDef } from '../../engine';
+import type { BoardDef, Position } from '../../engine';
 import { BUILTIN_BOARDS } from '../../engine';
 import { BoardPicker, type BoardOption } from '../board/BoardThumb';
+import { FlagPlacer } from '../board/FlagPlacer';
 import { errorMessage, SignInGate, useSavedName } from './common';
 import { NotificationsButton } from './NotificationsButton';
 
@@ -70,19 +71,33 @@ function LobbyInner() {
   const { signOut } = useAuthActions();
   const [name, setName] = useSavedName();
   const [board, setBoard] = useState(DEFAULT_BOARD);
+  /** Custom flag positions; null = the board's printed flags (untouched). */
+  const [flags, setFlags] = useState<Position[] | null>(null);
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [muted, setMutedLocal] = useState(() => isMuted());
 
+  const boardOptions: BoardOption[] = [
+    ...BUILTIN_OPTIONS,
+    ...(boards ?? []).map((b) => ({
+      value: b.boardId as string,
+      name: b.name,
+      board: b.board as BoardDef,
+      badge: b.publishedAt ? 'published' : undefined,
+    })),
+  ];
+  const selectedBoard = boardOptions.find((o) => o.value === board)?.board;
+
   const create = () => {
     setBusy(true);
     setError(null);
-    createGame(
-      board.startsWith(BUILTIN_PREFIX)
+    createGame({
+      ...(board.startsWith(BUILTIN_PREFIX)
         ? { name, builtin: board.slice(BUILTIN_PREFIX.length) }
-        : { name, boardId: board as Id<'boards'> },
-    )
+        : { name, boardId: board as Id<'boards'> }),
+      ...(flags ? { flagPlacements: flags } : {}),
+    })
       .then(({ gameId }) => navigate(`#/game/${gameId}`))
       .catch((e: unknown) => setError(errorMessage(e)))
       .finally(() => setBusy(false));
@@ -122,21 +137,19 @@ function LobbyInner() {
             data-testid="lobby-name"
           />
           <BoardPicker
-            options={[
-              ...BUILTIN_OPTIONS,
-              ...(boards ?? []).map((b) => ({
-                value: b.boardId as string,
-                name: b.name,
-                board: b.board as BoardDef,
-                badge: b.publishedAt ? 'published' : undefined,
-              })),
-            ]}
+            options={boardOptions}
             value={board}
-            onChange={setBoard}
+            onChange={(v) => {
+              setBoard(v);
+              setFlags(null); // custom flags are per-board
+            }}
           />
+          {selectedBoard && (
+            <FlagPlacer board={selectedBoard} placements={flags} onChange={setFlags} />
+          )}
           <button
             className="primary"
-            disabled={busy || name.trim().length === 0}
+            disabled={busy || name.trim().length === 0 || flags?.length === 0}
             onClick={create}
             data-testid="create-game"
           >

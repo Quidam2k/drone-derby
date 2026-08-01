@@ -98,7 +98,9 @@ export function RulesScreen() {
         <h2>The goal</h2>
         <p>
           You pilot a robot on a hazardous factory floor. Tag the numbered checkpoints{' '}
-          <strong>in order</strong> — first robot to tag them all wins on the spot.
+          <strong>in order</strong> — first robot to tag them all wins on the spot. Flags move
+          from game to game: whoever creates a game can reposition them from &ldquo;Customize
+          flags&rdquo; on the setup screen.
         </p>
       </section>
 
