@@ -3,7 +3,7 @@
 // persistence is a no-op here.
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { emptyBoard, validateBoard } from '../engine';
+import { BUILTIN_BOARDS, emptyBoard, validateBoard } from '../engine';
 import { useEditorStore } from './editorStore';
 
 function store() {
@@ -214,6 +214,53 @@ describe('editorStore', () => {
     store().loadDraft(emptyBoard('Fork 2', 8, 8), { name: 'Orig', authorName: 'Ann' });
     store().reset();
     expect(store().forkedFrom).toBeNull();
+  });
+
+  it('renumberCheckpoints closes gaps in reading order and is undoable', () => {
+    store().setTool('checkpoint');
+    store().paintTile(5, 0); // 1
+    store().paintTile(1, 2); // 2
+    store().paintTile(8, 7); // 3
+    store().eraseTile(1, 2); // leaves 1, 3 — "missing checkpoint number 2"
+    expect(store().validation.errors.some((e) => e.includes('checkpoint number'))).toBe(true);
+
+    store().renumberCheckpoints();
+    expect(store().board.tiles[0][5]).toEqual({ kind: 'checkpoint', n: 1 });
+    expect(store().board.tiles[7][8]).toEqual({ kind: 'checkpoint', n: 2 });
+    expect(store().validation.errors.some((e) => e.includes('checkpoint number'))).toBe(false);
+
+    store().undo();
+    expect(store().board.tiles[7][8]).toEqual({ kind: 'checkpoint', n: 3 });
+  });
+
+  it('renumberCheckpoints reassigns by reading order, not by old numbers', () => {
+    store().setTool('checkpoint');
+    store().paintTile(0, 5); // 1, but LATER in reading order than the next
+    store().paintTile(9, 1); // 2
+    store().renumberCheckpoints();
+    expect(store().board.tiles[1][9]).toEqual({ kind: 'checkpoint', n: 1 });
+    expect(store().board.tiles[5][0]).toEqual({ kind: 'checkpoint', n: 2 });
+  });
+
+  it('renumberCheckpoints on a correct board is a no-op (no undo step)', () => {
+    store().setTool('checkpoint');
+    store().paintTile(1, 1);
+    store().paintTile(2, 1);
+    const before = store().historyIndex;
+    store().renumberCheckpoints();
+    expect(store().historyIndex).toBe(before);
+  });
+
+  it('loading a template is one undo step with a "Copy of" name', () => {
+    const { name, factory } = BUILTIN_BOARDS['spin-cycle'];
+    const lengthBefore = store().history.length;
+    // What TemplateBoardModal does on pick:
+    store().loadDraft({ ...factory(), name: `Copy of ${name}` });
+    expect(store().board.name).toBe('Copy of Spin Cycle');
+    expect(store().forkedFrom).toBeNull();
+    expect(store().history.length).toBe(lengthBefore + 1);
+    store().undo();
+    expect(store().board.name).toBe('Untitled Board');
   });
 
   it('eraser tool can be selected', () => {

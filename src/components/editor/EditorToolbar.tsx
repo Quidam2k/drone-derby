@@ -11,6 +11,7 @@ import { useEditorStore } from '../../store/editorStore';
 import { useGameStore } from '../../store/gameStore';
 import { errorMessage, useSavedName } from '../online/common';
 import { AppendBoardModal } from './AppendBoardModal';
+import { TemplateBoardModal } from './TemplateBoardModal';
 import { markBoardHydrated } from './EditorScreen';
 
 function Stepper({
@@ -209,6 +210,7 @@ export function EditorToolbar({ boardId }: { boardId?: string }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [importError, setImportError] = useState<string | null>(null);
   const [showAppend, setShowAppend] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   const hasErrors = validation.errors.length > 0;
 
@@ -292,6 +294,13 @@ export function EditorToolbar({ boardId }: { boardId?: string }) {
             e.target.value = ''; // allow re-importing the same file
           }}
         />
+        <button
+          onClick={() => setShowTemplates(true)}
+          title="Replace the draft with a copy of a built-in board (undoable)"
+          data-testid="new-from-template"
+        >
+          New from template…
+        </button>
         <button onClick={reset} title="Start over (undoable)">
           Clear
         </button>
@@ -312,6 +321,7 @@ export function EditorToolbar({ boardId }: { boardId?: string }) {
 
       {importError && <span className="error-note">{importError}</span>}
       {showAppend && <AppendBoardModal onClose={() => setShowAppend(false)} />}
+      {showTemplates && <TemplateBoardModal onClose={() => setShowTemplates(false)} />}
     </div>
   );
 }

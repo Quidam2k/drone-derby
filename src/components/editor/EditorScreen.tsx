@@ -10,6 +10,7 @@ import type { Id } from '../../../convex/_generated/dataModel';
 import { convex } from '../../services/convex';
 import { SignInGate } from '../online/common';
 import { useEditorStore } from '../../store/editorStore';
+import { editorKeyCommand } from './editorHotkeys';
 import { EditorToolbar } from './EditorToolbar';
 import { ToolPalette } from './ToolPalette';
 import { EditorBoard } from './EditorBoard';
@@ -49,22 +50,27 @@ function CloudBoardLoader({ boardId }: { boardId: string }) {
 }
 
 export function EditorScreen({ boardId }: { boardId?: string }) {
-  const { undo, redo } = useEditorStore.getState();
+  const { undo, redo, setTool } = useEditorStore.getState();
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (!(e.ctrlKey || e.metaKey)) return;
-      if (e.target instanceof HTMLInputElement) return; // let inputs keep their own undo
-      const key = e.key.toLowerCase();
-      if (key === 'z' && e.shiftKey) redo();
-      else if (key === 'z') undo();
-      else if (key === 'y') redo();
-      else return;
+      const cmd = editorKeyCommand({
+        key: e.key,
+        ctrlKey: e.ctrlKey,
+        metaKey: e.metaKey,
+        shiftKey: e.shiftKey,
+        altKey: e.altKey,
+        targetTag: e.target instanceof Element ? e.target.tagName : undefined,
+      });
+      if (!cmd) return;
+      if (cmd.type === 'undo') undo();
+      else if (cmd.type === 'redo') redo();
+      else setTool(cmd.tool);
       e.preventDefault();
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [undo, redo]);
+  }, [undo, redo, setTool]);
 
   const cloud = convex !== null && boardId !== undefined;
   const body = (

@@ -153,6 +153,11 @@ interface EditorStore {
   resizeBoard: (width: number, height: number) => void;
   /** Stack `source` ABOVE the current draft (the draft keeps its docks). */
   appendBoard: (source: BoardDef) => void;
+  /**
+   * Reassign checkpoint numbers 1..count in reading order (left-to-right,
+   * top-to-bottom). One undo step; no-op when numbering is already correct.
+   */
+  renumberCheckpoints: () => void;
 
   /** Group the paints of one drag into a single undo step. */
   beginStroke: () => void;
@@ -481,6 +486,23 @@ export const useEditorStore = create<EditorStore>((set, get) => {
         if (typeof alert === 'function') alert(e instanceof Error ? e.message : String(e));
       }
     },
+
+    renumberCheckpoints: () =>
+      update((draft) => {
+        let n = 1;
+        let changed = false;
+        for (const row of draft.tiles) {
+          for (const t of row) {
+            if (t.kind !== 'checkpoint') continue;
+            if (t.n !== n) {
+              t.n = n;
+              changed = true;
+            }
+            n++;
+          }
+        }
+        return changed;
+      }),
 
     beginStroke: () => {
       inStroke = true;
