@@ -9,7 +9,7 @@ the project sequence (last shipped: 40; optional 41 is folded into 46 here).
 | Phase | Title | Status |
 |-------|-------|--------|
 | 42 | Playtest telemetry | DONE (2026-07-31) |
-| 43 | Flag placement at game creation | pending |
+| 43 | Flag placement at game creation | DONE (2026-07-31) |
 | 44 | Editor UX overhaul (M) | pending |
 | 45 | UI consistency pass (S) | pending |
 | 46 | Blender kit pieces, 10 expansion elements (L) | pending |
@@ -277,6 +277,33 @@ notes per the session-state convention.
   vite `define` (`__APP_VERSION__`, declared in src/vite-env.d.ts, guarded
   via `APP_VERSION` export in services/telemetry.ts).
 
+- **Phase 43, helper is strict instead of validateBoard**: the plan said
+  "add rules to validateBoard if not covered", but the validator only sees
+  the RESULT — a checkpoint painted over a belt is still a "valid" board,
+  just a mutated one. So `applyFlagPlacements` itself throws on any target
+  that isn't plain floor (after stripping printed flags), out of bounds,
+  fractional, or duplicated; callers still run validateBoard for what it
+  CAN see (flag count ≥1 etc.). Hot-seat applies the helper in SetupScreen
+  (gameStore untouched); online, createGame re-applies placements to the
+  SERVER-resolved board and snapshots — including the default
+  Proving Grounds path, which stores a snapshot only when customized.
+
+## Phase 43 verification log (2026-07-31)
+
+- typecheck + 504 tests green (9 new in placement.test.ts, incl. printed-
+  flags round-trip deep-equal over all BUILTIN_BOARDS).
+- E2E on the cloud dev deployment: online create with flags moved to
+  (0,0)/(5,5)/(9,9) → lobby thumb, 3D turn-1 board, and 2D turn-1 board
+  all show them; removal renumbers; 0 flags shows the red validator line
+  and disables Create; clicks on a conveyor are no-ops. Hot-seat on
+  Spin Cycle with 2 custom flags → live board correct. Untouched default
+  path → printed flags byte-identical. Hand-crafted mutation calls (flag
+  on a belt, flag off-board) → clean server errors, no game row.
+- Deployed (`npm run deploy`), prod smoke: version 2.0.0+4993feb, expander
+  live (old SW cache served 5583bd2 until refresh — normal PWA behavior).
+- Screenshots: screengrab/flag-placer-lobby.png, flags-turn1-3d.png,
+  flags-turn1-2d.png, prod-smoke-phase43-flags.png.
+
 ## Phase 42 verification log (2026-07-31)
 
 - typecheck + 495 tests green (convex/ tsconfig checked separately).
@@ -287,4 +314,5 @@ notes per the session-state convention.
   `2.0.0+c3e8b77+20260801` seen. `telemetry:clear` deleted the test rows.
 - Screenshot: screengrab/phase42-lobby-version-footer.png (footer stamp).
 
-⚠️ NEXT: Phase 43 — flag placement at game creation.
+⚠️ NEXT: Phase 44 — editor UX overhaul (tool grouping, hotkeys, templates,
+renumber). The 42/43 playtest gate is CLOSED — friends can play now.

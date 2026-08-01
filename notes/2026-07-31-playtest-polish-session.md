@@ -1,4 +1,4 @@
-# Session note — 2026-07-31 — Playtest-polish cascade, Phase 42
+﻿# Session note — 2026-07-31 — Playtest-polish cascade, Phase 42
 
 Cascade: `cascades/2026-07-31-playtest-polish.md` (phases 42–50).
 
@@ -46,6 +46,35 @@ Cascade: `cascades/2026-07-31-playtest-polish.md` (phases 42–50).
 - `npx convex run` JSON args from PowerShell: escape quotes and avoid
   spaces inside the JSON, or it splits into two argv entries.
 
-⚠️ NEXT: Phase 43 — flag placement at game creation (engine helper
-`applyFlagPlacements` + `checkpointPositions`, FlagPlacer UI, createGame
-`flagPlacements` arg, hot-seat wiring).
+## Phase 43 shipped: flag placement at game creation (commit 4993feb, deployed to prod)
+
+- **Engine**: `src/engine/placement.ts` — `checkpointPositions(board)`
+  (checkpoints sorted by n) and `applyFlagPlacements(board, positions)`
+  (strip all printed flags to floor, paint 1..n in array order; pure).
+  The helper THROWS on off-board/fractional/duplicate targets and on
+  anything that isn't plain floor after the strip — validateBoard can't
+  catch a flag painted over a belt (the result is still "valid", minus a
+  belt), so strictness lives in the helper. 9 tests incl. all-builtins
+  round-trip deep-equal.
+- **UI**: `src/components/board/FlagPlacer.tsx` — collapsed "Customize
+  flags" expander under the BoardPicker (LobbyScreen create card +
+  hot-seat SetupScreen). DOM Board + click-only hit layer (reuses
+  editor-board-wrap/editor-hit-layer CSS geometry). State in the parent
+  as `Position[] | null` (null = printed = untouched path); parent resets
+  to null on board switch; Create/Start disabled at 0 flags.
+- **Server**: createGame optional `flagPlacements` — re-applied to the
+  SERVER-resolved board (never trusts a client board), validateBoard on
+  the result, snapshot stored (incl. on the default Proving Grounds path,
+  which otherwise stores none). Rejections are clean errors, no game row.
+  game-created flow row gains `customFlags: n`.
+- **Verified E2E** (dev deployment vivid-cat-177): custom flags show in
+  lobby thumb + turn-1 board in BOTH renderers; hot-seat same on Spin
+  Cycle; untouched default identical to printed; belt/off-board
+  placements rejected server-side. Prod smoked at 2.0.0+4993feb.
+- Screenshots: screengrab/flag-placer-lobby.png, flags-turn1-{3d,2d}.png,
+  prod-smoke-phase43-flags.png.
+
+⚠️ NEXT: Phase 44 — editor UX overhaul (tool grouping w/ section headers,
+per-tool hotkeys, "New from template…" modal, renumber-flags action).
+Plan in cascade file; files: ToolPalette, EditorToolbar, ValidationPanel,
+EditorScreen, editorStore, index.css.
