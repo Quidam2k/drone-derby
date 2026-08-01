@@ -74,7 +74,31 @@ Cascade: `cascades/2026-07-31-playtest-polish.md` (phases 42–50).
 - Screenshots: screengrab/flag-placer-lobby.png, flags-turn1-{3d,2d}.png,
   prod-smoke-phase43-flags.png.
 
-⚠️ NEXT: Phase 44 — editor UX overhaul (tool grouping w/ section headers,
-per-tool hotkeys, "New from template…" modal, renumber-flags action).
-Plan in cascade file; files: ToolPalette, EditorToolbar, ValidationPanel,
-EditorScreen, editorStore, index.css.
+## Phase 44 shipped: editor UX overhaul (not deployed — next deploy at 50)
+
+- **Tool grouping + hotkeys**: new `src/components/editor/editorHotkeys.ts`
+  holds TOOL_SECTIONS (Terrain/Hazards/Movers/Course/Edges/Eraser) +
+  TOOL_HOTKEYS + pure `editorKeyCommand()` (no JSX → node-testable).
+  ToolPalette pairs it with a typed icon map and renders labels + `kbd`
+  key hints as FLAT flex children — the mobile scroll-snap row just hides
+  `.tool-section-label`/`.tool-key`. Keys: F P D T / R A U M / C G O X Q /
+  K S N / W L H / E. EditorScreen's keydown handler now routes everything
+  (undo/redo chords + plain tool keys) through editorKeyCommand; form
+  fields swallow all keys, modified letters left to the browser.
+- **Templates**: `TemplateBoardModal.tsx` (AppendBoardModal's card
+  pattern, no shared component — copy differs) behind "New from
+  template…" in the toolbar. Pick → `loadDraft({...factory(), name:
+  'Copy of <name>'})` — one undo step, attribution cleared (built-ins
+  aren't gallery forks).
+- **Renumber**: `renumberCheckpoints()` store action (reading-order sweep
+  via `update()`; returns false when clean → no history entry, so
+  idempotent for free). ValidationPanel shows "Renumber flags" when any
+  error contains `'checkpoint number'`.
+- 513 tests green (9 new); Playwright verified desktop + 375px + corner
+  hit-layer regression; screenshots in screengrab/phase44-*.png. Todd's
+  "Element Zoo" localStorage draft was preserved (restored via undo after
+  testing).
+
+⚠️ NEXT: Phase 45 — UI consistency pass (S). index.css-centric: speech
+bubbles to dark theme, button scale tokens, :focus-visible ring, themed
+scrollbars; Playwright before/after sweep at 1280 + 375. Plan in cascade.
