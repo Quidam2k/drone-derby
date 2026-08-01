@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
 import type { Direction, PortalColor } from '../../engine';
 import {
   CheckpointSprite,
@@ -20,6 +20,7 @@ import {
   WrenchSprite,
 } from '../board/sprites';
 import { useEditorStore, type ToolId } from '../../store/editorStore';
+import { TOOL_SECTIONS } from './editorHotkeys';
 
 const FLOOR_ICON = (
   <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
@@ -39,28 +40,29 @@ const ERASER_ICON = (
   </svg>
 );
 
-const TOOLS: { id: ToolId; icon: ReactNode; label: string }[] = [
-  { id: 'floor', icon: FLOOR_ICON, label: 'Floor (erase)' },
-  { id: 'pit', icon: <PitSprite />, label: 'Pit' },
-  { id: 'drain', icon: <DrainSprite />, label: 'Drain (a pit with a grate)' },
-  { id: 'trapdoor', icon: <TrapdoorSprite registers={[1, 3, 5]} />, label: 'Trap-door pit' },
-  { id: 'radiation', icon: <RadiationSprite />, label: 'Radiation floor' },
-  { id: 'waste', icon: <WasteSprite />, label: 'Radioactive waste' },
-  { id: 'portal', icon: <PortalSprite color="red" />, label: 'Portal (paired)' },
-  { id: 'teleporter', icon: <TeleporterSprite />, label: 'Teleporter' },
-  { id: 'repulsor', icon: <RepulsorSprite />, label: 'Repulsor field' },
-  { id: 'conveyor', icon: <ConveyorSprite dir="E" express={false} />, label: 'Conveyor' },
-  { id: 'gear', icon: <GearSprite cw />, label: 'Gear' },
-  { id: 'checkpoint', icon: <CheckpointSprite n={1} />, label: 'Checkpoint' },
-  { id: 'spawn', icon: <SpawnSprite n={1} />, label: 'Spawn dock' },
-  { id: 'wrench', icon: <WrenchSprite />, label: 'Repair (wrench)' },
-  { id: 'crusher', icon: <CrusherSprite registers={[1, 3, 5]} />, label: 'Crusher' },
-  { id: 'flamer', icon: <FlamerSprite registers={[1, 3, 5]} />, label: 'Flamer' },
-  { id: 'wall', icon: WALL_ICON, label: 'Wall' },
-  { id: 'laser', icon: <EmitterSprite facing="E" />, label: 'Laser' },
-  { id: 'pusher', icon: <PusherSprite facing="N" registers={[1, 3, 5]} />, label: 'Pusher' },
-  { id: 'eraser', icon: ERASER_ICON, label: 'Eraser' },
-];
+/** One icon per tool; sections/labels/hotkeys live in editorHotkeys.ts. */
+const TOOL_ICONS: Record<ToolId, ReactNode> = {
+  floor: FLOOR_ICON,
+  pit: <PitSprite />,
+  drain: <DrainSprite />,
+  trapdoor: <TrapdoorSprite registers={[1, 3, 5]} />,
+  radiation: <RadiationSprite />,
+  waste: <WasteSprite />,
+  portal: <PortalSprite color="red" />,
+  teleporter: <TeleporterSprite />,
+  repulsor: <RepulsorSprite />,
+  conveyor: <ConveyorSprite dir="E" express={false} />,
+  gear: <GearSprite cw />,
+  checkpoint: <CheckpointSprite n={1} />,
+  spawn: <SpawnSprite n={1} />,
+  wrench: <WrenchSprite />,
+  crusher: <CrusherSprite registers={[1, 3, 5]} />,
+  flamer: <FlamerSprite registers={[1, 3, 5]} />,
+  wall: WALL_ICON,
+  laser: <EmitterSprite facing="E" />,
+  pusher: <PusherSprite facing="N" registers={[1, 3, 5]} />,
+  eraser: ERASER_ICON,
+};
 
 const PORTAL_COLORS: PortalColor[] = ['red', 'blue', 'green', 'purple', 'orange'];
 
@@ -98,16 +100,25 @@ export function ToolPalette() {
 
   return (
     <div className="tool-palette">
-      {TOOLS.map((t) => (
-        <button
-          key={t.id}
-          className={`tool-btn${activeTool === t.id ? ' selected' : ''}`}
-          onClick={() => setTool(t.id)}
-          data-testid={`tool-${t.id}`}
-        >
-          <span className="tool-glyph">{t.icon}</span>
-          {t.label}
-        </button>
+      {TOOL_SECTIONS.map((section) => (
+        <Fragment key={section.title}>
+          {/* Kept as flat flex children: the mobile row hides the labels and
+              scroll-snaps straight across the buttons. */}
+          <div className="tool-section-label">{section.title}</div>
+          {section.tools.map((t) => (
+            <button
+              key={t.id}
+              className={`tool-btn${activeTool === t.id ? ' selected' : ''}`}
+              onClick={() => setTool(t.id)}
+              title={`${t.label} — press ${t.key.toUpperCase()}`}
+              data-testid={`tool-${t.id}`}
+            >
+              <span className="tool-glyph">{TOOL_ICONS[t.id]}</span>
+              {t.label}
+              <kbd className="tool-key">{t.key.toUpperCase()}</kbd>
+            </button>
+          ))}
+        </Fragment>
       ))}
 
       {activeTool === 'conveyor' && (

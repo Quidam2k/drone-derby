@@ -1475,6 +1475,26 @@ button.quiet {
   gap: 0.6rem;
   text-align: left;
 }
+.tool-section-label {
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-top: 0.35rem;
+}
+.tool-section-label:first-child {
+  margin-top: 0;
+}
+.tool-key {
+  margin-left: auto;
+  color: var(--text-dim);
+  font-size: 0.65rem;
+  line-height: 1.3;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 0.3rem;
+}
 .tool-btn.selected,
 .tool-options .selected {
   border-color: var(--accent);
@@ -1768,6 +1788,12 @@ button.quiet {
   .tool-glyph {
     width: 1.2rem;
     height: 1.2rem;
+  }
+  /* No room (and no keyboard) in the horizontal row: drop the section
+     headers and hotkey hints, keep the buttons scroll-snapping. */
+  .tool-section-label,
+  .tool-key {
+    display: none;
   }
   .tool-hint {
     display: none;

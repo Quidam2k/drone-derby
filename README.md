@@ -170,6 +170,15 @@ Paste-ready invite message:
 - [ ] Editor (`#/editor`): paint tiles/walls, validation, save online,
       import/export JSON — always the flat board, never a canvas, whatever
       the renderer toggle is set to
+- [ ] Editor tools: palette grouped into sections (Terrain / Hazards /
+      Movers / Course / Edges / Eraser) with single-key hotkeys shown on
+      each button (e.g. W wall, C conveyor, K checkpoint, E eraser);
+      hotkeys don't fire while typing in the board-name field
+- [ ] Editor templates: "New from template…" replaces the draft with a
+      copy of any built-in board ("Copy of <name>", one undo step)
+- [ ] Editor renumber: delete a checkpoint → numbering error appears →
+      "Renumber flags" button in the validation panel fixes 1..n in
+      reading order (undoable)
 - [ ] Editor append: ⬆ Append stacks a picked board ABOVE the draft
       (draft keeps its spawn docks, checkpoints renumber from the
       bottom up, one undo step; >24 tall is refused with an alert)
