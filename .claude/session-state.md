@@ -1,27 +1,26 @@
 # Session State
-Updated: 2026-07-31 ~21:40
+Updated: 2026-07-31 ~22:05
 
 ## Current Task
 Playtest-polish cascade (cascades/2026-07-31-playtest-polish.md).
-Phases 42+43 SHIPPED — the playtest gate is closed, friends can play.
+Phases 42-44 DONE. Playtest gate closed — friends can play.
 
 ## Just Completed
-- Phase 43: flag placement at game creation (commit 4993feb, deployed to
-  prod, smoked at 2.0.0+4993feb). Engine placement.ts (strict helper —
-  see cascade cross-phase decisions), FlagPlacer expander in online
-  create + hot-seat setup, createGame flagPlacements re-applied
-  server-side. 504 tests green. Details:
-  notes/2026-07-31-playtest-polish-session.md.
+- Phase 44: editor UX overhaul (committed, NOT deployed — next deploy at
+  Phase 50). Tool palette sections + 20 single-key hotkeys (new
+  editorHotkeys.ts, pure + tested), TemplateBoardModal ("Copy of <name>",
+  one undo step), renumberCheckpoints + ValidationPanel button. 513 tests
+  green; Playwright-verified desktop/mobile/hit-layer. Details:
+  notes/2026-07-31-playtest-polish-session.md + cascade Phase 44 log.
 
 ## Next Steps
-1. Phase 44 — editor UX overhaul: tool grouping with section headers,
-   per-tool hotkeys, "New from template…" modal (BUILTIN_BOARDS thumbs),
-   renumberCheckpoints store action + ValidationPanel button. Files:
-   ToolPalette, EditorToolbar, ValidationPanel, EditorScreen,
-   src/store/editorStore.ts, index.css. No deploy needed until 50.
-2. Then 45 (UI pass), 46-48 (visual), 49 (optional), 50 (ship).
+1. Phase 45 — UI consistency pass (S): index.css-centric — speech bubbles
+   dark theme, button scale tokens, :focus-visible ring, themed
+   scrollbars; Playwright before/after sweep 1280 + 375.
+2. Then 46 (Blender kit pieces), 47 (robot anim), 48 (lighting), 49
+   (optional camera), 50 (ship + deploy).
 
 ## Key Files
 cascades/2026-07-31-playtest-polish.md (plan + decisions log),
-src/components/editor/*, src/store/editorStore.ts,
+src/index.css, src/components/replay/* (speech bubbles),
 notes/2026-07-31-playtest-polish-session.md

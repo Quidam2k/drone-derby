@@ -10,7 +10,7 @@ the project sequence (last shipped: 40; optional 41 is folded into 46 here).
 |-------|-------|--------|
 | 42 | Playtest telemetry | DONE (2026-07-31) |
 | 43 | Flag placement at game creation | DONE (2026-07-31) |
-| 44 | Editor UX overhaul (M) | pending |
+| 44 | Editor UX overhaul (M) | DONE (2026-07-31) |
 | 45 | UI consistency pass (S) | pending |
 | 46 | Blender kit pieces, 10 expansion elements (L) | pending |
 | 47 | Robot mesh animation (M/L) | pending |
@@ -288,6 +288,40 @@ notes per the session-state convention.
   SERVER-resolved board and snapshots — including the default
   Proving Grounds path, which stores a snapshot only when customized.
 
+- **Phase 44, hotkey/section data lives in `editorHotkeys.ts`** (new, no
+  JSX) so the keydown→command mapping is unit-testable in node;
+  ToolPalette pairs it with a `Record<ToolId, ReactNode>` icon map (a
+  missing icon is a type error) and renders sections as FLAT flex
+  children (labels interleaved, hidden on mobile) so the horizontal
+  scroll-snap row needs no restructure. Key map (20 unique): floor F,
+  pit P, drain D, trapdoor T, radiation R, waste A, crusher U, flamer M,
+  conveyor C, gear G, portal O, teleporter X, repulsor Q, checkpoint K,
+  spawn S, wrench N, wall W, laser L, pusher H, eraser E. Form fields
+  swallow everything (incl. the undo chords — unchanged behavior);
+  Shift/Alt/Ctrl-modified letters stay with the browser.
+- **Phase 44, renumber button trigger**: ValidationPanel matches the
+  substring `'checkpoint number'` in error strings (covers both
+  `duplicate checkpoint number N` and `missing checkpoint number N` from
+  validate.ts numberingErrors) — no validator changes.
+
+## Phase 44 verification log (2026-07-31)
+
+- typecheck + 513 tests green (9 new: 3 renumber, 1 template-load,
+  5 in editorHotkeys.test.ts incl. 20-unique-keys integrity check).
+- Playwright (dev server only, minimized): desktop 1280 — section headers
+  + key hints render; `W` selects wall, `E` eraser, `P` pit; typing
+  "pge" in the board-name input changes the name only (tool untouched);
+  "New from template…" → Spin Cycle loads as "Copy of Spin Cycle" 12×10
+  playable; erasing checkpoint 2 → "missing checkpoint number 2" +
+  Renumber flags button → click → board playable, flags 1..2 in reading
+  order. 375px — tool row scrolls with snap, headers/key hints elided.
+  Hit-layer regression: pit painted at all four corners of the 12×10
+  board lands exactly in the corner cells. Todd's prior "Element Zoo"
+  draft restored via undo afterwards.
+- Screenshots: screengrab/phase44-desktop-sections.png, -template-modal,
+  -renumber-error, -corner-pits, -mobile-toolrow.
+- Not deployed (next deploy at Phase 50 or on request).
+
 ## Phase 43 verification log (2026-07-31)
 
 - typecheck + 504 tests green (9 new in placement.test.ts, incl. printed-
@@ -314,5 +348,5 @@ notes per the session-state convention.
   `2.0.0+c3e8b77+20260801` seen. `telemetry:clear` deleted the test rows.
 - Screenshot: screengrab/phase42-lobby-version-footer.png (footer stamp).
 
-⚠️ NEXT: Phase 44 — editor UX overhaul (tool grouping, hotkeys, templates,
-renumber). The 42/43 playtest gate is CLOSED — friends can play now.
+⚠️ NEXT: Phase 45 — UI consistency pass (speech bubbles to dark theme,
+button scale tokens, focus ring, scrollbars). index.css-centric, S-sized.
