@@ -157,6 +157,11 @@ export interface BoardScene {
    * eases. It is zero for the whole of a normal replay and equal to the beat
    * count in a reel, which is the only honest way to check "cuts only on a
    * beat boundary" — `cuts` alone counts both kinds and cannot tell them apart.
+   *
+   * 49 adds `flourishYaw` and `fov`, the two additive layers. Neither shows up
+   * in `yaw` or in `cuts` BY DESIGN — the win sweep is not the player's
+   * viewpoint and is not a re-aim — so without these a probe would report a
+   * dead-still camera through the entire victory lap.
    */
   view(): {
     yaw: number;
@@ -167,6 +172,10 @@ export interface BoardScene {
     shot: Shot | null;
     cuts: number;
     hardCuts: number;
+    /** Degrees of win sweep on top of `yaw`. 0 unless a win is playing. */
+    flourishYaw: number;
+    /** The LIVE field of view — widened while the director is whipping. */
+    fov: number;
   };
   /**
    * What the last rendered frame actually cost, straight off `renderer.info`.
@@ -599,6 +608,10 @@ export async function createBoardScene(
         const winner = current.visual.robots.find((r) => r.player === e.player);
         if (winner) effects.winBurst(cellCentre(winner.pos, tmpPos));
         if (!still) nudge = startNudge('win');
+        // The one moment the camera gets to perform. Additive and short; see
+        // ./flourishMath. `director` refuses it under reduced motion anyway,
+        // but the guard keeps the three win reactions reading as one rule.
+        if (!still) director.winFlourish();
         break;
       }
       default:
@@ -967,6 +980,8 @@ export async function createBoardScene(
       shot: director.currentShot(),
       cuts: director.cuts(),
       hardCuts: director.hardCuts(),
+      flourishYaw: director.flourishDegrees(),
+      fov: director.camera.fov,
     }),
     stats: () => ({
       calls: renderer.info.render.calls,
