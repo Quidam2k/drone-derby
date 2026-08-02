@@ -76,6 +76,16 @@ the setup-screen thumbnails and the editor look like a different game to the
 one you play. That is expected. If the `.glb` is missing the board falls back
 to the old procedural primitives and logs one warning.
 
+The robots are modelled and **animated** the same way, from
+`public/models/robot-*.glb` (rebuild with `npm run art -- --glb`). Treads
+roll, the hexapod walks a gait cycle, the wheeler's wheels spin and the
+hover bobs. The animation clock is **distance travelled, not time**, so a
+robot's parts move exactly as far as the robot does and everything stops
+dead the moment the board settles — a still board is a still board, right
+down to the treads. Same fallback contract as the tiles: a missing or stale
+`.glb` drops back to the primitive chassis piece by piece, so the worst case
+is a robot that doesn't animate, never a board that doesn't load.
+
 Camera, on both the programming screen and the replay:
 
 | Gesture | Does |
@@ -167,6 +177,19 @@ Paste-ready invite message:
       visibly faster), each seat's robot has a distinct silhouette +
       bright nose light, lasers glow/pulse, damaged robots flash
       (all animation respects OS reduced-motion settings)
+- [ ] **Robots move like machines**: treads roll and the hexapod walks
+      while a robot drives, and every part stops the instant it arrives
+- [ ] **The board reacts to hits**: the key light dips red on damage,
+      dims on a destruction, and pulses in time with a laser beam
+- [ ] **Hazards land**: a shockwave under the crusher's slam, a flamer
+      burst, a pulse on the hazard that hurt you, and an arc joining both
+      ends of a teleport
+- [ ] **The camera performs, briefly**: a short orbiting sweep on a win,
+      and the view widens a little when it whips across the board to
+      re-aim — never on an ordinary move
+- [ ] **Reduced motion**: with the OS setting on, a replay reaches a
+      still, settled board — no sweep, no bob, no rolling treads, and
+      nothing left mid-pose
 - [ ] Editor (`#/editor`): paint tiles/walls, validation, save online,
       import/export JSON — always the flat board, never a canvas, whatever
       the renderer toggle is set to
