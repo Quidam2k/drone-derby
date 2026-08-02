@@ -12,7 +12,7 @@ the project sequence (last shipped: 40; optional 41 is folded into 46 here).
 | 43 | Flag placement at game creation | DONE (2026-07-31) |
 | 44 | Editor UX overhaul (M) | DONE (2026-07-31) |
 | 45 | UI consistency pass (S) | DONE (2026-08-01) |
-| 46 | Blender kit pieces, 10 expansion elements (L) | pending |
+| 46 | Blender kit pieces, 10 expansion elements (L) | DONE (2026-08-01) |
 | 47 | Robot mesh animation (M/L) | pending |
 | 48 | Lighting + effects polish (M) | pending |
 | 49 | Camera niceties (S, optional — cut first) | pending |
@@ -299,6 +299,30 @@ notes per the session-state convention.
   spawn S, wrench N, wall W, laser L, pusher H, eraser E. Form fields
   swallow everything (incl. the undo chords — unchanged behavior);
   Shift/Alt/Ctrl-modified letters stay with the browser.
+- **Phase 46, a UV sphere broke the deterministic export**: the plan's
+  "re-export → identical bytes" check FAILED on the first pass, and the
+  cause was one piece. Diffing two exports showed the JSON chunk identical
+  and exactly 2.5 KB of the binary differing — all of it the index buffer of
+  `repulsor_core`, built with `common.dome`'s UV sphere. A UV sphere exports
+  as quads, the glTF exporter triangulates them on the way out, and that
+  triangulation is not stable run to run. Rebuilt as an icosphere (triangles
+  already, no triangulation step, and no poles to pinch on a bead that
+  small) and the export is byte-stable again. `common.dome` is untouched —
+  robots.py still uses it, and robot determinism is untested; if Phase 47
+  hits the same thing, this is the fix.
+- **Phase 46, radiation had to give up its emissive material**: it was
+  planned as geometry-only with boardMesh's emissive yellow-green kept, like
+  waste and the portals. On screen the modelled trefoil was INVISIBLE —
+  uniform emission flattens exactly the shading that makes relief legible,
+  so a carefully modelled symbol rendered as a flat yellow blob. It now
+  takes the kit material and paints hazard yellow on HAZARD_K, which is the
+  DOM board's read. General rule for the six pieces still on code materials:
+  they must read through SILHOUETTE, never through relief.
+- **Phase 46, the kit's drain is one piece, not five**: the primitive path
+  places five chord-scaled bars to fit a round torus rim; the kit's pit_rim
+  is a square curb, so the grate is square and boardMesh places exactly one
+  (`kit?.drain_grate` branch, same shape as the existing spawn/gear
+  branches).
 - **Phase 45, the gradient is a wordmark, not a heading style**: `.title`
   carried the player-color gradient, so all EIGHT screens using it
   ("Board gallery", "How to play", "Game lobby", "Join the derby",
@@ -311,6 +335,32 @@ notes per the session-state convention.
   substring `'checkpoint number'` in error strings (covers both
   `duplicate checkpoint number N` and `missing checkpoint number N` from
   validate.ts numberingErrors) — no validator changes.
+
+## Phase 46 verification log (2026-08-01)
+
+- 14 new pieces in tiles.py (the 10 elements, four of which are two pieces:
+  portal ring+core, teleporter pad+core, repulsor coil+core, crusher
+  post+head). `PIECE_NAMES` 15 → 29.
+- typecheck + 517 tests green (4 new in tileKit.pieces.test.ts, a source-text
+  parity guard between `PIECE_NAMES` and tiles.py's `PIECES` — the two lists
+  had nothing linking them and both failure directions are silent).
+- All 14 confirmed reaching the board by runtime probe: built a synthetic
+  board carrying every element (crushers and flamers included — NO builtin
+  board has a crusher, so that pair is unreachable by screenshot) and
+  asserted each InstancedMesh holds the kit's geometry object by identity,
+  not the primitive. 14/14 kit.
+- Visual, Reactor Core + Gear Box at zoom: radiation trefoils, waste
+  puddles, trapdoor hatches, portal rings, one-way slabs, repulsor drums,
+  drain grate all read correctly.
+- Fallback contract: with tiles.glb removed, the board renders fully from
+  primitives, one `[board3d] tile kit failed to load` warning, ZERO errors.
+- Deterministic: two consecutive exports are byte-identical (sha256
+  cd5db6f7…). This did NOT hold on the first pass — see the decision below.
+- Size: raw 0.96 → 1.61 MB, but that is the decompressed figure. Over the
+  wire it is brotli 0.21 → 0.27 MB, i.e. +60 KB. Left alone deliberately.
+- Screenshots: screengrab/phase46-kit-zoom-final.png (elements at zoom),
+  -kit-gearbox.png, -kit-reactor-core-3d.png, -fallback-zoom.png (no kit).
+- Not deployed (next deploy at Phase 50 or on request).
 
 ## Phase 45 verification log (2026-08-01)
 
@@ -382,8 +432,11 @@ notes per the session-state convention.
   `2.0.0+c3e8b77+20260801` seen. `telemetry:clear` deleted the test rows.
 - Screenshot: screengrab/phase42-lobby-version-footer.png (footer stamp).
 
-⚠️ NEXT: Phase 46 — Blender kit pieces for the 10 expansion elements (L).
-`scripts/blender/tiles.py` (+common.py) → `npm run art:tiles` →
-`public/models/tiles.glb`, then piece-name wiring in boardMesh.ts/tileKit.ts.
-Read boardMesh.ts:300-500 for the primitive local frames BEFORE modelling.
-CPU only (ask before GPU); fallback must still render with tiles.glb deleted.
+⚠️ NEXT: Phase 47 — Robot mesh animation (M/L). `scripts/blender/robots.py`
++ `src/components/board3d/robots.ts` (+ scene.ts step wiring): treads,
+hexapod gait, buggy wheels, hovercraft bob, driven off the rig's existing
+eased velocity. Named sub-parts must be EXCLUDED from the by-material merge.
+Anims stop when settled so the on-demand loop still sleeps; reduced-motion
+skips all of it; a missing named part falls back to static, never crashes.
+Note from 46: if robots.glb turns out to export non-deterministically, the
+cause is almost certainly `common.dome`'s UV sphere — see the decision log.

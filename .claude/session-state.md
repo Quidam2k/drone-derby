@@ -1,33 +1,36 @@
 # Session State
-Updated: 2026-08-01 ~19:57
+Updated: 2026-08-01 ~20:30
 
 ## Current Task
 Playtest-polish cascade (cascades/2026-07-31-playtest-polish.md).
-Phases 42-45 DONE. Remaining work is the 3D/art polish run (46-49) + ship (50).
+Phases 42-46 DONE. Remaining: 47 robot anim, 48 lighting/fx, 49 camera
+(optional), 50 ship+deploy.
 
 ## Just Completed
-- Phase 45: UI consistency pass. index.css was already written 7/31 but
-  uncommitted/unverified; verified + finished 8/1. Speech bubbles to dark
-  theme (bordered two-triangle tail), --radius/--btn-* tokens, global
-  :focus-visible ring, themed scrollbars, disabled desaturation, and the
-  one missed item: hero gradient is now lobby-only (.title plain,
-  .title.brand for the "Drone Derby" wordmark, 3 sites). 513 tests green.
-  Details: notes/2026-07-31-playtest-polish-session.md + cascade log.
+- Phase 46: Blender kit pieces for the 10 expansion elements — 14 new pieces
+  (PIECE_NAMES 15 → 29), tiles.py + boardMesh/tileKit wiring. All 14 proven
+  to reach the board by runtime identity probe; fallback verified with
+  tiles.glb removed; export is byte-deterministic again after rebuilding
+  repulsor_core as an icosphere. 517 tests green. Wire cost +60 KB brotli.
+- Phase 45 landed earlier this session (UI consistency, commit 6c6de72).
 
 ## Next Steps
-1. Phase 46 — Blender kit pieces for the 10 expansion elements (L):
-   scripts/blender/tiles.py -> `npm run art:tiles` -> public/models/tiles.glb,
-   then boardMesh.ts/tileKit.ts piece-name wiring. Read boardMesh.ts:300-500
-   for primitive local frames BEFORE modelling. CPU only (ask before GPU);
-   fallback must render with tiles.glb deleted.
-2. Then 47 (robot mesh animation), 48 (lighting/effects), 49 (camera,
-   optional), 50 (ship + deploy). Nothing deployed since Phase 43.
+1. Phase 47 — robot mesh animation: scripts/blender/robots.py +
+   src/components/board3d/robots.ts (+ scene.ts step wiring). Treads,
+   hexapod gait, buggy wheels, hover bob, off the rig's eased velocity.
+   Named sub-parts EXCLUDED from the by-material merge; anims stop when
+   settled (on-demand loop must still sleep); reduced-motion skips;
+   missing named part → static fallback, no crash.
+2. Then 48 (lighting/effects), 49 (camera, optional), 50 (ship + deploy).
+   Nothing deployed since Phase 43 — prod is missing 44, 45, 46.
 
 ## Open Questions / Blockers
 - Still waiting on Todd's photos of the 84 program cards (deck spec
-  unverified). Not blocking 46-50.
+  unverified). Not blocking 47-50.
+- If robots.glb exports non-deterministically in 47, suspect
+  `common.dome`'s UV sphere first (see cascade decision log, Phase 46).
 
 ## Key Files
 cascades/2026-07-31-playtest-polish.md (plan + decisions log),
-scripts/blender/tiles.py, scripts/blender/common.py,
-src/components/board3d/boardMesh.ts, src/components/board3d/tileKit.ts
+scripts/blender/robots.py, scripts/blender/common.py,
+src/components/board3d/robots.ts, src/components/board3d/scene.ts

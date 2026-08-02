@@ -318,13 +318,18 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
     if (def.kind === 'pit') {
       pitFloors.add({ pos: centre(x, y, -SLAB - 0.12) });
       pitRims.add({ pos: centre(x, y, -0.02) });
-      // A drain is a pit wearing a grate: bars across the opening.
+      // A drain is a pit wearing a grate. The kit's grate is the whole
+      // opening in one piece; the primitive is a single bar, so it takes five
+      // placements — chord-scaled, because the primitive rim is a torus.
       if (def.style === 'drain') {
-        for (const off of [-0.28, -0.14, 0, 0.14, 0.28]) {
-          drainBars.add({
-            pos: new THREE.Vector3(x + 0.5, -0.01, y + 0.5 + off),
-            scale: new THREE.Vector3(Math.sqrt(1 - (off / 0.44) ** 2), 1, 1),
-          });
+        if (kit?.drain_grate) drainBars.add({ pos: new THREE.Vector3(x + 0.5, -0.01, y + 0.5) });
+        else {
+          for (const off of [-0.28, -0.14, 0, 0.14, 0.28]) {
+            drainBars.add({
+              pos: new THREE.Vector3(x + 0.5, -0.01, y + 0.5 + off),
+              scale: new THREE.Vector3(Math.sqrt(1 - (off / 0.44) ** 2), 1, 1),
+            });
+          }
         }
       }
       return;
@@ -586,7 +591,8 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   const pusherEvenMat = mat(
     new THREE.MeshStandardMaterial({ color: C.belt, roughness: 0.5, metalness: 0.35 }),
   );
-  // Expansion-element materials (primitive path — kit pieces deferred).
+  // Expansion-element materials. Seven of these stay in play even with a kit
+  // loaded (see the build calls below); the rest are the fallback path.
   const grateMat = mat(
     new THREE.MeshStandardMaterial({ color: 0x39415a, roughness: 0.55, metalness: 0.5 }),
   );
@@ -760,62 +766,112 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   add(pusherPlatesOdd.build(pusherPlateGeom, pusherOddMat, { cast: true }));
   add(pusherPlatesEven.build(pusherPlateGeom, pusherEvenMat, { cast: true }));
 
-  // Expansion elements — all primitives (kit pieces deferred by design).
-  add(drainBars.build(geom(new THREE.BoxGeometry(0.82, 0.05, 0.07)), grateMat, { cast: true }));
+  // Expansion elements. Six of the fourteen keep a CODE material even with the
+  // kit loaded — waste/teleporter-core/repulsor-core because the emissive
+  // colour is the hazard cue, portals because the pair colour is per-instance,
+  // one-ways because red/green IS the rule. Those take the kit's geometry only,
+  // so those pieces are modelled to read through shape alone.
+  //
+  // Radiation is NOT one of them, and that was a correction: on the emissive
+  // material the trefoil relief vanished — uniform emission gives the shading
+  // nothing to bite on, so a modelled symbol rendered as a flat yellow blob.
+  // On the kit material the painted trefoil reads the way the DOM board's
+  // does, which is worth more than the glow was.
   add(
-    trapdoorPlates.build(geom(new THREE.BoxGeometry(0.82, 0.06, 0.82)), hatchMat, {
-      cast: true,
-      receive: true,
-    }),
+    drainBars.build(
+      pieceGeom(kit?.drain_grate, () => new THREE.BoxGeometry(0.82, 0.05, 0.07)),
+      kit?.drain_grate?.material ?? grateMat,
+      { cast: true },
+    ),
+  );
+  add(
+    trapdoorPlates.build(
+      pieceGeom(kit?.trapdoor_hatch, () => new THREE.BoxGeometry(0.82, 0.06, 0.82)),
+      kit?.trapdoor_hatch?.material ?? hatchMat,
+      { cast: true, receive: true },
+    ),
   );
   add(
     radiationDiscs.build(
-      geom(new THREE.CylinderGeometry(0.36, 0.36, 0.03, 20)),
-      radiationMat,
+      pieceGeom(kit?.radiation_disc, () => new THREE.CylinderGeometry(0.36, 0.36, 0.03, 20)),
+      kit?.radiation_disc?.material ?? radiationMat,
       { receive: true },
     ),
   );
   add(
-    wastePatches.build(geom(new THREE.CylinderGeometry(0.44, 0.46, 0.035, 14)), wasteMat, {
-      receive: true,
-    }),
+    wastePatches.build(
+      pieceGeom(kit?.waste_puddle, () => new THREE.CylinderGeometry(0.44, 0.46, 0.035, 14)),
+      wasteMat,
+      { receive: true },
+    ),
   );
   add(
     portalRings.build(
-      geom(new THREE.TorusGeometry(0.32, 0.06, 8, 24).rotateX(Math.PI / 2)),
+      pieceGeom(kit?.portal_ring, () =>
+        new THREE.TorusGeometry(0.32, 0.06, 8, 24).rotateX(Math.PI / 2),
+      ),
       portalMat,
       { cast: true },
     ),
   );
-  add(portalCores.build(geom(new THREE.CylinderGeometry(0.16, 0.16, 0.025, 16)), portalMat));
+  add(
+    portalCores.build(
+      pieceGeom(kit?.portal_core, () => new THREE.CylinderGeometry(0.16, 0.16, 0.025, 16)),
+      portalMat,
+    ),
+  );
   add(
     teleporterRings.build(
-      geom(new THREE.TorusGeometry(0.36, 0.055, 8, 24).rotateX(Math.PI / 2)),
-      teleRingMat,
+      pieceGeom(kit?.teleporter_pad, () =>
+        new THREE.TorusGeometry(0.36, 0.055, 8, 24).rotateX(Math.PI / 2),
+      ),
+      kit?.teleporter_pad?.material ?? teleRingMat,
       { cast: true },
     ),
   );
-  add(teleporterCores.build(geom(new THREE.CylinderGeometry(0.2, 0.2, 0.025, 16)), teleCoreMat));
+  add(
+    teleporterCores.build(
+      pieceGeom(kit?.teleporter_core, () => new THREE.CylinderGeometry(0.2, 0.2, 0.025, 16)),
+      teleCoreMat,
+    ),
+  );
   add(
     repulsorBodies.build(
-      geom(new THREE.CylinderGeometry(0.4, 0.44, 0.14, 8)),
-      repulsorMat,
+      pieceGeom(kit?.repulsor_coil, () => new THREE.CylinderGeometry(0.4, 0.44, 0.14, 8)),
+      kit?.repulsor_coil?.material ?? repulsorMat,
       { cast: true, receive: true },
     ),
   );
-  add(repulsorCores.build(geom(new THREE.SphereGeometry(0.09, 10, 8)), repulsorCoreMat));
-  const oneWayGeom = geom(new THREE.BoxGeometry(0.98, 0.34, 0.055));
+  add(
+    repulsorCores.build(
+      pieceGeom(kit?.repulsor_core, () => new THREE.SphereGeometry(0.09, 10, 8)),
+      repulsorCoreMat,
+    ),
+  );
+  const oneWayGeom = pieceGeom(kit?.oneway_slab, () => new THREE.BoxGeometry(0.98, 0.34, 0.055));
   add(oneWayReds.build(oneWayGeom, oneWayRedMat, { cast: true, receive: true }));
   add(oneWayGreens.build(oneWayGeom, oneWayGreenMat, { cast: true, receive: true }));
-  add(crusherPosts.build(geom(new THREE.BoxGeometry(0.1, 0.52, 0.1)), emitterMat, { cast: true }));
   add(
-    crusherPlates.build(geom(new THREE.BoxGeometry(0.72, 0.09, 0.72)), crusherMat, {
-      cast: true,
-    }),
+    crusherPosts.build(
+      pieceGeom(kit?.crusher_post, () => new THREE.BoxGeometry(0.1, 0.52, 0.1)),
+      kit?.crusher_post?.material ?? emitterMat,
+      { cast: true },
+    ),
   );
-  add(flamerNozzles.build(geom(new THREE.CylinderGeometry(0.14, 0.18, 0.1, 10)), emitterMat, {
-    cast: true,
-  }));
+  add(
+    crusherPlates.build(
+      pieceGeom(kit?.crusher_head, () => new THREE.BoxGeometry(0.72, 0.09, 0.72)),
+      kit?.crusher_head?.material ?? crusherMat,
+      { cast: true },
+    ),
+  );
+  add(
+    flamerNozzles.build(
+      pieceGeom(kit?.flamer_nozzle, () => new THREE.CylinderGeometry(0.14, 0.18, 0.1, 10)),
+      kit?.flamer_nozzle?.material ?? emitterMat,
+      { cast: true },
+    ),
+  );
   add(flamerFlames.build(geom(new THREE.ConeGeometry(0.15, 0.42, 10)), flameMat, { cast: true }));
 
   // Chevrons: one instanced mesh per speed class so express keeps its accent
