@@ -1,36 +1,31 @@
 # Session State
-Updated: 2026-08-01 ~20:30
+Updated: 2026-08-02 15:10
 
 ## Current Task
-Playtest-polish cascade (cascades/2026-07-31-playtest-polish.md).
-Phases 42-46 DONE. Remaining: 47 robot anim, 48 lighting/fx, 49 camera
-(optional), 50 ship+deploy.
+None — the playtest-polish cascade (`cascades/2026-07-31-playtest-polish.md`)
+is COMPLETE. Phases 42–50 all done, committed and live on prod.
 
 ## Just Completed
-- Phase 46: Blender kit pieces for the 10 expansion elements — 14 new pieces
-  (PIECE_NAMES 15 → 29), tiles.py + boardMesh/tileKit wiring. All 14 proven
-  to reach the board by runtime identity probe; fallback verified with
-  tiles.glb removed; export is byte-deterministic again after rebuilding
-  repulsor_core as an icosphere. 517 tests green. Wire cost +60 KB brotli.
-- Phase 45 landed earlier this session (UI consistency, commit 6c6de72).
+- Phase 50: shipped everything. WebGL context leak fixed (b99ef67), 47/48/49
+  split into clean per-phase commits (each typechecked in an isolated
+  worktree), README updated 45→49, deployed, prod smoke green.
+- Prod is `2.0.0+6db4049+20260802`. Smoke: anim parts resolve from the .glb on
+  prod, stolen 0, fov widen live, zero console messages, toggle both ways,
+  `?render=dom` wins. Telemetry digest shows the new stamp and no errors.
 
 ## Next Steps
-1. Phase 47 — robot mesh animation: scripts/blender/robots.py +
-   src/components/board3d/robots.ts (+ scene.ts step wiring). Treads,
-   hexapod gait, buggy wheels, hover bob, off the rig's eased velocity.
-   Named sub-parts EXCLUDED from the by-material merge; anims stop when
-   settled (on-demand loop must still sleep); reduced-motion skips;
-   missing named part → static fallback, no crash.
-2. Then 48 (lighting/effects), 49 (camera, optional), 50 (ship + deploy).
-   Nothing deployed since Phase 43 — prod is missing 44, 45, 46.
+1. **Playtest** — no phase is queued. Run the README test-everything checklist
+   against https://drone-derby.pages.dev, file 🐞 notes while playing.
+2. Read them back: `npx convex run telemetry:digest --prod`.
+3. Let what playtesters actually hit choose the next cascade.
 
 ## Open Questions / Blockers
-- Still waiting on Todd's photos of the 84 program cards (deck spec
-  unverified). Not blocking 47-50.
-- If robots.glb exports non-deterministically in 47, suspect
-  `common.dome`'s UV sphere first (see cascade decision log, Phase 46).
+- Still waiting on Todd's photos of the 84 program cards (deck spec unverified,
+  not blocking).
+- Returning players' service worker serves the previous build until one
+  refresh. Known, normal PWA behaviour, seen at 43 and 50 — not a bug.
 
 ## Key Files
-cascades/2026-07-31-playtest-polish.md (plan + decisions log),
-scripts/blender/robots.py, scripts/blender/common.py,
-src/components/board3d/robots.ts, src/components/board3d/scene.ts
+cascades/2026-07-31-playtest-polish.md (all verification logs),
+notes/2026-07-31-playtest-polish-session.md, README.md (playtest guide),
+screengrab/phase50/
