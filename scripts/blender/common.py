@@ -18,7 +18,7 @@ Principled BSDF renamed several of its inputs.
 import bpy
 import math
 import sys
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 # --------------------------------------------------------------------- args
 
@@ -127,7 +127,21 @@ def cylinder(name, center, radius, depth, axis, material, verts=28, bevel=0.008)
 
 
 def dome(name, center, radii, material):
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=16, location=center)
+    """Scaled sphere -- a canopy, a sensor cap.
+
+    An ICOsphere, not a UV sphere, and that is load-bearing for the .glb
+    exports. A UV sphere is quads; the glTF exporter triangulates them on the
+    way out and that triangulation is NOT stable run to run. It was the only
+    thing that moved between two otherwise byte-identical tile-kit exports
+    (Phase 46), and re-exporting the robots in Phase 47 found the same drift
+    in exactly the two chassis that call this -- 1's `cap` and 2's `screen`.
+    An icosphere is triangles already, so there is no triangulation step left
+    to wander. It also has no poles to pinch.
+
+    3 subdivisions is 1280 triangles against the old 32x16 sphere's ~1000,
+    and reads smoother at a tile because the density is even.
+    """
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=3, radius=1.0, location=center)
     ob = bpy.context.active_object
     ob.name = name
     ob.scale = radii
@@ -144,6 +158,34 @@ def strut(name, p0, p1, r, material, bevel=0.01):
     ob.rotation_mode = 'QUATERNION'
     ob.rotation_quaternion = v.to_track_quat('Z', 'Y')
     return ob
+
+
+def anim_group(name, pivot, objects):
+    """Parent `objects` to an empty named `anim_<name>` sitting at `pivot`.
+
+    This is the contract with `src/components/board3d/robots.ts`: the loader
+    pulls every mesh under an `anim_*` node OUT of its by-material merge and
+    gives it its own group, positioned at this pivot, so the rig can scroll a
+    tread or spin a wheel about it. A `.glb` without these empties merges
+    exactly as before and the robot is simply static -- the same
+    art-is-optional contract the tile kit honours.
+
+    PARENTING, not `bpy.ops.object.join`: join keeps only the ACTIVE object's
+    modifiers, which would silently drop every bevel but one. The
+    `matrix_parent_inverse` leaves each child exactly where it was built --
+    computed from `pivot` rather than read back off the empty, so it doesn't
+    depend on a depsgraph update having run.
+
+    Empties don't render, so the sprite renders are unaffected by the grouping.
+    """
+    bpy.ops.object.empty_add(location=pivot)
+    empty = bpy.context.active_object
+    empty.name = 'anim_' + name
+    inverse = Matrix.Translation(pivot).inverted()
+    for ob in objects:
+        ob.parent = empty
+        ob.matrix_parent_inverse = inverse
+    return empty
 
 
 def bar(name, p0, p1, width, thick, z, material, bevel=0.008, segments=2):

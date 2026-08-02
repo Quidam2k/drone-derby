@@ -34,6 +34,13 @@ robot as it turns.
 Units: 1.0 = one board tile. Every chassis is modelled facing +Y (north).
 Deterministic: no randomness, no clock.
 
+Phase 47 names the MOVING parts with `common.anim_group`, which parents them
+to an `anim_*` empty at the pivot they turn or slide about. Those empties are
+the only non-mesh objects `export_glb` keeps, and they are what
+`src/components/board3d/robots.ts` looks for -- so the parts list here and
+`ANIM_PARTS` there are one contract (guarded by robotAnim.parity.test.ts).
+The empties don't render, so the sprites are unaffected.
+
 The primitives (`box`, `frustum`, `cylinder`, `dome`, `strut`, the bevel
 `finish`) live in `common.py`, shared with the board tile kit in `tiles.py`.
 """
@@ -45,7 +52,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import (  # noqa: E402  (Blender needs the path set first)
-    arg, flag, srgb, mat, frustum, box, cylinder, dome, strut,
+    anim_group, arg, flag, srgb, mat, frustum, box, cylinder, dome, strut,
 )
 
 # --------------------------------------------------------------------- args
@@ -80,16 +87,30 @@ class Mats:
 
 def chassis0(M):
     """Tracked scout. Silhouette: two continuous dark bands either side."""
+    ribs = {}
     for side in (-1, 1):
         cx = 0.375 * side
         frustum('pod', (cx, -0.01), (0.20, 0.86), 0.02,
                 (cx, -0.01), (0.175, 0.76), 0.32, M.RUBBER, bevel=0.055, segments=5)
         # Ribs run ACROSS the track. Down its outer face they read as a comb.
-        for i in range(11):
-            box('rib', (cx, -0.335 + i * 0.067, 0.325), (0.215, 0.030, 0.035),
-                M.DARK, bevel=0.007, segments=2)
+        #
+        # TWELVE of them, y -0.402..0.335 at 0.067 spacing, and the twelfth is
+        # load-bearing: robots.ts scrolls the whole strip forward by
+        # (distance mod 0.067), which puts rib i exactly where rib i+1 was, and
+        # the extra rib at the REAR is what keeps the visible band covered as
+        # the strip walks off the front. Max forward extent 0.402 still sits
+        # inside the pod's 0.43 half-length, so nothing pokes out.
+        ribs[side] = [box('rib', (cx, -0.335 + i * 0.067, 0.325), (0.215, 0.030, 0.035),
+                          M.DARK, bevel=0.007, segments=2)
+                      for i in range(-1, 11)]
         for t in (-0.295, 0.295):
             cylinder('sprocket', (cx + 0.101 * side, t, 0.165), 0.072, 0.030, 'x', M.STEEL)
+
+    # Grouped outside the loop so the names are plain literals: the parity
+    # guard in robotAnim.parity.test.ts reads them straight out of this file.
+    # Left is -X, since the chassis is modelled facing +Y.
+    anim_group('tread_l', (-0.375, -0.01, 0.325), ribs[-1])
+    anim_group('tread_r', (0.375, -0.01, 0.325), ribs[1])
 
     frustum('hull', (0, -0.02), (0.60, 0.74), 0.09,
             (0, -0.02), (0.50, 0.66), 0.44, M.BODY, bevel=0.025, segments=4)
@@ -122,15 +143,28 @@ def chassis1(M):
     cylinder('sensor_ring', (0, 0, 0.735), 0.105, 0.045, 'z', M.GLASS, verts=20)
 
     # Six legs: hip out to a raised knee, then down to a foot on the ground.
+    #
+    # Split into the two ALTERNATING TRIPODS a hexapod actually walks on:
+    # front-left, mid-right, rear-left swing together while the other three
+    # hold the robot up. Each tripod is one group, so the gait is two
+    # translations rather than six -- and it has to be a translation, because a
+    # yaw about the body centre would swing a tripod's two left legs forward
+    # and its one right leg backward.
+    tripods = {'a': [], 'b': []}
     for side in (-1, 1):
         for i, ly in enumerate((0.24, 0.0, -0.24)):
             hip = (0.24 * side, ly, 0.42)
             knee = (0.42 * side, ly + 0.05 * side * 0, 0.46)
             foot = (0.455 * side, ly, 0.03)
-            strut('thigh', hip, knee, 0.042, M.DARK)
-            strut('shin', knee, foot, 0.032, M.STEEL)
-            cylinder('joint', (knee[0], knee[1], knee[2]), 0.055, 0.055, 'x', M.DARK)
-            box('foot', (foot[0], foot[1], 0.022), (0.10, 0.13, 0.045), M.RUBBER, bevel=0.018)
+            leg = [
+                strut('thigh', hip, knee, 0.042, M.DARK),
+                strut('shin', knee, foot, 0.032, M.STEEL),
+                cylinder('joint', (knee[0], knee[1], knee[2]), 0.055, 0.055, 'x', M.DARK),
+                box('foot', (foot[0], foot[1], 0.022), (0.10, 0.13, 0.045), M.RUBBER, bevel=0.018),
+            ]
+            tripods['a' if (i + (0 if side < 0 else 1)) % 2 == 0 else 'b'] += leg
+    anim_group('tripod_a', (0, 0, 0.42), tripods['a'])
+    anim_group('tripod_b', (0, 0, 0.42), tripods['b'])
 
     # Forward sensor cluster -- the facing cue. Must clear the pod: the
     # octagon's front flat sits at r*cos(22.5deg) = 0.277, and the first pass
@@ -142,8 +176,18 @@ def chassis1(M):
     # the tall dome dominates this chassis from above and a small lamp at the
     # rim just disappears at tile size.
     box('visor_top', (0, 0.325, 0.582), (0.28, 0.125, 0.028), M.LAMP, bevel=0.008)
+    # 12 sides and a bevel well under the radius, both for EXPORT DETERMINISM.
+    # These two rods were the only thing that moved between otherwise identical
+    # robot-1 exports: at r=0.009 the default 0.008 bevel is 89% of the radius
+    # and clamps into near-degenerate corners, and at 10 sides the 36-degree
+    # split normals either side of them agree only to within float noise. The
+    # glTF exporter's vertex merge then took them or didn't, run to run (269
+    # vertices one export, 268 the next). Chassis 0's `mast` is the same rod at
+    # 12 sides and has always been byte-stable. See also `common.dome`, which
+    # is an icosphere for the same class of reason.
     for side in (-1, 1):
-        cylinder('antenna', (0.115 * side, -0.20, 0.80), 0.009, 0.24, 'z', M.STEEL, verts=10)
+        cylinder('antenna', (0.115 * side, -0.20, 0.80), 0.009, 0.24, 'z', M.STEEL,
+                 verts=12, bevel=0.003)
 
 
 # ---------------------------------------------------- chassis 2: hovercraft
@@ -180,14 +224,34 @@ def chassis2(M):
 
 # ---------------------------------------------------- chassis 3: quad buggy
 
+#: Tread lugs per wheel, and the radius they sit at. The tyre's bevelled
+#: outer radius is ~0.175, so a 0.016 half-thickness lug at 0.174 stands
+#: ~0.015 proud of it -- enough to catch the light, not enough to look toothed.
+LUGS = 10
+LUG_R = 0.174
+
+
 def chassis3(M):
     """Quad buggy. Silhouette: four corner wheels under an open roll cage."""
-    for sx in (-1, 1):
-        for sy in (-1, 1):
-            wx, wy = 0.345 * sx, 0.285 * sy
-            w = cylinder('wheel', (wx, wy, 0.175), 0.175, 0.135, 'x', M.RUBBER, verts=32, bevel=0.035)
-            cylinder('hubcap', (wx + 0.070 * sx, wy, 0.175), 0.082, 0.022, 'x', M.STEEL, verts=20)
-            strut('axle', (wx - 0.07 * sx, wy, 0.175), (0.10 * sx, wy * 0.6, 0.20), 0.028, M.DARK)
+    for i, (sx, sy) in enumerate(((-1, -1), (-1, 1), (1, -1), (1, 1))):
+        wx, wy = 0.345 * sx, 0.285 * sy
+        w = cylinder('wheel', (wx, wy, 0.175), 0.175, 0.135, 'x', M.RUBBER, verts=32, bevel=0.035)
+        hub = cylinder('hubcap', (wx + 0.070 * sx, wy, 0.175), 0.082, 0.022, 'x', M.STEEL, verts=20)
+        # Tread lugs. A smooth cylinder rotating is INVISIBLE -- with nothing
+        # breaking the silhouette there is no way to tell a spinning wheel from
+        # a still one. Ten blocks around the circumference, in the tyre's own
+        # material so they merge into it rather than costing a draw call.
+        # `strut`, not `box`: a box bakes its centre into the mesh and rotates
+        # about the world origin, which is no use for a ring of them.
+        lugs = [
+            strut('lug',
+                  (wx - 0.0675, wy + LUG_R * math.cos(a), 0.175 + LUG_R * math.sin(a)),
+                  (wx + 0.0675, wy + LUG_R * math.cos(a), 0.175 + LUG_R * math.sin(a)),
+                  0.016, M.RUBBER, bevel=0.006)
+            for a in (2 * math.pi * k / LUGS for k in range(LUGS))
+        ]
+        anim_group('wheel_%d' % i, (wx, wy, 0.175), [w, hub] + lugs)
+        strut('axle', (wx - 0.07 * sx, wy, 0.175), (0.10 * sx, wy * 0.6, 0.20), 0.028, M.DARK)
 
     # Narrow spine, so the wheels stay the silhouette.
     frustum('spine', (0, -0.01), (0.34, 0.72), 0.16,
@@ -292,15 +356,19 @@ def render(seat, path):
 
 
 def export_glb(seat, path):
-    """Chassis meshes only, as a .glb for three.js. Static -- rigging is 3D-3."""
+    """Chassis meshes, plus the `anim_*` pivots, as a .glb for three.js."""
     build(seat)
 
     # Lights, the camera and the TRACK_TO aim empty are render scaffolding.
     # Baked into the .glb they'd fight the WebGL scene's own lighting, so the
-    # only things that travel are the meshes.
+    # only things that travel are the meshes -- and the `anim_*` empties, which
+    # are pivots, not scaffolding: robots.ts reads their world position to
+    # place the group it scrolls, walks or spins. Drop them and every chassis
+    # silently goes back to being a static model.
     for ob in list(bpy.data.objects):
-        if ob.type != 'MESH':
-            bpy.data.objects.remove(ob, do_unlink=True)
+        if ob.type == 'MESH' or (ob.type == 'EMPTY' and ob.name.startswith('anim_')):
+            continue
+        bpy.data.objects.remove(ob, do_unlink=True)
 
     out = path if os.path.isabs(path) else os.path.join(os.getcwd(), path)
     os.makedirs(os.path.dirname(out), exist_ok=True)

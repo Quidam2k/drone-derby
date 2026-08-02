@@ -125,6 +125,13 @@ export interface BoardScene {
     height: number;
     visible: boolean;
     screen: { x: number; y: number; onScreen: boolean };
+    /**
+     * 47 adds `parts`: the `anim_*` groups this rig resolved out of its .glb,
+     * with the mesh count each costs. A part that didn't resolve is invisible
+     * as a bug — the chassis simply goes back to being the static model it was
+     * — so "did the animation art land" has to be askable by name.
+     */
+    parts: { name: string; meshes: number }[];
   }[];
   settled(): boolean;
   /**
@@ -768,12 +775,15 @@ export async function createBoardScene(
   function update(next: BoardSceneInput): void {
     current = next;
     if (next.board !== board) rebuildBoard(next.board);
+    const still = prefersReducedMotion();
 
     next.visual.robots.forEach((r, seat) => {
       const rig = rigFor(r, seat);
       rig.setTarget(r.pos, r.facing);
       rig.setVisible(r.visible);
       rig.setPoweredDown(r.poweredDown === true);
+      // Treads, gait, wheels and the hover bob, or their rest poses.
+      rig.setStill(still);
     });
 
     if (next.ghost) {
@@ -791,6 +801,7 @@ export async function createBoardScene(
       }
       ghostRig.rig.setTarget(next.ghost.robot.pos, next.ghost.robot.facing);
       ghostRig.rig.setVisible(next.ghost.robot.visible);
+      ghostRig.rig.setStill(still);
     } else if (ghostRig) {
       scene.remove(ghostRig.rig.object);
       ghostRig.rig.dispose();
@@ -800,7 +811,6 @@ export async function createBoardScene(
     const e = next.currentEvent;
     if (e !== lastEvent) {
       lastEvent = e;
-      const still = prefersReducedMotion();
       effects.still = still;
       // Force-finish every rig animation before starting a new one. That is both
       // how the fixed durations stay inside the replay clock's budget (the DOM
@@ -834,6 +844,7 @@ export async function createBoardScene(
           player,
           ...rig.cell(),
           screen: { x: p.x, y: p.y, onScreen: p.visible },
+          parts: rig.animParts(),
         };
       }),
     // Angles come from the camera itself, not the settings, so this reports
