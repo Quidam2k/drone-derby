@@ -45,6 +45,15 @@ import {
   vecToDir,
 } from './effectMath';
 import { EffectField } from './effects';
+import {
+  FLAME_SECONDS,
+  KEY_REST,
+  flameScale,
+  nudgeLight,
+  startNudge,
+  stepNudge,
+  type Nudge,
+} from './lightMath';
 import { loadChassis, RobotRig, SEAT_COLORS } from './robots';
 import { loadTileKit } from './tileKit';
 import type { FollowMode } from './viewMath';
@@ -159,17 +168,38 @@ export interface BoardScene {
     cuts: number;
     hardCuts: number;
   };
+  /**
+   * What the last rendered frame actually cost, straight off `renderer.info`.
+   *
+   * There is no other way to check the merge budget from outside: robots.ts
+   * holds its animated sub-parts OUT of the by-material merge, and "did that
+   * stay at ~3-4 draw calls a robot" is a question a screenshot cannot answer.
+   * Phase 48's bloom experiment is time-boxed on frame cost too, and wants the
+   * same number.
+   *
+   * 48 adds `stolen`: how many times an effect has been cut short because every
+   * slot in its pool was busy. It is a VISIBLE glitch and it is invisible in a
+   * screenshot — the effect that disappears is the one you weren't looking at —
+   * so the pool sizes are only justified by this staying at 0 over a whole game.
+   */
+  stats(): { calls: number; triangles: number; stolen: number };
 }
 
 const DANGER = 0xf25c54;
 /** Longest a frame may advance the eases — a backgrounded tab must not jump. */
 const MAX_DT = 0.05;
-/** Seconds a beam spends fat and bright before settling to its steady width. */
+/**
+ * Seconds a beam spends fat and bright before settling to its steady width.
+ * NUDGES.laser in ./lightMath is deliberately the same number — the beam's
+ * flare and the key light's pulse have to read as one flash.
+ */
 const BEAM_PUNCH = 0.14;
-/** The key light's resting intensity, and the win flourish's brief lift. */
-const KEY_INTENSITY = 2.4;
-const KEY_PEAK = 3.7;
-const KEY_LIFT_SECONDS = 0.8;
+/**
+ * The pose a reduced-motion flamer flame holds instead of animating. The same
+ * 0.35 of its life EffectField freezes its rings at, so every Phase 48 beat
+ * has a still pose and they all pick it at the same point in the curve.
+ */
+const FLAME_STILL_SCALE = flameScale(FLAME_SECONDS * 0.35);
 /** Tiles above the chassis a speech bubble is anchored. */
 const BUBBLE_HEIGHT = 0.95;
 /**
@@ -199,6 +229,17 @@ const REDUCED_MOTION =
 function prefersReducedMotion(): boolean {
   return REDUCED_MOTION?.matches ?? false;
 }
+
+// NO POST-PROCESSING HERE, and that was a decision, not an omission. Phase 48
+// wired up EffectComposer + UnrealBloomPass + OutputPass behind this same lazy
+// boundary and measured it: the loop still settled, but idle frame submit went
+// 0.80 -> 1.07 ms (+33%) and — decisively — `renderer.info.render` then
+// describes the OutputPass's full-screen quad, so `stats()` reported 1 call and
+// 1 triangle instead of 114 and 160k. That hook is how the robot merge budget
+// and this scene's cost are checked at all, and a composer blinds it. The art
+// case was weak too: this phase's tuning pass spent itself pulling emissives
+// DOWN because they were already clipping to white under ACES, which is the
+// opposite of what bloom wants. See the cascade decision log.
 
 export async function createBoardScene(
   canvas: HTMLCanvasElement,
@@ -238,7 +279,7 @@ export async function createBoardScene(
   roomScene.dispose?.();
 
   scene.add(new THREE.HemisphereLight(0x9fb4ff, 0x0a0c12, 0.4));
-  const key = new THREE.DirectionalLight(0xfff2dc, KEY_INTENSITY);
+  const key = new THREE.DirectionalLight(KEY_REST.color, KEY_REST.intensity);
   key.castShadow = true;
   key.shadow.mapSize.set(1024, 1024);
   key.shadow.bias = -0.0015;
@@ -282,10 +323,20 @@ export async function createBoardScene(
   let current = first;
   /** Seconds since the beam appeared, or -1 when there is no beam. */
   let beamAge = -1;
-  /** Seconds of key-light lift left on the win flourish. */
-  let keyLift = 0;
+  /**
+   * The key light's current reaction, or null when it is at rest.
+   *
+   * ONE slot, newest wins. Events arrive one at a time from the replay clock,
+   * so there is never a second reaction that wants to be blended with this one
+   * — and a queue would mean a burst of damage in one register kept the board
+   * flickering after the register had visibly ended.
+   */
+  let nudge: Nudge | null = null;
+  /** The flamer currently flaring, and how far into its burst it is. */
+  let flame: { pos: Position; t: number } | null = null;
   /** Scratch, so dispatching an event allocates nothing. */
   const tmpPos = new THREE.Vector3();
+  const tmpTo = new THREE.Vector3();
   const tmpDir = new THREE.Vector3();
 
   function aspect(): number {
@@ -316,8 +367,10 @@ export async function createBoardScene(
 
   function rebuildBoard(next: BoardDef): void {
     // The checkpoint flare borrows the board's own ring geometry, which is about
-    // to be disposed.
+    // to be disposed — and the flame flare holds an instance index into a mesh
+    // that is about to stop existing.
     effects.reset();
+    flame = null;
     scene.remove(meshes.group);
     meshes.dispose();
     board = next;
@@ -448,8 +501,22 @@ export async function createBoardScene(
     updateBeam(e);
     if (!e) return;
     switch (e.type) {
-      case 'damage':
+      case 'damage': {
         rigs.get(e.player)?.hit();
+        if (!still) nudge = startNudge('damage');
+        // `damage` carries no position — the robot's own cell is where it was
+        // hurt, and for the environmental sources it is also the hazard's cell.
+        const hurt = current.visual.robots.find((r) => r.player === e.player);
+        if (hurt && e.source) {
+          effects.hazardPulse(cellCentre(hurt.pos, tmpPos), e.source);
+          if (e.source === 'flamer') startFlame(hurt.pos);
+        }
+        break;
+      }
+      case 'laser-fired':
+        // Only when a beam actually appeared: a zero-length path draws nothing,
+        // and a key pulse with no beam under it reads as a dropped frame.
+        if (!still && e.path.length) nudge = startNudge('laser');
         break;
       case 'repair': {
         const fixed = current.visual.robots.find((r) => r.player === e.player);
@@ -466,17 +533,24 @@ export async function createBoardScene(
         effects.bump(cellCentre(e.at, tmpPos), DIR_STEP[e.dir]);
         break;
       case 'crusher-crushed':
-        // The slam itself; the kill follows as robot-destroyed (explosion).
+        // The press coming DOWN, then the slam itself; the kill follows as
+        // robot-destroyed (explosion). The inward ring goes first because it is
+        // the anticipation — without it the impact flash read as a small
+        // explosion rather than as a mass arriving from above.
+        effects.slam(cellCentre(e.at, tmpPos));
         effects.impact(cellCentre(e.at, tmpPos));
         effects.bump(cellCentre(e.at, tmpPos), null);
         break;
       case 'robot-teleported': {
         // A blink, not a drive: snap the rig to the destination (setTarget
-        // already pointed it there this update) and mark both ends.
+        // already pointed it there this update) and mark both ends — plus an
+        // arc between them, which is the only thing saying the two marks belong
+        // to the same robot.
         const rig = rigs.get(e.player);
         if (rig) rig.snap();
         effects.repair(cellCentre(e.from, tmpPos));
-        effects.land(cellCentre(e.to, tmpPos));
+        effects.land(cellCentre(e.to, tmpTo));
+        effects.teleport(tmpPos, tmpTo);
         break;
       }
       case 'repulsed': {
@@ -508,6 +582,7 @@ export async function createBoardScene(
       case 'robot-destroyed':
         rigs.get(e.player)?.explode();
         effects.blast(cellCentre(e.at, tmpPos));
+        if (!still) nudge = startNudge('destroyed');
         break;
       case 'robot-respawned':
         rigs.get(e.player)?.respawnAt(e.pos, e.facing, still);
@@ -523,7 +598,7 @@ export async function createBoardScene(
       case 'game-won': {
         const winner = current.visual.robots.find((r) => r.player === e.player);
         if (winner) effects.winBurst(cellCentre(winner.pos, tmpPos));
-        keyLift = still ? 0 : KEY_LIFT_SECONDS;
+        if (!still) nudge = startNudge('win');
         break;
       }
       default:
@@ -551,14 +626,48 @@ export async function createBoardScene(
     return false;
   }
 
-  /** A brief lift on the key light over a win. Rises and falls once. */
+  /**
+   * The key light's reaction to whatever just happened: a red dip on damage, a
+   * 20% dim on a destruction, a pulse under the beam punch, the win lift.
+   *
+   * The curves are in ./lightMath and unit tested there, and the property those
+   * tests exist for is the one this function depends on: a spent nudge gives
+   * back `KEY_REST` EXACTLY, so the last frame of a reaction puts the light
+   * back where it started and the render loop is free to sleep.
+   */
   function stepKey(dt: number): boolean {
-    if (keyLift <= 0) return false;
-    keyLift = Math.max(0, keyLift - dt);
-    const u = 1 - keyLift / KEY_LIFT_SECONDS;
-    key.intensity =
-      keyLift === 0 ? KEY_INTENSITY : KEY_INTENSITY + (KEY_PEAK - KEY_INTENSITY) * Math.sin(Math.PI * u);
-    return keyLift > 0;
+    if (!nudge) return false;
+    if (!stepNudge(nudge, dt)) nudge = null;
+    const lit = nudgeLight(nudge);
+    key.intensity = lit.intensity;
+    key.color.setHex(lit.color);
+    return nudge !== null;
+  }
+
+  /**
+   * A flamer's burst. The cone is already on the board — `boardMesh` instances
+   * one over every flamer — so this only has to say WHEN, which is exactly what
+   * makes it free: no idle flicker, and nothing keeping a flamer board awake
+   * between bursts.
+   */
+  function startFlame(pos: Position): void {
+    // `damage` has no position, so the robot's cell is a guess about what hurt
+    // it; the mesh confirming there is a flamer there is the check.
+    if (meshes.flameAt(pos.x, pos.y, 1)) flame = { pos, t: 0 };
+  }
+
+  function stepFlame(dt: number, still: boolean): boolean {
+    if (!flame) return false;
+    flame.t += dt;
+    const live = flame.t < FLAME_SECONDS;
+    // Reduced motion holds the burst's shape rather than playing it — but it
+    // still ENDS, exactly as EffectField's frozen rings still expire, and the
+    // last write has to be the resting size whichever branch got there. A held
+    // pose that is never released is a flamer left permanently twice its size.
+    const scale = !live ? flameScale(FLAME_SECONDS) : still ? FLAME_STILL_SCALE : flameScale(flame.t);
+    meshes.flameAt(flame.pos.x, flame.pos.y, scale);
+    if (!live) flame = null;
+    return live;
   }
 
   /**
@@ -598,6 +707,7 @@ export async function createBoardScene(
     moving = effects.step(dt, director.camera.quaternion) || moving;
     moving = stepBeam(dt) || moving;
     moving = stepKey(dt) || moving;
+    moving = stepFlame(dt, prefersReducedMotion()) || moving;
     if (belts()) meshes.tick(elapsed);
 
     renderer.render(scene, director.camera);
@@ -857,6 +967,11 @@ export async function createBoardScene(
       shot: director.currentShot(),
       cuts: director.cuts(),
       hardCuts: director.hardCuts(),
+    }),
+    stats: () => ({
+      calls: renderer.info.render.calls,
+      triangles: renderer.info.render.triangles,
+      stolen: effects.stolen(),
     }),
     dispose() {
       disposed = true;

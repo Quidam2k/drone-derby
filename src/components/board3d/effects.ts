@@ -19,10 +19,19 @@
 import * as THREE from 'three';
 import { clamp01, ease, flashCurve } from './effectMath';
 
-/** Expanding/contracting rings: bump, shockwave, landing dust, checkpoint halo. */
-const RING_SLOTS = 8;
-/** Billboards: laser impacts, blast debris, the win burst. */
-const PUFF_SLOTS = 22;
+/**
+ * Expanding/contracting rings: bump, shockwave, landing dust, checkpoint halo,
+ * hazard pulses, the crusher's anticipation ring.
+ *
+ * 8 and 22 were sized for one ring plus seven debris puffs. Phase 48 can put a
+ * three-ring shockwave, a hazard pulse and a slam in the same register, and a
+ * teleport lays six billboards down at once on top of whatever is still in the
+ * air — so both pools go up. `stolen()` is what says whether they went up
+ * enough; it must stay at 0 across a whole game.
+ */
+const RING_SLOTS = 14;
+/** Billboards: laser impacts, blast debris, teleport trails, the win burst. */
+const PUFF_SLOTS = 32;
 
 /**
  * The pose a reduced-motion effect holds instead of animating. Near the peak of
@@ -40,7 +49,26 @@ const COLOR = {
   dust: 0x9fd8ff,
   checkpoint: 0x6fe3bd,
   win: 0xfff0b8,
+  /** The crusher's steel, so the slam doesn't read as another explosion. */
+  slam: 0xc9d4f2,
+  teleport: 0x6fe4ff,
 };
+
+/**
+ * Hazard pulse colours, each taken from the tile's OWN material in
+ * boardMesh.ts. That is the whole point of the effect: six of the ten
+ * expansion elements have to read through silhouette alone (Phase 46's
+ * decision log), so when one of them damages a robot the only thing that can
+ * say WHICH one did it is the colour of the beat it makes.
+ */
+const HAZARD: Record<HazardKind, number> = {
+  flamer: 0xff9636, // flameMat
+  radiation: 0xd3e34a, // radiationMat
+  waste: 0x58c470, // wasteMat's emissive
+};
+
+/** The `damage` event's environmental sources. Laser damage is not one. */
+export type HazardKind = 'flamer' | 'radiation' | 'waste';
 
 interface Anim {
   t: number;
@@ -163,6 +191,11 @@ export class EffectField {
    * A free slot, or the most-progressed busy one. Stealing beats dropping: a
    * blast's shockwave arriving while six debris puffs are still in the air must
    * not be the effect that goes missing.
+   *
+   * It is still a VISIBLE GLITCH — a live effect vanishes mid-flight — so every
+   * theft is counted. `stolen()` reads it out through the scene's `stats()`,
+   * and the Phase 48 pool sizes are only justified if a whole multi-turn game
+   * leaves it at zero.
    */
   private take(pool: Slot[]): Slot {
     let oldest = pool[0];
@@ -175,7 +208,15 @@ export class EffectField {
         oldest = s;
       }
     }
+    this.stolenCount++;
     return oldest;
+  }
+
+  private stolenCount = 0;
+
+  /** How many times a live effect has been cut short for want of a slot. */
+  stolen(): number {
+    return this.stolenCount;
   }
 
   private start(slot: Slot, s: Spawn): void {
@@ -304,15 +345,33 @@ export class EffectField {
     });
   }
 
-  /** Destruction: a shockwave ring across the deck plus a puff of debris. */
+  /**
+   * A layered shockwave: three rings leaving at staggered starts, each reaching
+   * further and fading slower than the last.
+   *
+   * One ring (the pre-48 blast) read as a bubble — it left at a single speed
+   * and stopped. Three overlapping wavefronts is what gives an explosion a
+   * front and a tail without adding a particle system to do it.
+   */
+  shockwave(at: THREE.Vector3): void {
+    const base = new THREE.Vector3(at.x, 0.09, at.z);
+    for (let i = 0; i < 3; i++) {
+      this.start(this.take(this.rings), {
+        // Each ring starts where the one before it was heading, so they never
+        // sit on top of each other and z-fight on the deck.
+        at: base.clone().setY(0.09 + i * 0.012),
+        life: 0.42 + i * 0.16,
+        r0: 0.3 + i * 0.22,
+        r1: 1.25 + i * 0.5,
+        color: i === 1 ? COLOR.impact : COLOR.ember,
+        peak: 1 - i * 0.26,
+      });
+    }
+  }
+
+  /** Destruction: a layered shockwave across the deck plus a puff of debris. */
   blast(at: THREE.Vector3): void {
-    this.start(this.take(this.rings), {
-      at: new THREE.Vector3(at.x, 0.09, at.z),
-      life: 0.55,
-      r0: 0.3,
-      r1: 1.55,
-      color: COLOR.ember,
-    });
+    this.shockwave(at);
     for (let i = 0; i < SPRAY.length; i++) {
       const a = SPRAY[i];
       const reach = 0.55 + (i % 3) * 0.28;
@@ -342,6 +401,96 @@ export class EffectField {
       r1: 0.3,
       color: COLOR.checkpoint,
       peak: 0.85,
+    });
+  }
+
+  /**
+   * Teleport: a trail of cyan billboards along a LIFTED ARC from the departure
+   * cell to the arrival cell.
+   *
+   * The arc is the whole reading. A blink already marks both ends (scene.ts
+   * fires `repair` on the origin and `land` on the destination), but with only
+   * those two marks a portal jump across the board is indistinguishable from
+   * two unrelated things happening at once. The arc is what says they are the
+   * same robot — and it is drawn as a rising trail rather than a straight line
+   * so it reads as travel over the board, not a laser across it.
+   *
+   * The puffs are staggered so the trail LEAVES the origin: each one starts
+   * further along and lives a little longer, which the shared drift field turns
+   * into a wave without any per-puff timeline.
+   */
+  teleport(from: THREE.Vector3, to: THREE.Vector3): void {
+    const n = 6;
+    // A short hop over one tile shouldn't arc as high as a jump across the
+    // board, but a zero-length hop still needs a visible pop.
+    const span = Math.hypot(to.x - from.x, to.z - from.z);
+    const height = 0.45 + Math.min(span, 8) * 0.14;
+    for (let i = 0; i < n; i++) {
+      const s = i / (n - 1);
+      // Sine, not a parabola: it is 0 at both ends, so the trail meets the deck
+      // exactly where the two end marks are.
+      const lift = Math.sin(Math.PI * s) * height;
+      this.start(this.take(this.puffs), {
+        at: new THREE.Vector3(
+          from.x + (to.x - from.x) * s,
+          0.22 + lift,
+          from.z + (to.z - from.z) * s,
+        ),
+        life: 0.34 + s * 0.2,
+        r0: 0.16 + s * 0.1,
+        r1: 0.5,
+        color: COLOR.teleport,
+        flash: true,
+        peak: 0.9,
+        spin: i % 2 ? 1.1 : -0.9,
+        drift: new THREE.Vector3(0, 0.28, 0),
+      });
+    }
+  }
+
+  /**
+   * An environmental hazard biting: a ring in the HAZARD'S OWN COLOUR.
+   *
+   * This is the beat the silhouette-only pieces never had. A flamer roasting a
+   * robot, a radiation tick and a walk through waste all emitted the same
+   * `damage` event with nothing on the board to tell them apart — the caption
+   * was the entire difference. Orange, yellow-green and green are the same
+   * three colours the tiles themselves are painted, so the pulse points at the
+   * tile that did it.
+   */
+  hazardPulse(at: THREE.Vector3, kind: HazardKind): void {
+    this.start(this.take(this.rings), {
+      at: new THREE.Vector3(at.x, 0.12, at.z),
+      life: 0.42,
+      r0: 0.34,
+      r1: 0.95,
+      color: HAZARD[kind],
+      peak: 0.9,
+      // Radiation and waste are ambient — they seep. A flamer is a burst, so it
+      // gets the flash attack and the other two get a plain fade.
+      flash: kind === 'flamer',
+      spin: kind === 'waste' ? 0.5 : 0,
+    });
+  }
+
+  /**
+   * Crusher anticipation: a ring drawn INWARD onto the cell, ahead of the
+   * impact.
+   *
+   * Contracting is `repair()`'s idiom, borrowed deliberately. The crusher's
+   * own beat used to be an impact flash plus a bump ring — both of which are
+   * this field's language for something leaving a point — so a press coming
+   * down read as a small explosion. Drawing the ring in first is what makes it
+   * read as a mass arriving from above.
+   */
+  slam(at: THREE.Vector3): void {
+    this.start(this.take(this.rings), {
+      at: new THREE.Vector3(at.x, 0.13, at.z),
+      life: 0.3,
+      r0: 1.45,
+      r1: 0.5,
+      color: COLOR.slam,
+      peak: 0.95,
     });
   }
 
