@@ -50,7 +50,7 @@ export function SignInGate({ children }: { children: ReactNode }) {
 
   return (
     <div className="screen center-screen">
-      <h1 className="title">Drone Derby</h1>
+      <h1 className="title brand">Drone Derby</h1>
       <p className="subtitle">Program your robot. Survive the factory. Beat your friends.</p>
       <button
         className="primary big"

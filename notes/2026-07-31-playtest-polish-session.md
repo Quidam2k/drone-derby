@@ -102,3 +102,38 @@ Cascade: `cascades/2026-07-31-playtest-polish.md` (phases 42–50).
 ⚠️ NEXT: Phase 45 — UI consistency pass (S). index.css-centric: speech
 bubbles to dark theme, button scale tokens, :focus-visible ring, themed
 scrollbars; Playwright before/after sweep at 1280 + 375. Plan in cascade.
+
+## Phase 45 shipped: UI consistency pass (not deployed — next deploy at 50)
+
+Written 7/31 late, verified + landed 8/1.
+
+- **Speech bubbles** off the cream `#fffdf5` onto `--panel-2` + `--line`
+  border. The tail is two stacked triangles — `::before` in `--line` sits
+  1px proud of the `::after` in `--panel-2` — so the bubble's border
+  continues around the tail instead of stopping at the corners. Checked in
+  both renderers (3D and DOM fallback).
+- **Scale tokens** `--radius` (8px), `--radius-sm` (6px), `--btn-py`,
+  `--btn-px` replace ~15 ad-hoc 8/10/12px radii and the button padding
+  literals. Mobile 44px touch minimums untouched.
+- **Focus ring**: global `:focus-visible` accent outline, 2px offset —
+  measured live, and mouse clicks stay ring-free. Removed `outline: none`
+  from `input:focus` so text fields participate.
+- **Themed scrollbars** (`scrollbar-color`/`scrollbar-width` + webkit
+  pseudo-elements); **disabled buttons** get `filter: saturate(0.4)` so a
+  disabled `.primary` reads grey, not faded-accent.
+- **Hero gradient is lobby-only now.** This was the one plan item nobody
+  had done: `.title` carried the gradient, so all 8 screens using it wore
+  the brand. `.title` → plain `--text`; gradient moved to `.title.brand`
+  on the three "Drone Derby" wordmark sites only. New screens get the
+  plain title by default.
+- 513 tests + typecheck green. Screenshot caveat: the 7/31 lobby/gallery
+  before+after shots all caught the signed-out splash (all 22798 bytes,
+  useless); real ones recaptured 8/1 as phase45-after-lobby-1280 /
+  -lobby-focus-1280 / -lobby-375 / -gallery-1280 /
+  -gallery-plain-title-1280.
+
+⚠️ NEXT: Phase 46 — Blender kit pieces for the 10 expansion elements (L).
+tiles.py → `npm run art:tiles` → tiles.glb, then boardMesh.ts/tileKit.ts
+wiring. Model each piece in the LOCAL FRAME of the primitive it replaces
+(read boardMesh.ts:300-500 first). CPU only; primitive fallback must keep
+working with tiles.glb deleted.

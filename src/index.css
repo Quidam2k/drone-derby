@@ -11,6 +11,10 @@
   --accent: #4cc9f0;
   --danger: #f25c54;
   --wall: #e8b830;
+  --radius: 8px;
+  --radius-sm: 6px;
+  --btn-py: 0.4rem;
+  --btn-px: 0.8rem;
   --player-0: #f94144;
   --player-1: #f9c74f;
   --player-2: #43aa8b;
@@ -22,6 +26,29 @@
 
 * {
   box-sizing: border-box;
+  /* Firefox / modern-Chrome themed scrollbars; webkit rules below cover Safari. */
+  scrollbar-color: var(--line) transparent;
+  scrollbar-width: thin;
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Keyboard focus only — :focus-visible leaves mouse clicks ring-free. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 body {
@@ -47,15 +74,17 @@ button {
   color: inherit;
   background: var(--panel-2);
   border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 0.4rem 0.8rem;
+  border-radius: var(--radius);
+  padding: var(--btn-py) var(--btn-px);
   cursor: pointer;
 }
 button:hover:not(:disabled) {
   border-color: var(--accent);
 }
 button:disabled {
+  /* Desaturate too, so a disabled .primary reads grey rather than faded accent. */
   opacity: 0.45;
+  filter: saturate(0.4);
   cursor: default;
 }
 button.primary {
@@ -75,12 +104,11 @@ select {
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 0.45rem 0.7rem;
 }
 input:focus,
 select:focus {
-  outline: none;
   border-color: var(--accent);
 }
 
@@ -106,6 +134,12 @@ select:focus {
   font-size: clamp(2.1rem, 9vw, 3rem);
   margin: 0;
   letter-spacing: 0.04em;
+  color: var(--text);
+}
+/* The player-color gradient is the WORDMARK, not a heading style: it belongs
+   to "Drone Derby" only. Inner screens ("Board gallery", "How to play") wear
+   plain --text so the brand keeps its punch. */
+.title.brand {
   background: linear-gradient(90deg, var(--player-0), var(--player-1), var(--player-2), var(--accent));
   -webkit-background-clip: text;
   background-clip: text;
@@ -223,7 +257,7 @@ select:focus {
 }
 .board-overlay-controls :is(.follow-seg, .renderer-seg) {
   display: inline-flex;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
 }
 .board-overlay-controls button {
@@ -243,10 +277,10 @@ select:focus {
   border-right-width: 0;
 }
 .board-overlay-controls :is(.follow-seg, .renderer-seg) button:first-child {
-  border-radius: 6px 0 0 6px;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
 }
 .board-overlay-controls :is(.follow-seg, .renderer-seg) button:last-child {
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   border-right-width: 1px;
 }
 .board-overlay-controls button:hover:not(:disabled) {
@@ -258,11 +292,12 @@ select:focus {
   font-weight: 700;
 }
 .board-overlay-controls button:disabled {
-  opacity: 0.4;
+  opacity: 0.45;
+  filter: saturate(0.4);
   cursor: default;
 }
 .board-overlay-controls .reset-view {
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.85rem;
   padding: 0.25rem 0.45rem;
 }
@@ -607,7 +642,7 @@ select:focus {
 .player-card {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius);
   padding: 0.55rem 0.75rem;
 }
 .player-card.active {
@@ -679,7 +714,7 @@ select:focus {
   width: fit-content;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius);
   font-size: 0.85rem;
 }
 .respawn-facing-label {
@@ -710,7 +745,7 @@ select:focus {
   max-width: 34rem;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius);
   text-align: center;
 }
 .powered-down-note {
@@ -735,7 +770,7 @@ select:focus {
   gap: 0.3rem;
   padding: 0.35rem;
   border: 2px dashed var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius);
   background: var(--panel);
 }
 .register-slot.filled {
@@ -769,7 +804,7 @@ select:focus {
 .hand-card {
   padding: 0.4rem 0.3rem;
   width: 76px;
-  border-radius: 10px;
+  border-radius: var(--radius);
   background: var(--panel-2);
 }
 .hand-card.selected {
@@ -942,7 +977,7 @@ button.quiet {
 .lobby-card {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius);
   padding: 1rem;
   display: flex;
   flex-direction: column;
@@ -1094,7 +1129,7 @@ button.quiet {
   align-items: center;
   gap: 0.4rem;
   padding: 0.55rem 0.7rem;
-  border-radius: 10px;
+  border-radius: var(--radius);
   flex: 0 0 auto;
 }
 .board-option[aria-checked='true'] {
@@ -1199,7 +1234,7 @@ button.quiet {
   gap: 0.75rem;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius);
   padding: 0.6rem 1rem;
   margin: 1rem 0;
 }
@@ -1221,7 +1256,7 @@ button.quiet {
   transform: translateX(-50%);
   background: var(--panel);
   border: 1px solid #ff7b72;
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 0.4rem 1rem;
   z-index: 10;
 }
@@ -1246,6 +1281,8 @@ button.quiet {
 .quiet-link:hover,
 .primary-link:hover {
   color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .quiet-link {
   display: block;
@@ -1273,9 +1310,10 @@ button.quiet {
   transform: translate(-50%, calc(-100% - 4px));
   max-width: calc(var(--tile) * 4);
   width: max-content;
-  background: #fffdf5;
-  color: #1a1d24;
-  border-radius: 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
   padding: 0.25rem 0.55rem;
   font-size: 0.78rem;
   line-height: 1.25;
@@ -1285,6 +1323,18 @@ button.quiet {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
   animation: bubble-pop 0.18s ease-out;
 }
+/* Tail: a line-color triangle 1px proud of the panel-color one, so the
+   bubble's 1px border continues around the tail. */
+.speech-bubble::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  transform: translateX(-50%);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 7px solid var(--line);
+}
 .speech-bubble::after {
   content: '';
   position: absolute;
@@ -1293,7 +1343,7 @@ button.quiet {
   transform: translateX(-50%);
   border-left: 6px solid transparent;
   border-right: 6px solid transparent;
-  border-top: 6px solid #fffdf5;
+  border-top: 6px solid var(--panel-2);
 }
 @keyframes bubble-pop {
   from {
@@ -1358,7 +1408,7 @@ button.quiet {
   gap: 0.4rem;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius);
   padding: 0.9rem 1.2rem;
   margin: 0.5rem 0 1.25rem;
   min-width: 18rem;
@@ -1442,7 +1492,7 @@ button.quiet {
 .modal {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius);
   padding: 1rem 1.25rem;
   max-width: min(680px, 94vw);
   max-height: 85dvh;
@@ -1515,7 +1565,7 @@ button.quiet {
   gap: 0.4rem;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius);
   padding: 0.55rem 0.7rem;
 }
 .tool-option-row {
@@ -1607,7 +1657,7 @@ button.quiet {
   max-width: 280px;
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius);
   padding: 0.8rem 1rem;
 }
 .validation-panel h3 {

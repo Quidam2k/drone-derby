@@ -106,7 +106,7 @@ function LobbyInner() {
   return (
     <div className="screen lobby-screen">
       <header className="lobby-header">
-        <h1 className="title">Drone Derby</h1>
+        <h1 className="title brand">Drone Derby</h1>
         <span className="lobby-header-actions">
           <NotificationsButton />
           <button
