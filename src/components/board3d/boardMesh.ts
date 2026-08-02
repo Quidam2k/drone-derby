@@ -194,11 +194,40 @@ interface Chevron {
   yaw2?: number;
 }
 
+/** Height of the flame cone over a flamer, and half its own height. */
+const FLAME_BASE_Y = 0.09;
+const FLAME_HALF = 0.21;
+/** Radians a second a portal's ring turns, and how fast its core breathes. */
+const PORTAL_SPIN = 0.9;
+const PORTAL_PULSE_HZ = 0.55;
+
 export interface BoardMeshes {
   group: THREE.Group;
-  /** True when something on this board animates on its own (scrolling belts). */
+  /**
+   * True when something on this board animates on its own — scrolling belts,
+   * and since Phase 48 a portal's idle swirl.
+   *
+   * This is what keeps ./scene.ts's render loop awake, so adding portals to it
+   * means A BOARD WITH PORTALS NEVER SLEEPS, exactly as a board with belts
+   * never sleeps. That is the deliberate, consistent choice: every builtin
+   * board already carries 4-52 belts, so in practice nothing changes for any of
+   * them, and the only board it costs is a hand-built portal-only one from the
+   * editor. The alternative considered and rejected was a CONDITIONAL swirl
+   * ("animate only while something else already is"), which would make the same
+   * portal look different depending on what else happened to be on its board.
+   */
   animated: boolean;
   tick(elapsed: number): void;
+  /**
+   * Scale the modelled flame on the flamer at (x, y); 1 is its resting size.
+   * False when there is no flamer there, so scene.ts can fire blind off a
+   * `damage` event without knowing what hurt the robot.
+   *
+   * The flame's ROOT stays on the nozzle whatever the scale — the cone's origin
+   * is its own centre, so a naive uniform scale would push half the growth
+   * through the deck.
+   */
+  flameAt(x: number, y: number, scale: number): boolean;
   /**
    * The checkpoint ring drawn on a cell: its geometry (whichever of the kit
    * piece or the primitive won) and the exact matrix it was instanced with, so
@@ -286,6 +315,10 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   const crusherPlates = new Batch();
   const flamerNozzles = new Batch();
   const flamerFlames = new Batch();
+  /** Portal cells in batch order, so tick() can find each ring/core instance. */
+  const portalCells: Position[] = [];
+  /** Cell key -> its instance index in the flame batch. */
+  const flameIndex = new Map<string, number>();
 
   /**
    * The checkpoint/spawn number, as a digit lying on the tile. Pips were the
@@ -423,6 +456,7 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
       case 'portal':
         portalRings.add({ pos: centre(x, y, 0.05), color: PORTAL_HEX[def.color] });
         portalCores.add({ pos: centre(x, y, 0.04), color: PORTAL_HEX[def.color] });
+        portalCells.push({ x, y });
         break;
       case 'teleporter':
         teleporterRings.add({ pos: centre(x, y, 0.05) });
@@ -493,7 +527,8 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   for (const f of board.flamers ?? []) {
     const { x, y } = f.pos;
     flamerNozzles.add({ pos: centre(x, y, 0.05) });
-    flamerFlames.add({ pos: centre(x, y, 0.3) });
+    flameIndex.set(`${x},${y}`, flamerFlames.count);
+    flamerFlames.add({ pos: centre(x, y, FLAME_BASE_Y + FLAME_HALF) });
     addLabel(x, y, f.registers.join(' '), '#7d1d10', 0.5, 0.52);
   }
 
@@ -609,7 +644,11 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
     new THREE.MeshStandardMaterial({
       color: 0x3f7d36,
       emissive: new THREE.Color(0x58c470),
-      emissiveIntensity: 0.18,
+      // 0.18 under ACES made the puddle the brightest thing on a deck — louder
+      // than radiation sitting next to it, which is the same class of hazard
+      // for the same 1 damage. Down to where the green still cues the hazard
+      // but the modelled surface gets some shading back.
+      emissiveIntensity: 0.1,
       roughness: 0.9,
     }),
   );
@@ -622,7 +661,9 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
     new THREE.MeshStandardMaterial({
       color: 0x57a7e8,
       emissive: new THREE.Color(0x57a7e8),
-      emissiveIntensity: 0.7,
+      // The kit models an iris into this core; at 0.7 it clipped to a flat
+      // white-blue disc and the relief vanished — Phase 46's rule again.
+      emissiveIntensity: 0.45,
       roughness: 0.35,
     }),
   );
@@ -650,7 +691,12 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
     new THREE.MeshStandardMaterial({
       color: 0xff9636,
       emissive: new THREE.Color(0xff9636),
-      emissiveIntensity: 1.2,
+      // 1.2 clipped straight through orange to a pale beige cone — a flame with
+      // no fire in it. This is also the one emissive that has a second job now:
+      // scene.ts scales this cone on a flamer burst, and a burst has to read as
+      // HOTTER than the resting jet, which it cannot if the resting jet is
+      // already at white.
+      emissiveIntensity: 0.6,
       roughness: 0.4,
       transparent: true,
       opacity: 0.85,
@@ -805,21 +851,20 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
       { receive: true },
     ),
   );
-  add(
-    portalRings.build(
-      pieceGeom(kit?.portal_ring, () =>
-        new THREE.TorusGeometry(0.32, 0.06, 8, 24).rotateX(Math.PI / 2),
-      ),
-      portalMat,
-      { cast: true },
+  // Held rather than added blind: tick() re-poses both every frame.
+  const portalRingMesh = portalRings.build(
+    pieceGeom(kit?.portal_ring, () =>
+      new THREE.TorusGeometry(0.32, 0.06, 8, 24).rotateX(Math.PI / 2),
     ),
+    portalMat,
+    { cast: true },
   );
-  add(
-    portalCores.build(
-      pieceGeom(kit?.portal_core, () => new THREE.CylinderGeometry(0.16, 0.16, 0.025, 16)),
-      portalMat,
-    ),
+  add(portalRingMesh);
+  const portalCoreMesh = portalCores.build(
+    pieceGeom(kit?.portal_core, () => new THREE.CylinderGeometry(0.16, 0.16, 0.025, 16)),
+    portalMat,
   );
+  add(portalCoreMesh);
   add(
     teleporterRings.build(
       pieceGeom(kit?.teleporter_pad, () =>
@@ -872,7 +917,12 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
       { cast: true },
     ),
   );
-  add(flamerFlames.build(geom(new THREE.ConeGeometry(0.15, 0.42, 10)), flameMat, { cast: true }));
+  const flameMesh = flamerFlames.build(
+    geom(new THREE.ConeGeometry(0.15, FLAME_HALF * 2, 10)),
+    flameMat,
+    { cast: true },
+  );
+  add(flameMesh);
 
   // Chevrons: one instanced mesh per speed class so express keeps its accent
   // colour, both re-placed every frame by tick().
@@ -919,8 +969,48 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   const up = new THREE.Vector3(0, 1, 0);
   const one = new THREE.Vector3(1, 1, 1);
   const p = new THREE.Vector3();
+  const s3 = new THREE.Vector3();
+
+  /**
+   * A portal's idle swirl: the ring turns and the core breathes.
+   *
+   * Two motions because the two paths have different geometry to work with. The
+   * kit's `portal_ring` carries four mounting tabs, so a yaw is plainly visible
+   * on it; the primitive is a plain torus and rotationally symmetric, where the
+   * yaw is a no-op. The core's in-plane pulse is what reads on BOTH — it is the
+   * fallback board's whole animation.
+   *
+   * The phase comes from the cell, not from an index, so two portals of a pair
+   * are out of step with each other and the board doesn't pulse as one unit.
+   */
+  const swirls = portalCells.map((c) => ({
+    ring: new THREE.Vector3(c.x + 0.5, 0.05, c.y + 0.5),
+    core: new THREE.Vector3(c.x + 0.5, 0.04, c.y + 0.5),
+    phase: ((c.x * 5 + c.y * 3) % 8) * (Math.PI / 4),
+  }));
+
+  function tickPortals(elapsed: number): void {
+    if (!swirls.length) return;
+    swirls.forEach((sw, i) => {
+      const spin = elapsed * PORTAL_SPIN + sw.phase;
+      if (portalRingMesh) {
+        portalRingMesh.setMatrixAt(i, m4.compose(sw.ring, q.setFromAxisAngle(up, spin), one));
+      }
+      if (portalCoreMesh) {
+        // In-plane only: a core that grew vertically would lift out of its ring.
+        const pulse = 1 + 0.16 * Math.sin(2 * Math.PI * PORTAL_PULSE_HZ * elapsed + sw.phase);
+        portalCoreMesh.setMatrixAt(
+          i,
+          m4.compose(sw.core, q.setFromAxisAngle(up, -spin), s3.set(pulse, 1, pulse)),
+        );
+      }
+    });
+    if (portalRingMesh) portalRingMesh.instanceMatrix.needsUpdate = true;
+    if (portalCoreMesh) portalCoreMesh.instanceMatrix.needsUpdate = true;
+  }
 
   function tick(elapsed: number): void {
+    tickPortals(elapsed);
     for (const { mesh, items } of chevMeshes) {
       items.forEach((c, i) => {
         // Chevrons cycle within their own tile; neighbours share the phase, so
@@ -943,8 +1033,17 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
 
   return {
     group,
-    animated: chevMeshes.length > 0,
+    animated: chevMeshes.length > 0 || swirls.length > 0,
     tick,
+    flameAt(x, y, scale) {
+      const i = flameIndex.get(`${x},${y}`);
+      if (i === undefined || !flameMesh) return false;
+      const s = Math.max(scale, 0.01);
+      p.set(x + 0.5, FLAME_BASE_Y + FLAME_HALF * s, y + 0.5);
+      flameMesh.setMatrixAt(i, m4.compose(p, q.identity(), s3.setScalar(s)));
+      flameMesh.instanceMatrix.needsUpdate = true;
+      return true;
+    },
     checkpointRing(x, y) {
       const i = ringIndex.get(`${x},${y}`);
       if (i === undefined || !ringMesh) return null;
