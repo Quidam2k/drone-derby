@@ -13,10 +13,10 @@ the project sequence (last shipped: 40; optional 41 is folded into 46 here).
 | 44 | Editor UX overhaul (M) | DONE (2026-07-31) |
 | 45 | UI consistency pass (S) | DONE (2026-08-01) |
 | 46 | Blender kit pieces, 10 expansion elements (L) | DONE (2026-08-01) |
-| 47 | Robot mesh animation (M/L) | pending |
-| 48 | Lighting + effects polish (M) | pending |
-| 49 | Camera niceties (S, optional — cut first) | pending |
-| 50 | Ship + docs | pending |
+| 47 | Robot mesh animation (M/L) | DONE (2026-08-01) |
+| 48 | Lighting + effects polish (M) | DONE (2026-08-01) |
+| 49 | Camera niceties (S, optional — cut first) | DONE (2026-08-02) |
+| 50 | Ship + docs + deploy | DONE (2026-08-02) — cascade complete |
 
 ## Context
 
@@ -260,6 +260,107 @@ notes per the session-state convention.
 
 ## Cross-phase decisions
 
+- **Phase 49, THE WIN SWEEP IS ADDITIVE AND MUST STAY THAT WAY.** The orbit
+  lives in `CameraDirector.orbitT`/`flourishYaw` and is composed onto the pose
+  at `apply()` time; it never touches `view.yaw` or `wantedView.yaw`. Those are
+  the PLAYER's viewpoint, eased toward the persisted `viewSettings` value — an
+  orbit written into them would fight its own ease and would leave the player's
+  saved camera permanently rotated after a win. The probe reports it as a
+  separate `flourishYaw`, because a probe reading `view().yaw` alone would show
+  a dead-still camera through the whole victory lap.
+- **Phase 49, `fit()` KEEPS USING THE RESTING FOV; only `pan()` reads the live
+  one.** `fit()` solves the pull-back FROM the field of view, so a widened
+  `fit()` pulls the camera in by exactly as much as the lens opened and cancels
+  the effect — silently, with a settled pose that still looks correct. This was
+  called out as the risky half of the phase and it is now pinned by a test that
+  fails on that exact mutation (verified by making it): a whip between two shots
+  of the SAME radius must hold `camera.position.y` flat across the entire
+  flight. `pan()` is the opposite case — it converts a screen fraction into
+  world units, which is a genuine question about the projection on screen now.
+- **Phase 49, a SWEEP, not an orbit.** `ORBIT_PEAK_RAD` is 0.55 rad (~32°) and
+  the test asserts it stays under a quarter turn. A full revolution swings the
+  camera behind the board and shows the far rim and the backs of every tile —
+  that is a bug report, not a victory lap.
+- **Phase 48, BLOOM WAS MEASURED AND REJECTED — do not re-litigate by
+  accident.** EffectComposer + RenderPass + UnrealBloomPass + OutputPass was
+  actually wired up behind the lazy `./scene` boundary (its own dynamic import,
+  so a phone would not have downloaded it) and gated off on `(pointer: coarse)`.
+  Of the plan's three keep-criteria: (2) HELD — the loop still settled, 1 idle
+  frame and 43 after a blast, because the composer renders from inside
+  `frame()` rather than a loop of its own; (3) was implemented; (1) FAILED
+  TWICE. Idle frame submit went 0.80 → 1.07 ms/frame (+33%), and decisively
+  `renderer.info.render` then describes the OutputPass's full-screen quad, so
+  `stats()` reported **1 call / 1 triangle instead of 114 / 160246**. That hook
+  is the only way the robot merge budget (Phase 47) and this scene's cost are
+  checkable from outside, and a composer blinds it. The art case was weak
+  independently: Phase 48's own tuning pass spent itself pulling emissives DOWN
+  because they were already clipping to white under ACES, which is the opposite
+  of what bloom wants — `12-bloom-experiment-rejected.png` shows the robots'
+  modelled lamp and screen detail turning into white blobs. A
+  `// NO POST-PROCESSING HERE` block in scene.ts carries this forward.
+- **Phase 48, a board with PORTALS never sleeps** — exactly as a board with
+  belts never sleeps. `BoardMeshes.animated` is now `chevrons.length > 0 ||
+  portals.length > 0`, so the portal swirl rides the same `tick(elapsed)` the
+  belts do and reduced motion stops both. This costs nothing in practice
+  (every builtin board already carries 4–52 belts, so none of them slept
+  anyway) and only matters for a hand-built portal-only board from the editor.
+  The rejected alternative was a CONDITIONAL swirl — "animate only while
+  something else already is" — which would make the same portal look different
+  depending on what else happened to be on its board.
+- **Phase 48, `damage` carries no position, so the hazard beat is inferred.**
+  The event names only the player, so `dispatch` takes the robot's own cell
+  from the VisualState and fires `hazardPulse` there; the flame is confirmed
+  rather than assumed, because `meshes.flameAt()` returns false when there is
+  no flamer on that cell. That guard is what keeps a flamer-sourced damage
+  event from flaring the wrong tile if the robot has already moved on.
+- **Phase 48, the flame's rest emissive is load-bearing, not decoration.**
+  It was 1.2 and clipped through orange to pale beige; at that value a BURST
+  cannot read as hotter than the idle jet, because the idle jet is already
+  white. 0.6 is what makes the scaled cone read as fire.
+- **Phase 48, the Playwright rAF gotcha has a second, nastier form.** Phase 47
+  learned "poll, don't sleep". 48 learned that an effect (0.3–0.5 s) expires
+  inside the wall-clock gap between `page.evaluate` returning and the
+  screenshot being taken — three flamer screenshots came back empty and looked
+  exactly like a broken drive. The fix is to **replace
+  `window.requestAnimationFrame` with a manual queue before creating the
+  scene**, so scene time advances only on an explicit `step(n)`. Every Phase 48
+  screenshot was taken with the clock frozen; reuse this for any effect work.
+- **Phase 48, observed but NOT fixed (pre-existing):** 25 Board3D mounts over a
+  5-turn hot-seat game trip Chrome's "Too many active WebGL contexts" warning.
+  `scene.dispose()` calls `renderer.dispose()` but never
+  `forceContextLoss()`, so contexts accumulate until the oldest is dropped.
+  Unrelated to this phase, and renderer lifecycle is not something to start
+  changing on all four player-facing screens right before ship — for 49/50.
+- **Phase 47, the animation clock is DISTANCE, not time.** Treads, gait and
+  wheels are pure functions of how far the chassis has actually travelled, so
+  they stop dead when the ease settles and the on-demand render loop can still
+  sleep. Only the hovercraft's bob uses a real clock, and its amplitude is
+  scaled by a smoothed speed that is SNAPPED to zero at 0.01 tiles/s —
+  without that snap an exponential decay never reaches zero and every rig
+  would report `moving` forever. See `robotAnim.ts`.
+- **Phase 47, `RobotRig.object` is now a wrapper around an inner `body`.**
+  `probe()`/`cell()` report `object.position.y` as height above the deck and
+  Playwright asserts no robot is left airborne, so the hovercraft's bob had to
+  live on a child. Everything else (death trajectory, respawn drop, opacity,
+  visibility, dispose) still owns `object` and is unchanged.
+- **Phase 47, the parts are held out of the merge in the PART's frame, but
+  with the CHASSIS's axes.** Geometry is baked to `world - pivot` (translation
+  only, not the full inverse of the empty's matrix), so -Z is still "where the
+  robot is pointing" inside a part and a wheel spins about local X. The
+  exported empties turned out to carry identity rotation anyway, so the two
+  are equivalent today — the translation-only form just cannot be broken by a
+  future exporter that decides to put the Y-up conversion on the node.
+- **Phase 47, `common.dome` IS the icosphere now** (Phase 46 predicted it):
+  the robot export was non-deterministic on exactly the two chassis that call
+  it, 1's `cap` and 2's `screen`. That fixed chassis 2. Chassis 1 needed a
+  SECOND fix — its two `antenna` rods, r=0.009 with the default 0.008 bevel
+  (89% of the radius) at 10 sides. The near-degenerate corners left split
+  normals agreeing only to within float noise, so the glTF exporter's vertex
+  merge took them on some runs and not others (269 vertices one export, 268
+  the next). 12 sides and bevel 0.003 — matching chassis 0's always-stable
+  `mast` — and all four are byte-identical across three exports. General rule:
+  a bevel near the radius, or a low-vertex cylinder, is an export-determinism
+  hazard.
 - **Phase 42, turn-error logging**: the plan said "log `turn-error` then
   rethrow", but a thrown Convex mutation rolls back ALL its writes —
   including the telemetry row. So the catch logs and COMMITS (returns
@@ -335,6 +436,176 @@ notes per the session-state convention.
   substring `'checkpoint number'` in error strings (covers both
   `duplicate checkpoint number N` and `missing checkpoint number N` from
   validate.ts numberingErrors) — no validator changes.
+
+## Phase 50 verification log (2026-08-02) — CASCADE COMPLETE
+
+- **The context leak is fixed and it is the only code change in the phase.**
+  `scene.dispose()` now calls `renderer.forceContextLoss?.()` after every
+  geometry/material/texture dispose above it (before them, they would free
+  against a dead context) and optional-called because the method is absent on
+  some headless/mocked contexts.
+- **Verified in Chrome by A/B, not by reading.** 30 Board3D mount/unmount
+  cycles driven through real React remounts (`#/rules` ↔ `#/hotseat` on a live
+  hot-seat game), with the fix: **0 warnings, 0 blank boards, 30/30 mounts
+  drawing**. Then the same 30 cycles with `WEBGL_lose_context` neutered so
+  `forceContextLoss()` becomes a no-op — i.e. the old behaviour — reproduced
+  **15× "Too many active WebGL contexts"**, first at cycle ~16. The control is
+  what makes the clean run mean anything.
+- **Commit split, four commits, each typechecked in isolation.** Only
+  `scene.ts` actually spanned phases (47, 48, 49 AND the leak fix); `camera.ts`
+  → 49, `boardMesh.ts`/`effects.ts` → 48, `robots.ts` + the `.py`/`.glb`/`.png`
+  → 47, each whole. `git add -p` was not usable non-interactively, so the split
+  was done as four index-level patches (`git apply --cached --recount`) and
+  **proved lossless**: after applying all four the index was byte-identical to
+  the working tree. Each commit was then checked out into a throwaway worktree
+  (node_modules junctioned) and typechecked: b99ef67 / a0b2ece / bd9e212 /
+  7208d0c all PASS, tip 617/617.
+- README brought up to date 45→49: animated robot meshes + the
+  `npm run art -- --glb` rebuild and piecewise fallback in the 3D board
+  section, and five new playtester checklist lines (robots move like machines,
+  the board reacts to hits, hazards land, the camera performs briefly, and an
+  explicit reduced-motion line).
+- **RulesScreen: checked, deliberately unchanged.** The legend renders SVG
+  sprites from `board/sprites`, not the robot PNGs, so 47's re-export could not
+  touch it, and 46 was art for elements the rules already listed. It also
+  rendered 60× during the leak A/B with zero console errors.
+- Deployed: Convex prod + Cloudflare Pages (Production, branch master, source
+  6db4049). Version stamp **`2.0.0+6db4049+20260802`**.
+- **Prod smoke, all green.** Old SW served 4993feb until the cache was cleared
+  — normal PWA behaviour, same as Phase 43, and confirmed benign: the edge
+  `sw.js` was byte-identical to the new `dist/sw.js` and already referenced the
+  new asset hash. On the new build: footer stamp matches; Reactor Core hot-seat
+  played a full turn through to replay; robot anim parts resolved out of the
+  `.glb` on prod (`anim_tread_l/r` for the tank, `anim_tripod_a/b` for the
+  hexapod); `stolen: 0` across the whole replay; `fov` widened to 20.97 on a
+  whip re-aim (Phase 49, live); **zero console messages of any level**;
+  renderer toggle worked both ways; `?render=dom` forced flat against a stored
+  `"renderer":"3d"`. Telemetry digest: `versionsSeen` contains the new stamp,
+  `errors: []`, `rendererFallbacks: 0`, `turnErrors: 0`.
+- Screenshots: `screengrab/phase50/` (01 lobby version, 02 programming 3D,
+  03 replay 3D, 04 renderer DOM).
+
+## Phase 49 verification log (2026-08-02)
+
+- New pure module `flourishMath.ts` (`orbitYaw` / `fovWiden`) + `camera.test.ts`
+  driving `CameraDirector` directly. Suite **593 → 617**, typecheck green.
+  `fovWiden` scales on `min(1, travel / WHIP_DISTANCE)`, importing directorMath's
+  own threshold so "what counts as a whip" has one definition.
+- The loop-sleep guarantee, per curve: `orbitYaw` is exactly 0 at 0, at
+  `ORBIT_SECONDS` and past it; `fovWiden(0)` is exactly 0. Both from a branch,
+  via `nudgeCurve`, for the reason Phase 47/48 documented.
+- `camera.test.ts` pins the four things a screenshot cannot show: a
+  `winFlourish()` leaves `currentView()` deep-equal and `cuts()`/`hardCuts()`
+  unchanged; the sweep holds `step()` true for its whole life and then reports
+  false with the offset at exactly 0 and `camera.fov` exactly 20; `setStill(true)`
+  and `setBoard()` cancel it; a NaN dt ends it instead of pinning the loop awake.
+- **The `fit()` mutation test is real, not decorative.** Replacing
+  `degToRad(FOV)` with `degToRad(this.camera.fov)` in `fit()` was actually
+  applied and the suite went red on the flat-pull-back assertion (17.554 vs
+  17.697), then reverted. An earlier draft of that test passed under the
+  mutation and was rewritten.
+- **Browser, Playwright minimised, frozen-rAF clock** (manual queue installed
+  before `createBoardScene`, per the Phase 48 decision log — a 1.8 s orbit
+  otherwise expires in the wall-clock gap before the screenshot). Scene built by
+  module import on Proving Grounds with 4 rigs; `game-won` injected through the
+  real `update({currentEvent})` path, so `dispatch`'s `game-won` arm is what
+  starts the sweep. Sampled every 6 frames: `flourishYaw` 0 → **31.51° at
+  t=0.90** → **exactly 0 at t=1.80**, with `yaw`/`tilt`/`zoom` bit-identical at
+  every sample.
+- **A flourish is not a re-aim**: re-firing `game-won` on the shot the director
+  was already holding gave `cuts` +0 across the whole sweep. (The FIRST win
+  event does add one cut — that is the director framing the winner, interest 1
+  cutting the dwell, and it predates this phase.)
+- **FOV widen in the browser**: a cross-board re-aim peaked at **21.68°** and
+  decayed monotonically to **exactly 20** on landing; a settled camera does no
+  `updateProjectionMatrix()` work at all.
+- **`stats()` unchanged** either side of a win — 78 calls / 195 200 triangles
+  before and after. Neither flourish adds geometry.
+- **Reduced motion**: separate page load with `matchMedia` patched before
+  `scene.ts` imports (it caches the MediaQueryList in a module const). Loop
+  asleep at start, `game-won` fired, **settled again in 54 frames**;
+  `flourishYaw` never left 0, `fov` never left 20, the view was bit-identical
+  throughout. Zero console errors in the session.
+- Screenshots: `screengrab/phase49/` — `01`/`03` are the rest pose before and
+  after the lap (pixel-identical), `02` is the sweep at its extreme, `04`/`05`
+  are a whip mid-flight and landed, `06` is the reduced-motion still.
+- Not deployed — Phase 50 ships 44–49 together.
+
+## Phase 48 verification log (2026-08-01)
+
+- New pure module `lightMath.ts` (key-light nudges + `flameScale`) with **35
+  tests**; suite 558 → **593**, typecheck green. The load-bearing tests are the
+  per-kind `nudgeLight` assertions that a spent nudge returns `KEY_REST`
+  EXACTLY — the same loop-sleep guarantee Phase 47 had to prove in a unit test
+  because every builtin board has belts and never settles in the browser.
+- `effects.ts`: `shockwave` / `teleport` / `hazardPulse` / `slam`; pools
+  8 rings / 22 puffs → **14 / 32**; `take()` now counts thefts and `stats()`
+  exposes `stolen`.
+- `boardMesh.ts`: `flameAt(x,y,scale)`, portal swirl in `tick()`, `animated`
+  now `chevrons || portals`.
+- **All seven new triggers fired and photographed** on a synthetic board
+  carrying flamer + radiation + waste + crusher + portal pair + teleporter
+  (no builtin board reaches all of those). `screengrab/phase48/`.
+- **Pools hold**: 304 events over 8 turns × 5 registers at 4× replay speed →
+  `stolen` 0. Worst-case single register (teleport + crusher + 3 hazard hits +
+  destruction + checkpoint) fired 16 ms apart → 0. Theft only begins on a
+  SECOND such register stacked immediately on top with no gap, i.e. 16 heavy
+  effects inside 0.13 s, which no replay speed produces (4× gives ≥75 ms/event).
+- **Real product path**: 4-player hot-seat on Reactor Core (the one builtin
+  with radiation AND waste), 5 turns played out at 4×, 36 `stats()` samples —
+  78–136 draw calls, `stolen` 0, **zero console errors**, robots taking real
+  damage so the nudges ran on real events.
+- **Reduced motion**: `settled()` true after every new effect (24–52 frames),
+  including on the portal board. Freeze poses photographed.
+- Emissive tuning under ACES: flame 1.2 → 0.6, teleporter core 0.7 → 0.45,
+  waste 0.18 → 0.10, plus `TINT_MAX` 0.55 → 0.35 on the damage nudge.
+  Before/after in `10-`/`11-` and `04-`/`04b-`.
+- Not deployed (next deploy at Phase 50 or on request).
+
+## Phase 47 verification log (2026-08-01)
+
+- Blender: `common.anim_group(name, pivot, objects)` parents parts to an
+  `anim_<name>` empty (parenting, NOT `object.join` — join keeps only the
+  active object's modifiers and would drop every bevel but one).
+  `export_glb` now keeps EMPTY objects named `anim_*` and nothing else.
+  Eight groups: `tread_l/r`, `tripod_a/b`, `wheel_0..3`. Model changes:
+  11 → 12 tread ribs (the extra rear rib is what makes the scroll wrap
+  seamlessly), 10 tread lugs per wheel (a smooth cylinder rotating is
+  invisible), and the antenna/dome determinism fixes above.
+- Export verified BY NODE NAME out of the .glb JSON chunk, not by eye: the
+  empties survive with identity rotation and correct pivots, 12 children
+  each. Byte-deterministic across three consecutive exports, all four seats.
+  Sprites re-rendered so the mesh in the browser stays the mesh in the sprite.
+- typecheck + **558 tests** green (517 → 558): 24 in `robotAnim.test.ts`
+  (positive modulo, the no-slip gait identity, hover/thrust rest values
+  exact at speed 0), 10 in `robots.rig.test.ts`, 7 in
+  `robotAnim.parity.test.ts` (source-text guard between `ANIM_PARTS` and the
+  `anim_group(...)` calls, both directions, plus a check that the scan saw
+  every call — the one way the guard could fail open).
+- **The loop-sleep guarantee is a unit test, not a browser observation, and
+  had to be**: every builtin board has conveyors (4–52 of them), and belts
+  keep the rAF loop alive on their own, so a settled board is not observable
+  in the app at all. `robots.rig.test.ts` drives the rig directly and asserts
+  `step()` returns false inside two seconds, including at scene.ts's clamped
+  0.05 dt. It IS observable under reduced motion (belts stop too) and was
+  checked there: `settled()` true 2s after the last event, and stays true.
+- Runtime probe, four-player hot-seat: every chassis resolved its parts BY
+  NAME from the live scene — tracked 2 draw calls, hexapod 6, hovercraft 0
+  (its bob is the whole body), buggy 8. 16 extra across the board, ~4/robot,
+  exactly the planned budget; 98–115 total calls depending on the shot.
+  `probe()` gained `parts` and `BoardScene` gained `stats()` for this.
+- 12 backward + 12 forward scrub steps: every one settled back onto the deck,
+  nothing left airborne or invisible, final state clean. Reduced-motion
+  freeze verified. Zero console errors.
+- Screenshots in `screengrab/phase47/`: all four chassis mid-move (tread comb
+  scrolled, tripods asymmetric mid-stride, wheel lugs turned, hovercraft
+  visibly nose-up) plus the reduced-motion freeze pose.
+- **Verification gotcha**: a Playwright tab throttles rAF, and scene.ts
+  clamps dt to 0.05 — so scene time ran ~20× slower than wall clock and every
+  fixed `sleep()` read as "the animation never finished". Poll `probe()`
+  until it is on the deck; never sleep a fixed time. (The upside: a robot
+  holds a mid-tile pose for ~2s of wall clock, which is what made the
+  mid-move screenshots possible at all.)
 
 ## Phase 46 verification log (2026-08-01)
 
@@ -432,11 +703,18 @@ notes per the session-state convention.
   `2.0.0+c3e8b77+20260801` seen. `telemetry:clear` deleted the test rows.
 - Screenshot: screengrab/phase42-lobby-version-footer.png (footer stamp).
 
-⚠️ NEXT: Phase 47 — Robot mesh animation (M/L). `scripts/blender/robots.py`
-+ `src/components/board3d/robots.ts` (+ scene.ts step wiring): treads,
-hexapod gait, buggy wheels, hovercraft bob, driven off the rig's existing
-eased velocity. Named sub-parts must be EXCLUDED from the by-material merge.
-Anims stop when settled so the on-demand loop still sleeps; reduced-motion
-skips all of it; a missing named part falls back to static, never crashes.
-Note from 46: if robots.glb turns out to export non-deterministically, the
-cause is almost certainly `common.dome`'s UV sphere — see the decision log.
+⚠️ NEXT: **cascade complete — playtest.** Phases 42–50 are all done, committed
+and on prod as `2.0.0+6db4049+20260802`. Nothing is carried forward and nothing
+is left deliberately unfixed: the WebGL context leak that rode along from 47
+through 49 was the one open item and it shipped fixed in b99ef67.
+
+The next move is not a phase, it is play: run the README's test-everything
+checklist against prod, file 🐞 notes as they come up, and read them back with
+`npx convex run telemetry:digest --prod`. Let what playtesters actually hit
+choose the next cascade rather than picking one now.
+
+Known and accepted, not bugs: a returning playtester's service worker serves
+the previous build until it revalidates (one refresh; seen at 43 and again at
+50), and the 3D board deliberately does not match the flat board's palette.
+Still outstanding from before this cascade: Todd's photos of the 84 program
+cards, which the deck spec is still unverified against.
