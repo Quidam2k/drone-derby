@@ -31,6 +31,23 @@ export const PIECE_NAMES = [
   'laser_lens',
   'pusher_housing',
   'pusher_plate',
+  // Expansion elements (phase 46). Seven of these are drawn with a code
+  // material anyway — the tint is a rule or a per-instance pair colour — so
+  // the kit is contributing geometry alone. See tiles.py.
+  'drain_grate',
+  'trapdoor_hatch',
+  'radiation_disc',
+  'waste_puddle',
+  'portal_ring',
+  'portal_core',
+  'teleporter_pad',
+  'teleporter_core',
+  'repulsor_coil',
+  'repulsor_core',
+  'oneway_slab',
+  'crusher_post',
+  'crusher_head',
+  'flamer_nozzle',
 ] as const;
 
 export type PieceName = (typeof PIECE_NAMES)[number];
@@ -123,7 +140,7 @@ export async function loadTileKit(): Promise<TileKit | null> {
     ...pieces,
     dispose() {
       for (const name of PIECE_NAMES) pieces[name]?.geometry.dispose();
-      // Two materials for fifteen pieces, so dispose by identity, once each.
+      // Two materials for the whole kit, so dispose by identity, once each.
       const seen = new Set<THREE.Material>();
       gltf.scene.traverse((o) => {
         const mesh = o as THREE.Mesh;

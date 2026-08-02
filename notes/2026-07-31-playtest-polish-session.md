@@ -137,3 +137,44 @@ tiles.py → `npm run art:tiles` → tiles.glb, then boardMesh.ts/tileKit.ts
 wiring. Model each piece in the LOCAL FRAME of the primitive it replaces
 (read boardMesh.ts:300-500 first). CPU only; primitive fallback must keep
 working with tiles.glb deleted.
+
+## Phase 46 shipped: Blender kit pieces for the expansion elements
+
+14 new pieces (10 elements; four are two pieces each — portal ring+core,
+teleporter pad+core, repulsor coil+core, crusher post+head). `PIECE_NAMES`
+15 → 29. Each modelled in the LOCAL FRAME of the primitive it replaces, so
+boardMesh placements are untouched.
+
+- **Materials split 8/6.** Eight pieces take the kit's `tile_pbr` and carry
+  their palette in COLOR_0. Six keep a CODE material because their colour is
+  a rule, not art: waste, teleporter_core, repulsor_core (emissive hazard
+  cue), portal ring+core (pair colour is per-instance), oneway_slab
+  (red/green IS the rule). Those six get geometry only — so they must read
+  through silhouette.
+- **Radiation moved off that list mid-phase.** Planned as geometry-only, but
+  the modelled trefoil was invisible under the emissive material: uniform
+  emission kills the shading that makes relief legible. Now painted hazard
+  yellow on HAZARD_K via the kit material — the DOM board's read.
+- **The deterministic-export check actually failed first time.** Two exports
+  differed by exactly 2.5 KB, all of it one mesh's index buffer:
+  `repulsor_core`, a UV sphere. Quads → exporter triangulates → not stable
+  run to run. Rebuilt as an icosphere; byte-identical since. `common.dome`
+  left alone, so robots.py may carry the same latent issue into Phase 47.
+- **Verification gotcha worth remembering**: `browser_navigate` to the same
+  `#/hash` URL is a FRAGMENT nav, not a reload — the JS never re-executes.
+  Cost a round of "my change isn't taking effect"; `location.reload()` is
+  the reliable move when checking a source edit in the running app.
+- Crushers and flamers are unreachable by screenshot (no builtin board has a
+  crusher), so all 14 pieces were confirmed by runtime probe against a
+  synthetic board: each InstancedMesh holds the kit geometry BY IDENTITY.
+- Fallback verified with tiles.glb removed: full primitive board, one
+  designed warning, zero errors.
+- Size: raw 0.96 → 1.61 MB, but brotli over the wire is 0.21 → 0.27 MB
+  (+60 KB). Not worth trimming; the raw number is decompressed size.
+- New guard: `tileKit.pieces.test.ts` parses tiles.py's PIECES table and
+  asserts it matches PIECE_NAMES both directions. 517 tests green.
+
+⚠️ NEXT: Phase 47 — robot mesh animation (treads / hexapod gait / wheels /
+hover bob) driven off the rig's eased velocity. Named parts excluded from
+the by-material merge; anims must stop when settled so the on-demand render
+loop still sleeps; reduced-motion skips; missing part → static, no crash.

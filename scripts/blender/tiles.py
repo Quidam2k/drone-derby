@@ -26,6 +26,28 @@ the loader pulls out by hand. Each piece becomes one instanced mesh on the
     pusher_housing  wall-mounted piston housing, pushing +Y
     pusher_plate    the hazard-striped piston face (tinted by code per variant)
 
+The ten expansion elements (phase 46). Six of these keep their CODE material
+-- their colour is a rule or a per-instance tint, not art -- so for those the
+kit contributes SHAPE ONLY and the COLOR_0 palette below is inert. They are
+marked (shape), and they have to read through silhouette: a relief detail on
+a uniformly emissive material is invisible, which is exactly how the
+radiation trefoil got moved OFF that list.
+
+    drain_grate     one grate over the whole drain opening (5 bar instances)
+    trapdoor_hatch  twin-leaf floor hatch, hinged N and S
+    radiation_disc  yellow trefoil painted on a dark disc
+    waste_puddle    (shape) lobed spill, deliberately not a circle
+    portal_ring     (shape) ring; the pair colour is per-instance
+    portal_core     (shape) the disc inside the ring
+    teleporter_pad  notched landing ring
+    teleporter_core (shape) emissive disc inside the pad
+    repulsor_coil   octagonal drum with windings
+    repulsor_core   (shape) the floating emissive bead
+    oneway_slab     (shape) ribbed slab; red/green is code's to give
+    crusher_post    hydraulic ram, one of four per crusher
+    crusher_head    toothed press plate, teeth pointing down
+    flamer_nozzle   burner head with a ring of jets
+
 TWO MATERIALS for the whole kit. `tile_pbr` samples a generated wear texture;
 the palette rides in per-vertex COLOR_0, which glTF multiplies into the base
 colour -- that is what lets a grey deck, a yellow wall and an orange gear
@@ -88,6 +110,12 @@ class C:
     PIT = '#0a0b11'
     DOCK = '#93a0bd'
     GLOW = '#ffffff'
+    # Expansion elements. The three that keep a kit material match the code
+    # material they replace, so a kit board and a fallback board read the same.
+    GRATE = '#39415a'
+    HATCH = '#20242f'
+    TELE_RING = '#7d3436'
+    COIL = '#33241f'
 
 
 # ----------------------------------------------------------------- textures
@@ -535,6 +563,259 @@ def pusher_plate():
                  bevel=0.005, segments=1), C.HAZARD_K)
 
 
+# ------------------------------------------------- expansion elements (46)
+# Seven of these are overridden by a code material in boardMesh.ts (the tint
+# is a game rule or a per-instance pair colour), so they have to read purely
+# through silhouette and relief -- there is no colour coming to save them.
+
+
+def drain_grate():
+    """One grate over the whole opening. Replaces FIVE bar instances.
+
+    The primitive path scales each bar by sqrt(1-(off/0.44)^2) to fit a round
+    torus rim; the kit's pit_rim is a SQUARE curb, so the kit grate is square
+    too and boardMesh places exactly one of it (see the `kit?.drain_grate`
+    branch). Instance sits at y = -0.01, just under the deck.
+    """
+    for i in range(5):
+        ty = -0.28 + i * 0.14
+        part(bar('grate_bar', (-0.40, ty), (0.40, ty), 0.075, 0.055, 0.0,
+                 PBR, bevel=0.008, segments=2), C.GRATE)
+    for sx in (-1, 1):
+        part(bar('grate_rail', (0.36 * sx, -0.40), (0.36 * sx, 0.40), 0.06, 0.05, 0.006,
+                 PBR, bevel=0.006, segments=2), C.STEEL_DARK)
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            part(cylinder('grate_bolt', (0.36 * sx, 0.36 * sy, 0.022), 0.022, 0.02, 'z',
+                          PBR, verts=8, bevel=0.004), C.BOLT)
+
+
+def trapdoor_hatch():
+    """Twin-leaf hatch. Replaces BoxGeometry(0.82, 0.06, 0.82) at y = 0.035.
+
+    Hinged on the N and S edges with the seam across the middle, so the thing
+    reads as something that OPENS -- the open state is engine-side only, so
+    the closed pose has to carry the whole idea. Everything stays under
+    z = 0.05: the register label sits 0.05 above the instance.
+    """
+    part(box('hatch_frame', (0, 0, -0.005), (0.82, 0.82, 0.05), PBR, bevel=0.008, segments=2),
+         C.GRIME)
+    for s in (-1, 1):
+        part(box('hatch_leaf', (0, 0.195 * s, 0.012), (0.76, 0.37, 0.045), PBR,
+                 bevel=0.010, segments=2), C.HATCH)
+        part(cylinder('hatch_hinge', (0, 0.378 * s, 0.026), 0.026, 0.60, 'x', PBR,
+                      verts=10, bevel=0.005), C.STEEL_DARK)
+        part(bar('hatch_warn', (-0.30, 0.058 * s), (0.30, 0.058 * s), 0.05, 0.012, 0.038,
+                 PBR, bevel=0.004, segments=1), C.HAZARD_Y)
+
+
+def radiation_disc():
+    """Trefoil on a dark disc. Replaces CylinderGeometry(0.36, 0.36, 0.03).
+
+    Painted, not just raised. The first pass left boardMesh's emissive
+    yellow-green material in place and modelled the trefoil as pure relief --
+    which disappeared completely, because uniform emission flattens exactly
+    the shading that makes relief legible. Hazard yellow on HAZARD_K is the
+    DOM board's read, and it survives being one tile wide on a 12x19 board.
+    """
+    part(cylinder('rad_disc', (0, 0, 0), 0.36, 0.03, 'z', PBR, verts=24, bevel=0.006),
+         C.HAZARD_K)
+    for i in range(3):
+        a = math.radians(90 + i * 120)
+        part(bar('rad_blade',
+                 (math.cos(a) * 0.10, math.sin(a) * 0.10),
+                 (math.cos(a) * 0.29, math.sin(a) * 0.29),
+                 0.19, 0.026, 0.026, PBR, bevel=0.006, segments=2), C.HAZARD_Y)
+    part(cylinder('rad_hub', (0, 0, 0.024), 0.078, 0.03, 'z', PBR, verts=16, bevel=0.005),
+         C.HAZARD_Y)
+
+
+def waste_puddle():
+    """(shape) Lobed spill. Replaces CylinderGeometry(0.44, 0.46, 0.035).
+
+    Four fixed lobes off a central pool -- the point of the piece is that the
+    outline ISN'T a circle. boardMesh still yaws and squashes each instance,
+    so no two puddles on a board present the same profile.
+    """
+    part(cylinder('waste_pool', (0, 0, 0), 0.42, 0.035, 'z', PBR, verts=20, bevel=0.010),
+         '#3f7d36')
+    for lx, ly, lr in ((0.30, 0.17, 0.14), (-0.25, 0.27, 0.12),
+                       (-0.31, -0.19, 0.13), (0.21, -0.30, 0.11)):
+        part(cylinder('waste_lobe', (lx, ly, -0.002), lr, 0.030, 'z', PBR,
+                      verts=12, bevel=0.008), '#3f7d36')
+    part(cylinder('waste_film', (0, 0, 0.020), 0.29, 0.012, 'z', PBR, verts=20, bevel=0.005),
+         '#58c470')
+
+
+def portal_ring():
+    """(shape) Portal ring. Replaces TorusGeometry(0.32, 0.06) laid flat.
+
+    Four mounting tabs break the outline so a portal never reads as the
+    checkpoint ring, which is the same idea at a similar radius. The pair
+    colour is per-instance, so the tabs are the only thing telling them apart
+    at a glance.
+    """
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.32, minor_radius=0.055,
+                                     major_segments=28, minor_segments=8,
+                                     location=(0, 0, 0))
+    ring = bpy.context.active_object
+    ring.name = 'portal_torus'
+    ring.data.materials.append(PBR)
+    bpy.ops.object.shade_smooth()
+    part(ring, C.GLOW)
+    for i in range(4):
+        a = (i / 4) * math.pi * 2
+        part(box('portal_tab', (math.cos(a) * 0.355, math.sin(a) * 0.355, -0.012),
+                 (0.13, 0.13, 0.045), PBR, bevel=0.010, segments=2), C.GLOW)
+
+
+def portal_core():
+    """(shape) The disc inside the ring. Replaces CylinderGeometry(0.16, 0.16, 0.025)."""
+    part(cylinder('pcore_disc', (0, 0, 0), 0.16, 0.025, 'z', PBR, verts=20, bevel=0.005),
+         C.GLOW)
+    part(cylinder('pcore_iris', (0, 0, 0.014), 0.095, 0.02, 'z', PBR, verts=16, bevel=0.004),
+         C.GLOW)
+
+
+def teleporter_pad():
+    """Notched landing ring. Replaces TorusGeometry(0.36, 0.055) laid flat."""
+    bpy.ops.mesh.primitive_torus_add(major_radius=0.36, minor_radius=0.05,
+                                     major_segments=28, minor_segments=8,
+                                     location=(0, 0, 0))
+    ring = bpy.context.active_object
+    ring.name = 'tele_torus'
+    ring.data.materials.append(PBR)
+    bpy.ops.object.shade_smooth()
+    part(ring, C.TELE_RING)
+    for i in range(6):
+        a = (i / 6) * math.pi * 2
+        notch = box('tele_notch', (0, 0, 0.006), (0.10, 0.14, 0.055), PBR,
+                    bevel=0.008, segments=2)
+        notch.location = (math.cos(a) * 0.36, math.sin(a) * 0.36, 0.006)
+        notch.rotation_euler = (0, 0, a)
+        part(notch, C.STEEL)
+
+
+def teleporter_core():
+    """(shape) Emissive disc inside the pad. Replaces CylinderGeometry(0.2, 0.2, 0.025)."""
+    part(cylinder('tcore_disc', (0, 0, 0), 0.20, 0.025, 'z', PBR, verts=20, bevel=0.005),
+         C.GLOW)
+    for i in range(3):
+        part(cylinder('tcore_ring', (0, 0, 0.010), 0.155 - i * 0.05, 0.018 - i * 0.004, 'z',
+                      PBR, verts=16, bevel=0.003), C.GLOW)
+
+
+def repulsor_coil():
+    """Octagonal drum with windings. Replaces CylinderGeometry(0.4, 0.44, 0.14, 8).
+
+    Eight verts, matching the primitive's octagon, so the silhouette is the
+    one the fallback board draws -- only the windings and the rim are new.
+    """
+    part(cylinder('coil_drum', (0, 0, 0), 0.42, 0.14, 'z', PBR, verts=8, bevel=0.010),
+         C.COIL)
+    for i in range(3):
+        bpy.ops.mesh.primitive_torus_add(major_radius=0.40, minor_radius=0.022,
+                                         major_segments=8, minor_segments=6,
+                                         location=(0, 0, -0.042 + i * 0.042))
+        winding = bpy.context.active_object
+        winding.name = 'coil_winding'
+        winding.data.materials.append(PBR)
+        bpy.ops.object.shade_smooth()
+        part(winding, C.GEAR_BODY)
+    part(cylinder('coil_rim', (0, 0, 0.062), 0.30, 0.03, 'z', PBR, verts=8, bevel=0.008),
+         C.STEEL_DARK)
+
+
+def repulsor_core():
+    """(shape) The floating bead. Replaces SphereGeometry(0.09).
+
+    An ICOsphere, not `common.dome`'s UV sphere, and that is load-bearing: a
+    UV sphere exports as quads, the glTF exporter triangulates them on the way
+    out, and that triangulation is NOT stable run to run -- it was the only
+    thing in the whole kit that moved between two exports (2.5 KB of index
+    buffer, everything else byte-identical). An icosphere is triangles
+    already, so there is no triangulation step left to wander. It also has no
+    poles to pinch, which a bead this small only benefits from.
+    """
+    bpy.ops.mesh.primitive_ico_sphere_add(subdivisions=2, radius=0.09, location=(0, 0, 0))
+    bead = bpy.context.active_object
+    bead.name = 'rcore_bead'
+    bead.data.materials.append(PBR)
+    bpy.ops.object.shade_smooth()
+    part(bead, C.GLOW)
+
+
+def oneway_slab():
+    """(shape) Ribbed half-thickness slab. Replaces BoxGeometry(0.98, 0.34, 0.055).
+
+    Thin in Y: two of these stack back to back on one wall edge, red on the
+    blocked side and green on the passable one, both tinted by code. Ribs run
+    vertical so the pair still reads as one barrier from the side.
+    """
+    part(box('ow_panel', (0, 0, 0), (0.94, 0.05, 0.30), PBR, bevel=0.010, segments=2),
+         C.STEEL)
+    for x in (-0.36, -0.12, 0.12, 0.36):
+        part(box('ow_rib', (x, 0, 0), (0.07, 0.062, 0.26), PBR, bevel=0.006, segments=1),
+             C.STEEL)
+    for i in (-1, 1):
+        part(box('ow_post', (0.465 * i, 0, 0), (0.06, 0.055, 0.34), PBR,
+                 bevel=0.008, segments=2), C.STEEL)
+
+
+def crusher_post():
+    """Hydraulic ram, one of four. Replaces BoxGeometry(0.1, 0.52, 0.1).
+
+    Kept inside the primitive's +-0.26 so the press's four legs land exactly
+    where the fallback board puts them.
+    """
+    part(cylinder('post_sleeve', (0, 0, -0.13), 0.048, 0.26, 'z', PBR, verts=10, bevel=0.006),
+         C.STEEL_DARK)
+    part(cylinder('post_rod', (0, 0, 0.135), 0.030, 0.25, 'z', PBR, verts=10, bevel=0.004),
+         C.STEEL)
+    for z in (-0.255, -0.005, 0.255):
+        part(cylinder('post_flange', (0, 0, z), 0.062, 0.028, 'z', PBR, verts=10, bevel=0.005),
+             C.STEEL_DARK)
+
+
+def crusher_head():
+    """Toothed press plate. Replaces BoxGeometry(0.72, 0.09, 0.72) at y = 0.5.
+
+    Teeth point DOWN, which is the whole threat of the piece. They stop at
+    z = -0.06 -- barely below the primitive's own underside at -0.045 -- so a
+    robot passing under a raised press doesn't clip them. The top stays under
+    z = 0.05, where the register label sits.
+    """
+    part(box('head_plate', (0, 0, 0.010), (0.72, 0.72, 0.055), PBR, bevel=0.010, segments=2),
+         C.STEEL_DARK)
+    for x in (-0.22, 0.0, 0.22):
+        part(bar('head_warn', (x, -0.30), (x, 0.30), 0.10, 0.012, 0.043, PBR,
+                 bevel=0.004, segments=1), C.HAZARD_Y)
+    for ix in (-1, 0, 1):
+        for iy in (-1, 0, 1):
+            part(frustum('head_tooth',
+                         (ix * 0.23, iy * 0.23), (0.11, 0.11), -0.060,
+                         (ix * 0.23, iy * 0.23), (0.02, 0.02), -0.014,
+                         PBR, bevel=0.006, segments=2), C.STEEL)
+
+
+def flamer_nozzle():
+    """Burner head. Replaces CylinderGeometry(0.14, 0.18, 0.1) at y = 0.05.
+
+    The flame cone above it stays a primitive -- phase 48 animates it, and an
+    animated cone wants to keep its own clean geometry.
+    """
+    part(cylinder('noz_base', (0, 0, -0.024), 0.175, 0.05, 'z', PBR, verts=14, bevel=0.008),
+         C.STEEL_DARK)
+    part(cylinder('noz_head', (0, 0, 0.020), 0.125, 0.05, 'z', PBR, verts=14, bevel=0.008),
+         C.STEEL)
+    part(cylinder('noz_throat', (0, 0, 0.040), 0.062, 0.02, 'z', PBR, verts=12, bevel=0.004),
+         C.GRIME)
+    for i in range(6):
+        a = (i / 6) * math.pi * 2
+        part(cylinder('noz_jet', (math.cos(a) * 0.095, math.sin(a) * 0.095, 0.042),
+                      0.021, 0.016, 'z', PBR, verts=8, bevel=0.003), C.GRIME)
+
+
 PIECES = [
     ('floor', floor_plate),
     ('conveyor', conveyor_bed),
@@ -551,6 +832,20 @@ PIECES = [
     ('laser_lens', laser_lens),
     ('pusher_housing', pusher_housing),
     ('pusher_plate', pusher_plate),
+    ('drain_grate', drain_grate),
+    ('trapdoor_hatch', trapdoor_hatch),
+    ('radiation_disc', radiation_disc),
+    ('waste_puddle', waste_puddle),
+    ('portal_ring', portal_ring),
+    ('portal_core', portal_core),
+    ('teleporter_pad', teleporter_pad),
+    ('teleporter_core', teleporter_core),
+    ('repulsor_coil', repulsor_coil),
+    ('repulsor_core', repulsor_core),
+    ('oneway_slab', oneway_slab),
+    ('crusher_post', crusher_post),
+    ('crusher_head', crusher_head),
+    ('flamer_nozzle', flamer_nozzle),
 ]
 
 
