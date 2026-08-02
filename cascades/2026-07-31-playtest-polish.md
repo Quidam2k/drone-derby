@@ -11,7 +11,7 @@ the project sequence (last shipped: 40; optional 41 is folded into 46 here).
 | 42 | Playtest telemetry | DONE (2026-07-31) |
 | 43 | Flag placement at game creation | DONE (2026-07-31) |
 | 44 | Editor UX overhaul (M) | DONE (2026-07-31) |
-| 45 | UI consistency pass (S) | pending |
+| 45 | UI consistency pass (S) | DONE (2026-08-01) |
 | 46 | Blender kit pieces, 10 expansion elements (L) | pending |
 | 47 | Robot mesh animation (M/L) | pending |
 | 48 | Lighting + effects polish (M) | pending |
@@ -299,10 +299,44 @@ notes per the session-state convention.
   spawn S, wrench N, wall W, laser L, pusher H, eraser E. Form fields
   swallow everything (incl. the undo chords — unchanged behavior);
   Shift/Alt/Ctrl-modified letters stay with the browser.
+- **Phase 45, the gradient is a wordmark, not a heading style**: `.title`
+  carried the player-color gradient, so all EIGHT screens using it
+  ("Board gallery", "How to play", "Game lobby", "Join the derby",
+  "Turn history"…) wore the brand treatment. `.title` is now plain
+  `--text` and the gradient moved to `.title.brand`, applied only to the
+  three "Drone Derby" wordmark sites (LobbyScreen, SetupScreen,
+  online/common.tsx). Any NEW screen gets the plain title by default —
+  that's the intended direction; add `brand` only for the wordmark.
 - **Phase 44, renumber button trigger**: ValidationPanel matches the
   substring `'checkpoint number'` in error strings (covers both
   `duplicate checkpoint number N` and `missing checkpoint number N` from
   validate.ts numberingErrors) — no validator changes.
+
+## Phase 45 verification log (2026-08-01)
+
+- typecheck + 513 tests green (CSS-only + 3 className edits; no new tests —
+  nothing here is unit-testable, verification is the screenshot sweep).
+- Speech bubbles: cream `#fffdf5` → `--panel-2` + `--line` border, with a
+  two-triangle tail (`::before` line-colored, `::after` panel-colored) so the
+  border wraps the tail. Verified in the 3D renderer AND the DOM fallback.
+- Tokens `--radius`/`--radius-sm`/`--btn-py`/`--btn-px` replace ~15 scattered
+  8/10/12px radii and the button padding literals.
+- `:focus-visible` global ring measured live at `2px solid rgb(76,201,240)`,
+  offset 2px; mouse clicks leave buttons ring-free. `input:focus`'s
+  `outline: none` removed so text fields ring too (accent border + ring reads
+  as one halo — checked at 1280, acceptable).
+- Themed scrollbars (Firefox `scrollbar-color` + webkit pseudo-elements);
+  visible on the mobile board-picker row at 375.
+- Disabled buttons gain `filter: saturate(0.4)` so a disabled `.primary`
+  reads grey instead of faded-accent (see the Join button, lobby shots).
+- Hero gradient is now lobby-only — see the decision below.
+- Screenshots: screengrab/phase45-before-* (7/31) and -after-*. NOTE: the
+  7/31 `-before-lobby`/`-before-gallery`/`-after-lobby`/`-after-gallery`
+  shots all caught the signed-out splash (identical 22798 bytes) and are
+  worthless; the real ones are `phase45-after-lobby-1280.png`,
+  `-after-lobby-focus-1280.png`, `-after-lobby-375.png`,
+  `-after-gallery-1280.png`, `-after-gallery-plain-title-1280.png`.
+- Not deployed (next deploy at Phase 50 or on request).
 
 ## Phase 44 verification log (2026-07-31)
 
@@ -348,5 +382,8 @@ notes per the session-state convention.
   `2.0.0+c3e8b77+20260801` seen. `telemetry:clear` deleted the test rows.
 - Screenshot: screengrab/phase42-lobby-version-footer.png (footer stamp).
 
-⚠️ NEXT: Phase 45 — UI consistency pass (speech bubbles to dark theme,
-button scale tokens, focus ring, scrollbars). index.css-centric, S-sized.
+⚠️ NEXT: Phase 46 — Blender kit pieces for the 10 expansion elements (L).
+`scripts/blender/tiles.py` (+common.py) → `npm run art:tiles` →
+`public/models/tiles.glb`, then piece-name wiring in boardMesh.ts/tileKit.ts.
+Read boardMesh.ts:300-500 for the primitive local frames BEFORE modelling.
+CPU only (ask before GPU); fallback must still render with tiles.glb deleted.

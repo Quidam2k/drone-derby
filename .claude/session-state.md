@@ -1,26 +1,33 @@
 # Session State
-Updated: 2026-07-31 ~22:05
+Updated: 2026-08-01 ~19:57
 
 ## Current Task
 Playtest-polish cascade (cascades/2026-07-31-playtest-polish.md).
-Phases 42-44 DONE. Playtest gate closed — friends can play.
+Phases 42-45 DONE. Remaining work is the 3D/art polish run (46-49) + ship (50).
 
 ## Just Completed
-- Phase 44: editor UX overhaul (committed, NOT deployed — next deploy at
-  Phase 50). Tool palette sections + 20 single-key hotkeys (new
-  editorHotkeys.ts, pure + tested), TemplateBoardModal ("Copy of <name>",
-  one undo step), renumberCheckpoints + ValidationPanel button. 513 tests
-  green; Playwright-verified desktop/mobile/hit-layer. Details:
-  notes/2026-07-31-playtest-polish-session.md + cascade Phase 44 log.
+- Phase 45: UI consistency pass. index.css was already written 7/31 but
+  uncommitted/unverified; verified + finished 8/1. Speech bubbles to dark
+  theme (bordered two-triangle tail), --radius/--btn-* tokens, global
+  :focus-visible ring, themed scrollbars, disabled desaturation, and the
+  one missed item: hero gradient is now lobby-only (.title plain,
+  .title.brand for the "Drone Derby" wordmark, 3 sites). 513 tests green.
+  Details: notes/2026-07-31-playtest-polish-session.md + cascade log.
 
 ## Next Steps
-1. Phase 45 — UI consistency pass (S): index.css-centric — speech bubbles
-   dark theme, button scale tokens, :focus-visible ring, themed
-   scrollbars; Playwright before/after sweep 1280 + 375.
-2. Then 46 (Blender kit pieces), 47 (robot anim), 48 (lighting), 49
-   (optional camera), 50 (ship + deploy).
+1. Phase 46 — Blender kit pieces for the 10 expansion elements (L):
+   scripts/blender/tiles.py -> `npm run art:tiles` -> public/models/tiles.glb,
+   then boardMesh.ts/tileKit.ts piece-name wiring. Read boardMesh.ts:300-500
+   for primitive local frames BEFORE modelling. CPU only (ask before GPU);
+   fallback must render with tiles.glb deleted.
+2. Then 47 (robot mesh animation), 48 (lighting/effects), 49 (camera,
+   optional), 50 (ship + deploy). Nothing deployed since Phase 43.
+
+## Open Questions / Blockers
+- Still waiting on Todd's photos of the 84 program cards (deck spec
+  unverified). Not blocking 46-50.
 
 ## Key Files
 cascades/2026-07-31-playtest-polish.md (plan + decisions log),
-src/index.css, src/components/replay/* (speech bubbles),
-notes/2026-07-31-playtest-polish-session.md
+scripts/blender/tiles.py, scripts/blender/common.py,
+src/components/board3d/boardMesh.ts, src/components/board3d/tileKit.ts
