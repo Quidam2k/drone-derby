@@ -862,6 +862,14 @@ export async function createBoardScene(
       beamMat.dispose();
       envRT.dispose();
       renderer.dispose();
+      // dispose() frees GL objects but leaves the CONTEXT alive, and browsers
+      // cap how many may exist at once (~16 in Chrome). Board3D remounts on
+      // every screen change, so a 5-turn hot-seat game opened ~25 and the
+      // oldest were silently killed — which is a live board going black on a
+      // screen that is still mounted. forceContextLoss() is the only way to
+      // hand one back. It must come after every dispose() above, or those free
+      // against a dead context; it is absent on some headless/mocked contexts.
+      renderer.forceContextLoss?.();
     },
   };
 }
