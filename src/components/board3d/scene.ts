@@ -46,6 +46,7 @@ import {
   vecToDir,
 } from './effectMath';
 import { EffectField } from './effects';
+import { createElementAnimator, type ElementKind } from './elementAnim';
 import {
   FLAME_SECONDS,
   KEY_REST,
@@ -557,8 +558,24 @@ export async function createBoardScene(
         break;
       case 'pusher-fired':
         // The piston slam reuses the wall-bump ring, kicked the way the shove
-        // goes; the movement itself arrives as robot-moved right after.
+        // goes; the movement itself arrives as robot-moved right after. Since
+        // PA the piston itself throws out and draws back under the ring.
         effects.bump(cellCentre(e.at, tmpPos), DIR_STEP[e.dir]);
+        fireElement('pusher', e.at.x, e.at.y);
+        break;
+      case 'gear-rotated': {
+        // The one event with no position of its own: the union is
+        // {player, cw, from, to}. The robot is standing on the gear, so its
+        // cell is the gear's, and `gearAt` returning false is the check —
+        // the same reasoning `damage` uses to find what hurt a robot.
+        const turned = current.visual.robots.find((r) => r.player === e.player);
+        if (turned) fireElement('gear', turned.pos.x, turned.pos.y, e.cw);
+        break;
+      }
+      case 'conveyor-moved':
+        // The belt that did the carrying is the one that hurries: `from` is
+        // definitionally a conveyor, because the engine emitted this from it.
+        fireElement('belt', e.from.x, e.from.y);
         break;
       case 'crusher-crushed':
         // The press coming DOWN, then the slam itself; the kill follows as
@@ -568,6 +585,7 @@ export async function createBoardScene(
         effects.slam(cellCentre(e.at, tmpPos));
         effects.impact(cellCentre(e.at, tmpPos));
         effects.bump(cellCentre(e.at, tmpPos), null);
+        fireElement('crusher', e.at.x, e.at.y);
         break;
       case 'robot-teleported': {
         // A blink, not a drive: snap the rig to the destination (setTarget
@@ -703,6 +721,48 @@ export async function createBoardScene(
   }
 
   /**
+   * Board elements performing their own action — a pusher extending, a gear
+   * turning, a crusher pressing, a belt hurrying as it carries. Built to the
+   * flame's shape above and for the flame's reason: the geometry is already on
+   * the board, so this only has to say WHEN, and — the part that matters —
+   * when to STOP. `elementAnim.step` reports live:false on the frame the last
+   * pose settles, so a board carrying pushers and gears but no belts still
+   * goes back to sleep between turns instead of rendering forever.
+   */
+  const elementAnim = createElementAnimator();
+
+  function fireElement(kind: ElementKind, x: number, y: number, cw?: boolean): void {
+    // Reduced motion holds every element at rest, exactly as it stops belts.
+    if (prefersReducedMotion()) return;
+    // No existence probe: the engine emitted the event BECAUSE the tile is
+    // that tile, so the element is there by construction. The accessor's false
+    // is the safety net for a mesh built from a different board, not the
+    // normal path — the same role flameAt's false plays.
+    elementAnim.fire(kind, x, y, cw);
+  }
+
+  function stepElements(dt: number): boolean {
+    const { poses, live } = elementAnim.step(dt);
+    for (const pose of poses) {
+      switch (pose.kind) {
+        case 'pusher':
+          meshes.pusherAt(pose.x, pose.y, pose.value);
+          break;
+        case 'gear':
+          meshes.gearAt(pose.x, pose.y, pose.value);
+          break;
+        case 'crusher':
+          meshes.crusherAt(pose.x, pose.y, pose.value);
+          break;
+        case 'belt':
+          meshes.beltSurgeAt(pose.x, pose.y, pose.value);
+          break;
+      }
+    }
+    return live;
+  }
+
+  /**
    * Speech-bubble anchors, in CSS pixels over the canvas. Reported after the
    * render because `project()` needs the camera's inverse world matrix, which
    * the renderer is what updates.
@@ -740,6 +800,7 @@ export async function createBoardScene(
     moving = stepBeam(dt) || moving;
     moving = stepKey(dt) || moving;
     moving = stepFlame(dt, prefersReducedMotion()) || moving;
+    moving = stepElements(dt) || moving;
     if (belts()) meshes.tick(elapsed);
 
     renderer.render(scene, director.camera);
