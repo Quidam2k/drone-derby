@@ -6,7 +6,7 @@
 import { create } from 'zustand';
 import type { BoardDef, Direction, EventLog, GameState, PlayerId, Program } from '../engine';
 import { createGame, executeTurn, isGameOver, provingGrounds } from '../engine';
-import { logTelemetry } from '../services/telemetry';
+import { logFlowEvent, logTelemetry } from '../services/telemetry';
 
 export type Screen = 'setup' | 'handoff' | 'programming' | 'replay' | 'gameover';
 
@@ -137,9 +137,21 @@ function loadSave(): Partial<SavedGame> | null {
     const saved = JSON.parse(raw) as SavedGame;
     if (saved.version !== SAVE_VERSION || !saved.game) return null;
     if (saved.screen !== 'replay') return saved;
-    return isGameOver(saved.game)
-      ? { ...saved, screen: 'gameover' }
-      : { ...saved, screen: 'handoff', currentSeat: firstActiveSeat(saved.game) };
+    if (!isGameOver(saved.game)) {
+      return { ...saved, screen: 'handoff', currentSeat: firstActiveSeat(saved.game) };
+    }
+    // Reloaded during the winning turn's replay: finishReplay never ran, so its
+    // 'hotseat-game-finished' never fired and this completed game would sit in
+    // the funnel as an abandoned one. Emitting here needs no extra bookkeeping
+    // because the two cases are already distinguishable — a save that reads
+    // 'gameover' is one where finishReplay DID run and already reported it.
+    logFlowEvent('hotseat-game-finished', {
+      turns: saved.game.turn,
+      winner: saved.game.winner !== null,
+      playerCount: saved.game.robots.length,
+      viaResume: true,
+    });
+    return { ...saved, screen: 'gameover' };
   } catch {
     // A corrupt or half-written save is worth exactly one clean start.
     clearSave();
@@ -177,6 +189,16 @@ export const useGameStore = create<GameStore>((set, get) => ({
       lastTurn: null,
       turnError: null,
       screen: 'handoff',
+    });
+    // Only ever fired from here, which is why a RESUME cannot inflate it: a
+    // restored save rehydrates the store directly and never calls startGame.
+    // Counting a resume as a new game would deflate every downstream rate —
+    // completion most of all, since the same game would be started twice and
+    // finished once.
+    logFlowEvent('hotseat-game-started', {
+      boardName: game.board?.name,
+      playerCount: game.robots.length,
+      seed,
     });
     saveGame(get());
   },
@@ -223,6 +245,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Everyone has submitted — execute the turn.
     const seed = initialSeed + game.turn;
     let result: { state: GameState; events: EventLog };
+    const startedAt = Date.now();
     try {
       result = executeTurn(game, programs, seed, {
         respawnFacing: facings,
@@ -250,6 +273,14 @@ export const useGameStore = create<GameStore>((set, get) => ({
     }
 
     const { state, events } = result;
+    // Mirrors the server's 'turn-executed' row so the two modes read the same
+    // way in the digest. `turn` is the turn that just ran, matching the seed
+    // above — a note filed about "turn 4" names the same turn either way.
+    logFlowEvent('hotseat-turn-executed', {
+      turn: game.turn,
+      ms: Date.now() - startedAt,
+      playerCount: game.robots.length,
+    });
     set({
       game: state,
       lastTurn: { events, prevState: game, taunts },
@@ -266,7 +297,23 @@ export const useGameStore = create<GameStore>((set, get) => ({
   finishReplay: () => {
     const { game } = get();
     if (!game) return;
-    if (isGameOver(game)) {
+    // `executeTurn` increments `turn` ONLY when the game did not end (see the
+    // `if (!gameEnded)` guard in execute.ts), so the turn just watched is one
+    // back on an ongoing game and the current one on the last. Getting this
+    // backwards would misname the final turn of every game — the one turn most
+    // likely to be the subject of a 🐞 note.
+    const over = isGameOver(game);
+    const watched = over ? game.turn : game.turn - 1;
+    // A replay reaching its end is the signal that someone watched the turn
+    // rather than tapping past it — the only read we get on whether the replay
+    // is worth the time it takes.
+    logFlowEvent('replay-watched', { turn: watched });
+    if (over) {
+      logFlowEvent('hotseat-game-finished', {
+        turns: game.turn,
+        winner: game.winner !== null,
+        playerCount: game.robots.length,
+      });
       set({ screen: 'gameover' });
       saveGame(get());
       return;

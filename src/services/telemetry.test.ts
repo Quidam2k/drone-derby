@@ -89,3 +89,49 @@ describe('logFlowEvent', () => {
     expect(entry.data).toEqual({ error: 'no context' });
   });
 });
+
+/**
+ * Flow rows are COUNTED — they feed the digest funnels — so a beacon silently
+ * eaten by the dedupe window would deflate a rate rather than announce itself.
+ * Two hot-seat turns or two route changes inside 5 s are ordinary play. These
+ * assertions are what stop the funnels from becoming a plausible fiction.
+ */
+describe('flow dedupe keys on data', () => {
+  it('keeps two flow events that differ only by data inside the window', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(2_000_000);
+    logFlowEvent('hotseat-turn-executed', { turn: 1 });
+    vi.setSystemTime(2_001_000); // 1 s later — well inside the 5 s window
+    logFlowEvent('hotseat-turn-executed', { turn: 2 });
+
+    const buffer = dumpTelemetry() as { data?: { turn: number } }[];
+    expect(buffer).toHaveLength(2);
+    expect(buffer.map((e) => e.data?.turn)).toEqual([1, 2]);
+  });
+
+  it('still collapses a flow event repeating identically', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(3_000_000);
+    // A GPU thrashing the context is the flood the window exists to swallow:
+    // it repeats with the same payload, so narrowing the key must not free it.
+    logFlowEvent('webgl-context-lost', { deliberate: false });
+    logFlowEvent('webgl-context-lost', { deliberate: false });
+    expect(dumpTelemetry()).toHaveLength(1);
+  });
+
+  it('still collapses identical errors — the guard was narrowed, not widened', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(4_000_000);
+    // Differing data must NOT split an error: a loop throwing the same error
+    // carries a fresh stack every time, which would defeat the collapse.
+    logTelemetry('error', 'loop', { stack: 'at a:1' });
+    logTelemetry('error', 'loop', { stack: 'at b:2' });
+    expect(dumpTelemetry()).toHaveLength(1);
+  });
+
+  it('does not throw on unserialisable flow data', () => {
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    expect(() => logFlowEvent('circular-data', circular)).not.toThrow();
+  });
+});
