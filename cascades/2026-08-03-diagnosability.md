@@ -10,7 +10,7 @@ Plan of record for the post-playtest-polish cascade. Approved by Jarvis
 |-------|-------|--------|
 | P1 | Diagnosability pass | DONE (2026-08-03) |
 | P2 | Hot-seat resilience | DONE (2026-08-03) |
-| PA | Board element animation (added by #2500/#2501) | PENDING |
+| PA | Board element animation (added by #2500/#2501) | DONE (2026-08-03) |
 | P3 | Session + hot-seat beacons | PENDING |
 | P4 | Golden-game regression harness | PENDING |
 | P5 | **HARD STOP** — hand Todd a checklist, do not proceed | — |
@@ -291,3 +291,65 @@ that is a battery and heat regression on the phones a playtester holds, and it
 is the same class of quiet defect as the b99ef67 leak. The `webglcontextlost`
 alarm from P1 is in, so a context regression would now be caught, but an
 always-rendering board would not be. Worth its own check.
+
+#### PA verification log (2026-08-03)
+
+- `npm run typecheck` clean; `npm test` **651 passed / 57 files** (22 new, up
+  from 629/55); `npm run build` succeeds.
+- **The precedent used, and it is the flamer.** `startFlame`/`stepFlame`
+  (`scene.ts`) was already an event-driven per-cell animation that does not
+  keep the board awake, and its own comment already named the failure mode
+  ("a held pose that is never released is a flamer left permanently twice its
+  size"). PA is the fourth, fifth and sixth instance of that pattern, not a new
+  mechanism. Nothing about the render loop itself changed.
+- Shipped: new pure `board3d/elementAnim.ts` (timing + pose curves, no three,
+  no DOM); cell→instance handles in `boardMesh.ts` for pusher plates, gear
+  discs + teeth, crusher heads, and belt chevrons, exposed as `pusherAt` /
+  `gearAt` / `crusherAt` / `beltSurgeAt`; `stepElements(dt)` in `scene.ts`
+  joining the `moving` chain exactly as `stepFlame` does; new `gear-rotated`
+  and `conveyor-moved` cases, plus geometry motion added to the existing
+  `pusher-fired` and `crusher-crushed` cases.
+- **`animated` is untouched.** Elements never join the ambient flag.
+- **Transient vs cumulative — the design decision worth keeping.** A pusher and
+  a crusher RETURN (rest is 0). A gear and a belt have MOVED, so their pose is
+  cumulative and settles at a NEW constant. Snapping either back to a canonical
+  zero on the last frame would be a visible jump backwards, and for the gear it
+  would additionally bet on the kit's model happening to be 45°-symmetric.
+  "At rest" here therefore means THE VALUE STOPS CHANGING, not that it returns
+  to zero; both flavours satisfy the release invariant identically.
+- Gear direction: clockwise is a NEGATIVE angle, because `DIR_YAW` has N=0 and
+  E=-π/2. Getting it backwards would spin every gear against the arrows painted
+  on its own tile. Asserted.
+- The gear's painted arrows are deliberately NOT rotated — they are a signpost
+  saying which way this gear turns, and a rotating signpost stops being
+  readable. Only the disc and its teeth turn.
+- Timing: 0.40–0.46s, inside the existing 0.26–0.72s vocabulary
+  (`RECOIL_SECONDS` 0.26, `FLAME_SECONDS` 0.45). **No register or turn pacing
+  changed**, and none needed changing for the elements to read.
+- Reduced motion holds every element at rest, exactly as it stops belts.
+
+**The two render-on-demand guards, and proof they bite.** Both were perturbed
+and observed to fail before being kept — the P2 lesson (a green suite that
+proves nothing) applied literally rather than trusted:
+- `elementAnim.test.ts` — drives the queue past the longest animation and
+  asserts `live === false`, that a settled animator writes *nothing*, and that
+  the releasing frame still writes the rest pose. Deleting the `active.delete`
+  release ⇒ **3 tests fail**.
+- `boardMesh.animated.test.ts` — a board with pushers + gears + crushers and no
+  belts and no portals asserts `animated === false`, with belt and portal
+  boards as the control so the assertion cannot pass on a hard-wired `false`.
+  ORing `gearIndex.size > 0` into `animated` ⇒ **1 test fails**.
+
+**A real defect the tests caught during the build, worth recording.** The first
+version snapped a pusher back to zero when it was re-fired mid-throw — reachable
+whenever the same pusher fires on consecutive registers and the replay is
+running faster than the 0.4s throw. Fixed by seeking into the outward leg
+(analytically invertible, since it is `easeOut`) rather than restarting the
+curve. The test was written before the bug was known and found it immediately.
+
+*Not verified in a browser:* how the four read in motion. The assertions cover
+the release, the flag, the direction and the rest pose — they cannot cover
+legibility. That is on Todd's P5 checklist.
+
+⚠️ NEXT: P3 — session + hot-seat beacons. Fully specced above; executable cold.
+Then P4, then the P5 hard stop.

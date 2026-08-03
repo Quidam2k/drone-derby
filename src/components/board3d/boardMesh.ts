@@ -177,9 +177,17 @@ function chevronGeometry(): THREE.BufferGeometry {
 
 /** One scrolling chevron: everything tick() needs to re-place it each frame. */
 interface Chevron {
+  /** `x,y` of the cell this chevron belongs to, so a carry can find it. */
+  cell: string;
   centre: THREE.Vector3;
   dir: THREE.Vector3;
   yaw: number;
+  /**
+   * Extra tiles of travel this chevron has been surged by, on top of the
+   * ambient scroll. Cumulative and never reset: a belt that hurried has
+   * MOVED, and winding the phase back would read as a stutter.
+   */
+  surge: number;
   /** Position within the tile at phase 0, in [0, 1). */
   offset: number;
   /** Tiles per second. Matches the DOM belt animation's px/s at a 52px tile. */
@@ -197,6 +205,17 @@ interface Chevron {
 /** Height of the flame cone over a flamer, and half its own height. */
 const FLAME_BASE_Y = 0.09;
 const FLAME_HALF = 0.21;
+/**
+ * How far a pusher's piston throws past its resting pose, and how far a
+ * crusher's head descends, both in world units. These are GEOMETRY, so they
+ * live here rather than in elementAnim.ts — that module hands over a 0..1
+ * fraction of a full throw and does not know how big a full throw is.
+ * The plate rests 0.28 in front of its housing, so a 0.5 throw stops it well
+ * inside its own cell; the press hangs at 0.5 and stops at 0.2, below the top
+ * of the 0.52 posts it runs between.
+ */
+const PUSHER_THROW = 0.5;
+const CRUSHER_DROP = 0.3;
 /** Radians a second a portal's ring turns, and how fast its core breathes. */
 const PORTAL_SPIN = 0.9;
 const PORTAL_PULSE_HZ = 0.55;
@@ -228,6 +247,24 @@ export interface BoardMeshes {
    * through the deck.
    */
   flameAt(x: number, y: number, scale: number): boolean;
+  /**
+   * Pose a board element that is performing its own action. Each returns false
+   * when that cell carries no such element, which is what lets scene.ts fire
+   * blind off an event — the same contract `flameAt` already has ("the mesh
+   * confirming there is a flamer there is the check"). `gear-rotated` needs it
+   * most: that event carries no position at all, so the cell is the robot's
+   * and a false here IS the confirmation that a gear was really what turned.
+   *
+   * NOTE none of these touch `animated`. They are event-driven and they settle,
+   * so they must never flip a board into always-on rendering — see the header
+   * of ./elementAnim.ts for why that would be a defect rather than a cost.
+   */
+  pusherAt(x: number, y: number, extend: number): boolean;
+  /** `angle` is cumulative radians; negative is clockwise, as DIR_YAW is. */
+  gearAt(x: number, y: number, angle: number): boolean;
+  crusherAt(x: number, y: number, press: number): boolean;
+  /** `extra` is cumulative extra tiles of travel, applied on the next tick. */
+  beltSurgeAt(x: number, y: number, extra: number): boolean;
   /**
    * The checkpoint ring drawn on a cell: its geometry (whichever of the kit
    * piece or the primitive won) and the exact matrix it was instanced with, so
@@ -282,6 +319,16 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   const gearDiscs = new Batch();
   const gearTeeth = new Batch();
   const gearArrows = new Batch();
+  /**
+   * Cell key -> the instance handles a gear's own wheel occupies, so a
+   * `gear-rotated` event can turn THAT gear. The arrows are deliberately NOT
+   * in here: they are a signpost saying which way this gear turns, not part
+   * of the wheel, and a rotating signpost stops being readable.
+   */
+  const gearIndex = new Map<
+    string,
+    { disc: number; teethStart: number; teeth: number; centre: THREE.Vector3 }
+  >();
   const rings = new Batch();
   /** Cell key -> its instance index in the checkpoint ring batch. */
   const ringIndex = new Map<string, number>();
@@ -297,6 +344,15 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   // Two plate batches so each register variant keeps its own tint.
   const pusherPlatesOdd = new Batch();
   const pusherPlatesEven = new Batch();
+  /**
+   * Cell key -> which plate batch this pusher's piston landed in, its index
+   * there, and the resting pose it throws out from. `odd` picks the mesh
+   * because the two register variants are separate instanced meshes.
+   */
+  const pusherIndex = new Map<
+    string,
+    { odd: boolean; index: number; rest: THREE.Vector3; yaw: number; dir: THREE.Vector3 }
+  >();
   // Expansion elements (Phase 38). All primitives — the Blender kit pieces
   // are deferred, and the primitive fallback is the designed contract.
   const drainBars = new Batch();
@@ -313,6 +369,8 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   const oneWayGreens = new Batch();
   const crusherPosts = new Batch();
   const crusherPlates = new Batch();
+  /** Cell key -> the press head's instance index and the height it hangs at. */
+  const crusherIndex = new Map<string, { index: number; rest: THREE.Vector3 }>();
   const flamerNozzles = new Batch();
   const flamerFlames = new Batch();
   /** Portal cells in batch order, so tick() can find each ring/core instance. */
@@ -387,22 +445,36 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
         const entry = def.curve ? rotate(def.dir, def.curve === 'cw' ? -1 : 1) : def.dir;
         for (let i = 0; i < k; i++) {
           chevrons.push({
+            cell: `${x},${y}`,
             centre: centre(x, y, 0.014),
             dir: DIR_VEC[entry],
             yaw: DIR_YAW[entry],
             offset: i / k,
             speed,
+            surge: 0,
             ...(def.curve ? { dir2: DIR_VEC[def.dir], yaw2: DIR_YAW[def.dir] } : {}),
           });
         }
         break;
       }
-      case 'gear':
+      case 'gear': {
+        // Handles kept so `gear-rotated` can turn THIS wheel. The teeth are
+        // what the turn reads on: the primitive disc is a cylinder and so
+        // rotationally symmetric, exactly as the portal ring is, and only the
+        // kit's modelled gear shows a yaw on the disc alone.
+        const gearHandle = {
+          disc: gearDiscs.count,
+          teethStart: gearTeeth.count,
+          teeth: 0,
+          centre: centre(x, y, 0.04),
+        };
+        gearIndex.set(`${x},${y}`, gearHandle);
         gearDiscs.add({ pos: centre(x, y, 0.04) });
         // The kit's gear is one toothed wheel; the primitive disc needs its
         // eight teeth bolted on as their own instances.
         for (let i = 0; !kit?.gear && i < 8; i++) {
           const a = (i / 8) * Math.PI * 2;
+          gearHandle.teeth++;
           gearTeeth.add({
             pos: new THREE.Vector3(x + 0.5 + Math.sin(a) * 0.42, 0.04, y + 0.5 - Math.cos(a) * 0.42),
             yaw: -a,
@@ -417,6 +489,7 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
           });
         }
         break;
+      }
       case 'checkpoint':
         ringIndex.set(`${x},${y}`, rings.count);
         rings.add({ pos: centre(x, y, 0.05) });
@@ -520,7 +593,9 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
     ]) {
       crusherPosts.add({ pos: new THREE.Vector3(x + 0.5 + dx, 0.26, y + 0.5 + dz) });
     }
-    crusherPlates.add({ pos: centre(x, y, 0.5) });
+    const crusherRest = centre(x, y, 0.5);
+    crusherIndex.set(`${x},${y}`, { index: crusherPlates.count, rest: crusherRest });
+    crusherPlates.add({ pos: crusherRest });
     addLabel(x, y, c.registers.join(' '), '#dde3f2', 0.6, 0.56);
   }
 
@@ -549,11 +624,17 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
       pos: centre(p.pos.x, p.pos.y, 0.16).addScaledVector(DIR_VEC[p.facing], -0.42),
       yaw: DIR_YAW[p.facing],
     });
-    const plates = p.registers.includes(1) ? pusherPlatesOdd : pusherPlatesEven;
-    plates.add({
-      pos: centre(p.pos.x, p.pos.y, 0.16).addScaledVector(DIR_VEC[p.facing], -0.28),
+    const odd = p.registers.includes(1);
+    const plates = odd ? pusherPlatesOdd : pusherPlatesEven;
+    const rest = centre(p.pos.x, p.pos.y, 0.16).addScaledVector(DIR_VEC[p.facing], -0.28);
+    pusherIndex.set(`${p.pos.x},${p.pos.y}`, {
+      odd,
+      index: plates.count,
+      rest,
       yaw: DIR_YAW[p.facing],
+      dir: DIR_VEC[p.facing],
     });
+    plates.add({ pos: rest, yaw: DIR_YAW[p.facing] });
   }
 
   // -------------------------------------------------------------- materials
@@ -750,16 +831,16 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
       { cast: true, receive: true },
     ),
   );
-  add(
-    gearDiscs.build(
-      pieceGeom(kit?.gear, () => new THREE.CylinderGeometry(0.38, 0.38, 0.1, 20)),
-      kit?.gear?.material ?? gearMat,
-      { cast: true, receive: true },
-    ),
+  const gearDiscMesh = gearDiscs.build(
+    pieceGeom(kit?.gear, () => new THREE.CylinderGeometry(0.38, 0.38, 0.1, 20)),
+    kit?.gear?.material ?? gearMat,
+    { cast: true, receive: true },
   );
-  if (gearTeeth.count) {
-    add(gearTeeth.build(geom(new THREE.BoxGeometry(0.14, 0.09, 0.13)), gearMat, { cast: true }));
-  }
+  add(gearDiscMesh);
+  const gearToothMesh = gearTeeth.count
+    ? gearTeeth.build(geom(new THREE.BoxGeometry(0.14, 0.09, 0.13)), gearMat, { cast: true })
+    : null;
+  add(gearToothMesh);
   // Checkpoint and laser lens take the kit's geometry but keep their own
   // emissive materials: those two colours mean something in the rules.
   const ringMesh = rings.build(
@@ -809,8 +890,10 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
     ),
   );
   const pusherPlateGeom = pieceGeom(kit?.pusher_plate, () => new THREE.BoxGeometry(0.6, 0.14, 0.08));
-  add(pusherPlatesOdd.build(pusherPlateGeom, pusherOddMat, { cast: true }));
-  add(pusherPlatesEven.build(pusherPlateGeom, pusherEvenMat, { cast: true }));
+  const pusherOddMesh = pusherPlatesOdd.build(pusherPlateGeom, pusherOddMat, { cast: true });
+  const pusherEvenMesh = pusherPlatesEven.build(pusherPlateGeom, pusherEvenMat, { cast: true });
+  add(pusherOddMesh);
+  add(pusherEvenMesh);
 
   // Expansion elements. Six of the fourteen keep a CODE material even with the
   // kit loaded — waste/teleporter-core/repulsor-core because the emissive
@@ -903,13 +986,12 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
       { cast: true },
     ),
   );
-  add(
-    crusherPlates.build(
-      pieceGeom(kit?.crusher_head, () => new THREE.BoxGeometry(0.72, 0.09, 0.72)),
-      kit?.crusher_head?.material ?? crusherMat,
-      { cast: true },
-    ),
+  const crusherPlateMesh = crusherPlates.build(
+    pieceGeom(kit?.crusher_head, () => new THREE.BoxGeometry(0.72, 0.09, 0.72)),
+    kit?.crusher_head?.material ?? crusherMat,
+    { cast: true },
   );
+  add(crusherPlateMesh);
   add(
     flamerNozzles.build(
       pieceGeom(kit?.flamer_nozzle, () => new THREE.CylinderGeometry(0.14, 0.18, 0.1, 10)),
@@ -941,6 +1023,18 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
     mesh.frustumCulled = false;
     group.add(mesh);
     chevMeshes.push({ mesh, items });
+  }
+
+  /**
+   * Cell key -> that cell's chevrons, so a `conveyor-moved` pulse surges
+   * exactly the belt that carried someone. Same objects `chevMeshes` holds,
+   * so writing `surge` here is read by the next `tick`.
+   */
+  const beltIndex = new Map<string, Chevron[]>();
+  for (const c of chevrons) {
+    const list = beltIndex.get(c.cell);
+    if (list) list.push(c);
+    else beltIndex.set(c.cell, [c]);
   }
 
   // Board rim, matching the DOM board's 3px --line border.
@@ -1015,7 +1109,7 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
       items.forEach((c, i) => {
         // Chevrons cycle within their own tile; neighbours share the phase, so
         // the belt reads as continuous across cell boundaries.
-        const frac = (((c.offset + elapsed * c.speed) % 1) + 1) % 1;
+        const frac = (((c.offset + elapsed * c.speed + c.surge) % 1) + 1) % 1;
         if (c.dir2 && frac >= 0.5) {
           // Second leg of a curve: out from the centre along the exit axis.
           p.copy(c.centre).addScaledVector(c.dir2, frac - 0.5);
@@ -1042,6 +1136,56 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
       p.set(x + 0.5, FLAME_BASE_Y + FLAME_HALF * s, y + 0.5);
       flameMesh.setMatrixAt(i, m4.compose(p, q.identity(), s3.setScalar(s)));
       flameMesh.instanceMatrix.needsUpdate = true;
+      return true;
+    },
+    pusherAt(x, y, extend) {
+      const h = pusherIndex.get(`${x},${y}`);
+      const mesh = h && (h.odd ? pusherOddMesh : pusherEvenMesh);
+      if (!h || !mesh) return false;
+      p.copy(h.rest).addScaledVector(h.dir, PUSHER_THROW * extend);
+      mesh.setMatrixAt(h.index, m4.compose(p, q.setFromAxisAngle(up, h.yaw), one));
+      mesh.instanceMatrix.needsUpdate = true;
+      return true;
+    },
+    gearAt(x, y, angle) {
+      const h = gearIndex.get(`${x},${y}`);
+      if (!h) return false;
+      if (gearDiscMesh) {
+        gearDiscMesh.setMatrixAt(h.disc, m4.compose(h.centre, q.setFromAxisAngle(up, angle), one));
+        gearDiscMesh.instanceMatrix.needsUpdate = true;
+      }
+      if (gearToothMesh && h.teeth) {
+        for (let i = 0; i < h.teeth; i++) {
+          // A tooth built at ring angle `a` rides round to `a - angle` (a yaw
+          // of -π/2 carries north to east, so a clockwise turn is a NEGATIVE
+          // angle and advances the ring). Its own yaw stays the negative of
+          // wherever it now sits, which is what keeps it tangential.
+          const a = (i / h.teeth) * Math.PI * 2 - angle;
+          p.set(h.centre.x + Math.sin(a) * 0.42, h.centre.y, h.centre.z - Math.cos(a) * 0.42);
+          gearToothMesh.setMatrixAt(
+            h.teethStart + i,
+            m4.compose(p, q.setFromAxisAngle(up, -a), one),
+          );
+        }
+        gearToothMesh.instanceMatrix.needsUpdate = true;
+      }
+      return true;
+    },
+    crusherAt(x, y, press) {
+      const h = crusherIndex.get(`${x},${y}`);
+      if (!h || !crusherPlateMesh) return false;
+      p.copy(h.rest);
+      p.y = h.rest.y - CRUSHER_DROP * press;
+      crusherPlateMesh.setMatrixAt(h.index, m4.compose(p, q.identity(), one));
+      crusherPlateMesh.instanceMatrix.needsUpdate = true;
+      return true;
+    },
+    beltSurgeAt(x, y, extra) {
+      const list = beltIndex.get(`${x},${y}`);
+      if (!list) return false;
+      // Only the phase changes; tick() does the writing on its next pass, and
+      // a belt board is already awake for the ambient scroll.
+      for (const c of list) c.surge = extra;
       return true;
     },
     checkpointRing(x, y) {
