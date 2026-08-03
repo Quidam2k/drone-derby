@@ -34,8 +34,12 @@ export default defineConfig({
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.ts',
-      registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      // 'prompt' + manual registration (src/services/swUpdate.ts): autoUpdate
+      // left a returning player on the previous build until some later
+      // refresh, so playtest bugs got filed against a build we'd already
+      // fixed. The injected registration has nowhere to hand the callback.
+      registerType: 'prompt',
+      injectRegister: null,
       // Keep the plugin out of vitest runs.
       disable: !!process.env.VITEST,
       injectManifest: {

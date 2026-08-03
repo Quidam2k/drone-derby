@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import type { BoardDef, Direction, EngineEvent, EventLog, PlayerId, Position } from '../../engine';
 import type { RobotVisual, VisualState } from '../replay/visualState';
+import { logFlowEvent } from '../../services/telemetry';
 import {
   getFocusPlayer,
   getView,
@@ -260,6 +261,24 @@ export async function createBoardScene(
     antialias: true,
     alpha: true,
     powerPreference: 'high-performance',
+  });
+
+  // Context-loss alarm. b99ef67 leaked contexts for three phases before anyone
+  // noticed, because the browser's answer to exceeding its ~16-context cap is
+  // to evict the oldest and console.warn — no throw, so window.onerror never
+  // fires and Board3D's mount-time catch is long past. This listener is the
+  // only signal that names it. `deliberate` is load-bearing, not decoration:
+  // our own forceContextLoss() below fires this on EVERY unmount, so without
+  // the flag the event is 100% noise. An eviction is a loss we did not ask for.
+  let teardown = false;
+  canvas.addEventListener('webglcontextlost', (event) => {
+    // Preventing the default is what lets a context be restored at all; only
+    // worth asking for when we did not throw this one away on purpose.
+    if (!teardown) event.preventDefault();
+    logFlowEvent('webgl-context-lost', { deliberate: teardown });
+  });
+  canvas.addEventListener('webglcontextrestored', () => {
+    logFlowEvent('webgl-context-restored');
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -1010,6 +1029,9 @@ export async function createBoardScene(
       // screen that is still mounted. forceContextLoss() is the only way to
       // hand one back. It must come after every dispose() above, or those free
       // against a dead context; it is absent on some headless/mocked contexts.
+      // Flag it first so the webglcontextlost listener above reports this as
+      // deliberate rather than raising the eviction alarm.
+      teardown = true;
       renderer.forceContextLoss?.();
     },
   };

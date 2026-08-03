@@ -8,7 +8,7 @@ import type { MutationCtx, QueryCtx } from './_generated/server';
 import type { Doc, Id } from './_generated/dataModel';
 import { internal } from './_generated/api';
 import { getAuthUserId } from '@convex-dev/auth/server';
-import { logFlow, requireUserId } from './helpers';
+import { clientStampValidator, logFlow, requireUserId } from './helpers';
 import {
   applyFlagPlacements,
   BUILTIN_BOARDS,
@@ -183,6 +183,7 @@ export const createGame = mutation({
      * client only ever sends positions, never a board.
      */
     flagPlacements: v.optional(v.array(v.object({ x: v.number(), y: v.number() }))),
+    client: clientStampValidator,
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -254,13 +255,14 @@ export const createGame = mutation({
         ...(args.flagPlacements ? { customFlags: args.flagPlacements.length } : {}),
       },
       gameId,
+      args.client,
     );
     return { gameId, inviteCode };
   },
 });
 
 export const joinGame = mutation({
-  args: { inviteCode: v.string(), name: v.string() },
+  args: { inviteCode: v.string(), name: v.string(), client: clientStampValidator },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
     const game = await ctx.db
@@ -292,13 +294,13 @@ export const joinGame = mutation({
       seat: players.length,
       lastSeenTurn: 0,
     });
-    await logFlow(ctx, 'game-joined', { seat: players.length }, game._id);
+    await logFlow(ctx, 'game-joined', { seat: players.length }, game._id, args.client);
     return { gameId: game._id };
   },
 });
 
 export const startGame = mutation({
-  args: { gameId: v.id('games') },
+  args: { gameId: v.id('games'), client: clientStampValidator },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
     const game = await ctx.db.get(args.gameId);
@@ -324,6 +326,7 @@ export const startGame = mutation({
       'game-started',
       { playerCount: players.length, boardName: game.boardName },
       game._id,
+      args.client,
     );
     await notifyOthers(ctx, game._id, players, userId, 'Game on — program your first turn!');
   },
@@ -356,6 +359,7 @@ export const submitProgram = mutation({
      * client drop the submission instead of surfacing a bogus card error.
      */
     expectedTurn: v.optional(v.number()),
+    client: clientStampValidator,
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -419,7 +423,7 @@ export const submitProgram = mutation({
       });
     }
 
-    await logFlow(ctx, 'program-submitted', { turn }, game._id);
+    await logFlow(ctx, 'program-submitted', { turn }, game._id, args.client);
 
     // Last active player in? Execute the turn authoritatively.
     const players = await gamePlayers(ctx, game._id);
@@ -463,6 +467,7 @@ export const submitProgram = mutation({
           stack: err instanceof Error ? err.stack : undefined,
         },
         game._id,
+        args.client,
       );
       return { stale: false as const };
     }
@@ -471,6 +476,7 @@ export const submitProgram = mutation({
       'turn-executed',
       { turn, ms: Date.now() - startedAt, playerCount: players.length },
       game._id,
+      args.client,
     );
     await ctx.db.insert('turns', {
       gameId: game._id,
@@ -492,6 +498,7 @@ export const submitProgram = mutation({
         'game-finished',
         { turns: turn, winner: result.state.winner ?? null },
         game._id,
+        args.client,
       );
     }
     await notifyOthers(
@@ -529,7 +536,7 @@ export const markTurnSeen = mutation({
  * Rate-limited to one nudge per game per 12h so it can't become spam.
  */
 export const nudge = mutation({
-  args: { gameId: v.id('games') },
+  args: { gameId: v.id('games'), client: clientStampValidator },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
     const game = await ctx.db.get(args.gameId);
@@ -564,7 +571,7 @@ export const nudge = mutation({
     if (targets.length === 0) throw new Error('Nobody to nudge right now');
 
     await ctx.db.patch(game._id, { lastNudgeAt: now });
-    await logFlow(ctx, 'nudge', { targets: targets.length }, game._id);
+    await logFlow(ctx, 'nudge', { targets: targets.length }, game._id, args.client);
     await ctx.scheduler.runAfter(0, internal.push.send, {
       userIds: [...new Set(targets)],
       title: 'Drone Derby',

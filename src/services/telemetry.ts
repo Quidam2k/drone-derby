@@ -15,6 +15,16 @@ export type TelemetryKind = 'error' | 'unhandledrejection' | 'react-error' | 'no
 export const APP_VERSION: string =
   typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : 'dev';
 
+/**
+ * Rides along on game mutations so their server-side flow rows carry the same
+ * build and page-load id as this tab's client rows. The server cannot derive
+ * either one, and without them a crash here cannot be joined to the turn
+ * there.
+ */
+export function clientStamp(): { appVersion: string; sessionId: string } {
+  return { appVersion: APP_VERSION, sessionId };
+}
+
 export interface TelemetryEntry {
   kind: TelemetryKind;
   message: string;
@@ -26,8 +36,12 @@ const BUFFER_KEY = 'dd-telemetry';
 const BUFFER_MAX = 100;
 const DEDUPE_MS = 5_000;
 
-/** Random per page load — groups one session's entries in the sink. */
-const sessionId = Math.random().toString(36).slice(2, 10);
+/**
+ * Random per page load — groups one session's entries in the sink. Exported
+ * so game mutations can stamp it onto their server-side flow rows: without it
+ * a client crash cannot be joined to the server turn that caused it.
+ */
+export const sessionId = Math.random().toString(36).slice(2, 10);
 
 /** kind+message → last logged ts; stops error loops from flooding. */
 const lastLogged = new Map<string, number>();

@@ -9,7 +9,7 @@ import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { navigate } from '../../services/route';
 import { isMuted, setMuted } from '../../services/audio';
-import { APP_VERSION } from '../../services/telemetry';
+import { APP_VERSION, clientStamp } from '../../services/telemetry';
 import type { BoardDef, Position } from '../../engine';
 import { BUILTIN_BOARDS } from '../../engine';
 import { BoardPicker, type BoardOption } from '../board/BoardThumb';
@@ -97,6 +97,7 @@ function LobbyInner() {
         ? { name, builtin: board.slice(BUILTIN_PREFIX.length) }
         : { name, boardId: board as Id<'boards'> }),
       ...(flags ? { flagPlacements: flags } : {}),
+      client: clientStamp(),
     })
       .then(({ gameId }) => navigate(`#/game/${gameId}`))
       .catch((e: unknown) => setError(errorMessage(e)))

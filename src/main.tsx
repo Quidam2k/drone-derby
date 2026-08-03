@@ -6,11 +6,13 @@ import { convex } from './services/convex';
 import { listenForSwMessages } from './services/push';
 import { installGlobalTelemetry, logFlowEvent } from './services/telemetry';
 import { installAudio } from './services/audio';
+import { installUpdatePrompt } from './services/swUpdate';
 import './index.css';
 
 installGlobalTelemetry();
 installAudio();
 listenForSwMessages();
+void installUpdatePrompt();
 window.addEventListener('appinstalled', () => logFlowEvent('pwa-installed'));
 
 createRoot(document.getElementById('root')!).render(

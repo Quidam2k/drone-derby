@@ -1920,3 +1920,32 @@ button.quiet {
 .bug-note-btn:focus-visible {
   opacity: 1;
 }
+
+.update-banner {
+  position: fixed;
+  bottom: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.5rem 0.4rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  font-size: 0.9rem;
+}
+
+/* Note form (phase P1). Was window.prompt, which iOS and embedded contexts
+   suppress outright — the button appeared to do nothing on exactly the
+   devices a playtester is most likely to hold. */
+.bug-note-modal {
+  min-width: min(420px, 90vw);
+}
+.bug-note-modal textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+}
