@@ -12,7 +12,7 @@ Plan of record for the post-playtest-polish cascade. Approved by Jarvis
 | P2 | Hot-seat resilience | DONE (2026-08-03) |
 | PA | Board element animation (added by #2500/#2501) | DONE (2026-08-03) |
 | P3 | Session + hot-seat beacons | DONE (2026-08-03) |
-| P4 | Golden-game regression harness | PENDING |
+| P4 | Golden-game regression harness | DONE (2026-08-03) |
 | P5 | **HARD STOP** — hand Todd a checklist, do not proceed | — |
 | P6 | Comprehensibility pass | **NOT APPROVED TO SCOPE** |
 
@@ -416,4 +416,60 @@ will trust the fourth time.**
 load (they are wired at module scope and typecheck, and the beacon logic is
 unit-tested against a fake window). On the P5 checklist.
 
-⚠️ NEXT: P4 — golden-game regression harness. Then the P5 hard stop.
+#### P4 verification log (2026-08-03)
+
+- `npm run typecheck` clean; `npm test` **684 passed / 59 files** (15 new, up
+  from 669/58); `npm run build` succeeds.
+- Shipped: `src/engine/__tests__/goldenGame.ts` (the driver, shared by the test
+  and the updater so the fixture and the assertion cannot come from two code
+  paths), `goldenGame.test.ts`, the fixture at
+  `src/engine/__tests__/__fixtures__/golden-game.json` (~119 KB), and
+  `npm run golden:update` → `scripts/golden-update.mjs`.
+- **Scripted policy, not scripted cards.** The game runs through the real
+  deal/draw/discard cycle from one seed; each seat plays its hand in dealt
+  order, leaving locked registers null. Hardcoded cards would bypass the deck,
+  and the deck is where a conservation regression lives.
+- **Not a vitest snapshot, on purpose.** `-u` updates every snapshot in the repo
+  as a side effect of a routine command; a golden you can bless by muscle memory
+  is not a tripwire. The updater prints what a failure means before it writes.
+- **The header says plainly that this is a regression tripwire and NOT a
+  correctness proof.** A fixture generated from today's engine locks in today's
+  behaviour, right or wrong. The waypoint assertions are the half that can judge
+  correctness, and each names a rule a human can check against
+  `docs/game_mechanics_md.md`.
+- **The seed was chosen, not taken.** The first one tried ended on turn 7 with
+  every robot in a pit, having never fired a pusher, claimed a checkpoint or
+  ridden a belt — a golden that would pass while half the rulebook rotted. A
+  search over boards × seeds found `theGauntlet` @ **3393007**: 18 turns to a
+  real winner (Cy, last-standing), 4 chain pushes, and every mechanic the
+  waypoints name. Only `theGauntlet` and `dockyard` carry pushers at all.
+- Failures are reported turn-by-turn then event-by-event, so a break names the
+  register that moved instead of diffing 119 KB of JSON.
+
+**Perturbations — the acceptance criterion, not a nicety. All four bite:**
+| Perturbation | Result |
+|---|---|
+| chain pushing disabled (only the mover moves) | **5 tests fail** |
+| belt moves the opposite direction | **3 tests fail** |
+| walls no longer stop a laser beam | **7 tests fail** |
+| gear turns the wrong way | **7 tests fail**, including the named gear waypoint |
+
+**One perturbation was a no-op on the first attempt and is recorded as such.**
+Reversing only the belt's *wall lookup* changed nothing, because no wall lay on
+any belt path this game takes — the harness was fine; the perturbation tested
+nothing. Redone against the actual movement (`to: step(...)`), it fails 3 tests.
+Worth writing down: a perturbation that passes is not automatically evidence
+about the harness, and treating it as such would have been the comfortable
+misreading.
+
+**A waypoint that failed and was WRONG — the engine was right.** The first
+version asserted "damage ≥ 5 whenever a `register-locked` event fires". It fails
+on turn 13, because end-of-turn repair on a wrench can drop damage back below 5
+before the snapshot is taken — the assertion was reading the wrong instant, not
+catching a bug. Replaced with the rule that holds at the instant actually
+recorded: **locked registers == max(0, damage − 4)**, checked for every robot on
+every turn. Kept here because "the test failed so the code is wrong" was the
+tempting conclusion and it was the false one.
+
+⚠️ NEXT: **P5 — HARD STOP.** Hand Todd the checklist and stop. P6 is NOT
+approved to scope.
