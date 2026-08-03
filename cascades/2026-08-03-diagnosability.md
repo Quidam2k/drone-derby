@@ -9,7 +9,8 @@ Plan of record for the post-playtest-polish cascade. Approved by Jarvis
 | Phase | Title | Status |
 |-------|-------|--------|
 | P1 | Diagnosability pass | DONE (2026-08-03) |
-| P2 | Hot-seat resilience | PENDING |
+| P2 | Hot-seat resilience | DONE (2026-08-03) |
+| PA | Board element animation (added by #2500/#2501) | PENDING |
 | P3 | Session + hot-seat beacons | PENDING |
 | P4 | Golden-game regression harness | PENDING |
 | P5 | **HARD STOP** — hand Todd a checklist, do not proceed | — |
@@ -197,4 +198,49 @@ rediscovered as a new idea.
   (the `deliberate:false` branch). Reproducing it needs the leak back. The
   teardown path is exercised on every unmount.
 
-⚠️ NEXT: P2 — hot-seat resilience.
+## P2 verification log (2026-08-03)
+
+- `npm run typecheck` clean; `npm test` 629 passed / 55 files (7 new in
+  `src/store/gameStore.test.ts`, up from 622).
+- Shipped: try/catch around `executeTurn` capturing
+  `{seed, turn, boardName, playerCount, programs, powerDown, respawnFacing,
+  stack}` — the same `initialSeed + game.turn` expression `collectRepro()`
+  uses, so a note and an auto-captured error name the same turn. A new
+  `turnError` field surfaces it in `HotSeatGame` instead of a frozen screen,
+  and the game is left standing so its state is still inspectable.
+- Persistence: `dd-hotseat` in localStorage, versioned, saved at every screen
+  transition, cleared on `newGame()`. A save taken mid-`replay` resumes at the
+  next handoff (or game-over) because `lastTurn` is deliberately not persisted
+  — the turn was already applied to `game`, so the only loss is re-watching
+  it, which is what `finishReplay` would have done next anyway.
+- **A test-quality catch worth recording:** the first version of the reload
+  tests put `vi.resetModules()` only in `beforeEach`, so the second
+  `import()` inside a test returned the cached module — the "reloaded" store
+  was the same object, and three persistence assertions passed without any
+  persistence existing. Only the version-mismatch test failed, which is what
+  exposed it. `resetModules()` now lives inside the `freshStore()` helper.
+
+⚠️ NEXT: PA — board element animation. **Survey first** (what already animates
+vs. what snaps) and report the gap before building. Presentation only: if
+legibility needs a rules or timing change, STOP and report — pacing is Todd's
+call. Then P3, P4, P5 hard stop.
+
+### PA — Board element animation (added by #2500, re-prioritised by #2501)
+
+Approved, lower priority than the diagnosability phases: *"useful polish."*
+Note #2501 explicitly withdrew the argument that this is part of the Case 3
+instrument — the robot's own movement already renders a wrong outcome, so
+animating a pusher adds legibility, not a detection channel. Do not re-derive
+that justification.
+
+- Scope: board elements visibly performing their own action — pushers
+  extending/retracting, gears rotating, conveyors carrying, lasers firing,
+  movement reading as motion rather than teleport. Plus general look-nicer.
+- **The `webglcontextlost` alarm (P1) is already in.** That was the binding
+  constraint on starting this work: per-element animation is exactly the kind
+  of change that could reintroduce the b99ef67 context leak, and now the
+  instrument catches it instead of Todd's eye. Watch for
+  `deliberate:false` rows.
+- No gameplay, rules or timing changes. If animating serially makes a turn
+  drag, report the trade-off rather than silently speeding things up or
+  dropping steps.

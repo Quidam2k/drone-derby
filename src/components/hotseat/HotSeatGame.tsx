@@ -11,7 +11,26 @@ import { ReplayPlayer } from '../replay/ReplayPlayer';
 
 export function HotSeatGame() {
   const store = useGameStore();
-  const { screen, game, currentSeat, lastTurn } = store;
+  const { screen, game, currentSeat, lastTurn, turnError } = store;
+
+  // The engine threw resolving a turn. Previously this escaped as an uncaught
+  // error and left whatever screen was up frozen; the repro key is already
+  // captured by now, so say what happened rather than pretending nothing did.
+  if (turnError) {
+    return (
+      <div className="screen center-screen">
+        <h1>That turn couldn't be resolved</h1>
+        <p className="setup-hint">{turnError}</p>
+        <p className="setup-hint">
+          A report with the board, turn and seed has been filed automatically —
+          the 🐞 button will add anything you noticed.
+        </p>
+        <button type="button" className="primary" onClick={store.newGame}>
+          New game
+        </button>
+      </div>
+    );
+  }
 
   switch (screen) {
     case 'setup':
