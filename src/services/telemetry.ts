@@ -43,13 +43,37 @@ const DEDUPE_MS = 5_000;
  */
 export const sessionId = Math.random().toString(36).slice(2, 10);
 
-/** kind+message → last logged ts; stops error loops from flooding. */
+/** dedupe key → last logged ts; stops error loops from flooding. */
 const lastLogged = new Map<string, number>();
+
+/**
+ * Dedupe key. Errors collapse on kind+message alone — a loop throwing the same
+ * error is exactly what the window exists to swallow, and its payload (a stack,
+ * a line number) is noise that would defeat the collapse.
+ *
+ * 'flow' rows additionally key on their data, because flow events are COUNTED:
+ * they feed the digest funnels, and a beacon dropped inside the window would
+ * silently deflate a rate rather than announce itself. Two hot-seat turns or
+ * two route changes inside 5 s are ordinary play, and they differ by {turn} or
+ * {name}. A genuine flood — a GPU thrashing `webgl-context-lost`, a retry loop
+ * — repeats *identically*, so it still collapses. Narrower rule, same guard.
+ */
+function dedupeKey(kind: TelemetryKind, message: string, data: unknown): string {
+  const base = `${kind}\n${message}`;
+  if (kind !== 'flow' || data === undefined) return base;
+  try {
+    return `${base}\n${JSON.stringify(data)}`;
+  } catch {
+    // Circular or otherwise unserialisable — fall back to collapsing on the
+    // message, which is the safe direction: at worst we drop a duplicate.
+    return base;
+  }
+}
 
 export function logTelemetry(kind: TelemetryKind, message: string, data?: unknown): void {
   try {
     const now = Date.now();
-    const key = `${kind}\n${message}`;
+    const key = dedupeKey(kind, message, data);
     const prev = lastLogged.get(key);
     if (prev !== undefined && now - prev < DEDUPE_MS) return;
     lastLogged.set(key, now);
