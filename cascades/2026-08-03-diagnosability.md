@@ -11,7 +11,7 @@ Plan of record for the post-playtest-polish cascade. Approved by Jarvis
 | P1 | Diagnosability pass | DONE (2026-08-03) |
 | P2 | Hot-seat resilience | DONE (2026-08-03) |
 | PA | Board element animation (added by #2500/#2501) | DONE (2026-08-03) |
-| P3 | Session + hot-seat beacons | PENDING |
+| P3 | Session + hot-seat beacons | DONE (2026-08-03) |
 | P4 | Golden-game regression harness | PENDING |
 | P5 | **HARD STOP** — hand Todd a checklist, do not proceed | — |
 | P6 | Comprehensibility pass | **NOT APPROVED TO SCOPE** |
@@ -351,5 +351,69 @@ curve. The test was written before the bug was known and found it immediately.
 the release, the flag, the direction and the rest pose — they cannot cover
 legibility. That is on Todd's P5 checklist.
 
-⚠️ NEXT: P3 — session + hot-seat beacons. Fully specced above; executable cold.
-Then P4, then the P5 hard stop.
+#### P3 verification log (2026-08-03)
+
+- `npm run typecheck` clean; `npm test` **669 passed / 58 files** (18 new, up
+  from 651/57); `npm run build` succeeds.
+- **`convex/` is NOT covered by `npm run typecheck`** — the root `tsconfig.json`
+  includes only `src` and `vite.config.ts`. Convex code typechecks under
+  `npx tsc --noEmit -p convex/tsconfig.json`, which is what was run here. Worth
+  knowing before anyone trusts a green typecheck on a Convex-only change.
+- **The dedupe had to change before any beacon was worth adding.**
+  `logTelemetry` collapsed any repeat of `kind+message` within 5 s — built to
+  stop error loops flooding the sink, and it would have silently eaten a second
+  `screen` or `hotseat-turn-executed` inside that window. A funnel with dropped
+  rows is worse than no funnel: it presents as a real denominator and is not
+  one. The key now includes serialised `data` for `'flow'` rows **only**, so an
+  identical-repeat flood still collapses while a beacon carrying a differing
+  `{turn}`/`{name}` gets through. A test asserts identical `error` rows still
+  collapse — proof the rule was narrowed, not that a hole was widened.
+- **The data key was necessary but not sufficient, which the tests caught.** A
+  round trip home → hotseat → home emits two *byte-identical* `screen` payloads,
+  so no data key can tell them apart. The beacon carries a navigation ordinal,
+  which doubles as the order a session actually visited things in.
+- Shipped: `app-open` at `main.tsx` module scope (**not** an effect — StrictMode
+  double-invokes effects in dev and would report twice the sessions that exist);
+  new `services/screenBeacon.ts` on `hashchange` (**not** a hook — `useRoute`
+  re-runs per render, so a beacon there counts renders, not navigations);
+  hot-seat lifecycle in `gameStore.ts`; digest extended with a hot-seat funnel,
+  a screens breakdown, `appOpens` beside `sessionsSeen`, and abandonment.
+- **`executeTurn` advances `turn` only when the game did NOT end** (the
+  `if (!gameEnded)` guard in `execute.ts`). So the turn just watched is
+  `turn - 1` on an ongoing game and `turn` on the last one. A blanket `turn - 1`
+  would misname the final turn of every game — the turn most likely to be the
+  subject of a 🐞 note. Asserted in both directions.
+- **A resume must not re-report a start**, or one game is started twice and
+  finished once, and every downstream rate silently deflates. Asserted.
+  Conversely a reload *during the winning replay* now still reports the finish:
+  `finishReplay` never runs in that path, so the completed game would otherwise
+  sit in the funnel looking abandoned. No extra bookkeeping was needed — a save
+  reading `'gameover'` is by construction one whose finish already fired.
+- **Abandonment is read from `games` + `turns`, not from telemetry rows**, with
+  no schema change. Confirmed against the dev deployment: a 720 h window holds
+  **4 telemetry rows** but **22 unfinished games — 14 stalled, 8 lobbies never
+  started**. Deriving it from rows would have reported almost nothing, and
+  under-reporting is the one direction that matters here.
+- Hot-seat turn errors arrive as kind `'error'` from the store's try/catch, not
+  as flow rows, so the hot-seat funnel matches them by message prefix the way
+  the online funnel reads `turn-error`.
+
+**Perturbations, each observed to fail before the code was kept:**
+- revert the flow dedupe key ⇒ the two-beacons-in-the-window test fails (1)
+- drop the screen ordinal ⇒ return-visit + ordering tests fail (2)
+- name the watched turn with a blanket `turn - 1` ⇒ finished-game test fails (1)
+- drop the resume-side finish emit ⇒ reload-during-winning-replay fails (1)
+
+**A test-quality catch worth recording.** `playTurn` first submitted
+`hand.slice(0, 5)`, which is an invalid program once a robot has 5 damage —
+locked registers must stay null and the hand shrinks one card per damage. Board
+lasers can do that on turn one, so the suite failed on roughly one seed in
+three. The helper now respects locks, and the clock is pinned so the dealt game
+is identical every run. **A test that fails one run in three is a test nobody
+will trust the fourth time.**
+
+*Not verified in a browser:* that `app-open` and `screen` fire from a real page
+load (they are wired at module scope and typecheck, and the beacon logic is
+unit-tested against a fake window). On the P5 checklist.
+
+⚠️ NEXT: P4 — golden-game regression harness. Then the P5 hard stop.
