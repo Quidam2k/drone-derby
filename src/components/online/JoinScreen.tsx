@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
+import { clientStamp } from '../../services/telemetry';
 import { api } from '../../../convex/_generated/api';
 import { navigate } from '../../services/route';
 import { CenterNote, errorMessage, SignInGate, useSavedName } from './common';
@@ -51,7 +52,7 @@ function JoinInner({ code }: { code: string }) {
   const join = () => {
     setBusy(true);
     setError(null);
-    joinGame({ inviteCode: code, name })
+    joinGame({ inviteCode: code, name, client: clientStamp() })
       .then(({ gameId }) => navigate(`#/game/${gameId}`))
       .catch((e: unknown) => {
         setError(errorMessage(e));

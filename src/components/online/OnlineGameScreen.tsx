@@ -6,6 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
+import { clientStamp } from '../../services/telemetry';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import type { Direction, EventLog, GameState, Program } from '../../engine';
@@ -130,6 +131,7 @@ function GameInner({ gameId }: { gameId: Id<'games'> }) {
       respawnFacing,
       powerDown,
       expectedTurn: g.currentTurn,
+      client: clientStamp(),
     }).catch((e: unknown) => setError(errorMessage(e)));
   };
 
@@ -197,7 +199,9 @@ function GameLobby({ g }: { g: GameView }) {
           data-testid="start-online-game"
           onClick={() => {
             setError(null);
-            startGame({ gameId: g.gameId }).catch((e: unknown) => setError(errorMessage(e)));
+            startGame({ gameId: g.gameId, client: clientStamp() }).catch((e: unknown) =>
+              setError(errorMessage(e)),
+            );
           }}
         >
           {g.players.length < 2 ? 'Waiting for players…' : 'Start game'}
@@ -270,7 +274,7 @@ function NudgeButton({ g }: { g: GameView }) {
         data-testid="nudge-button"
         onClick={() => {
           setNote(null);
-          nudge({ gameId: g.gameId })
+          nudge({ gameId: g.gameId, client: clientStamp() })
             .then(() => setNote('Nudge sent!'))
             .catch((e: unknown) => setNote(errorMessage(e)));
         }}

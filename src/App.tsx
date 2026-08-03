@@ -1,6 +1,8 @@
-import { Component, type ErrorInfo, type ReactNode } from 'react';
+import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { convex } from './services/convex';
 import { logTelemetry } from './services/telemetry';
+import { collectRepro } from './services/diagnostics';
+import { onUpdateAvailable, takeUpdate } from './services/swUpdate';
 import { useRoute } from './services/route';
 import { HotSeatGame } from './components/hotseat/HotSeatGame';
 import { EditorScreen } from './components/editor/EditorScreen';
@@ -39,22 +41,71 @@ class RouteBoundary extends Component<{ children: ReactNode }, { error: Error | 
 }
 
 /**
- * One-tap playtest note — for gameplay/feel bugs that don't throw. The
- * current hash (route/gameId) rides along in the telemetry context.
+ * One-tap playtest note — for gameplay/feel bugs that don't throw, which is
+ * the class of bug nothing else here can see: a wrong outcome never raises an
+ * error, so this button is the whole instrument. `collectRepro()` rides along
+ * so a note is reproducible instead of merely suggestive.
+ *
+ * An in-app form rather than `window.prompt`, which some embedded and iOS
+ * contexts suppress outright — a playtester on a phone would tap the button
+ * and watch nothing happen, which is worse than having no button at all.
  */
 function BugButton() {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState('');
+
+  const submit = () => {
+    const note = text.trim();
+    if (note) logTelemetry('note', note, collectRepro());
+    setText('');
+    setOpen(false);
+  };
+
   return (
-    <button
-      className="bug-note-btn"
-      type="button"
-      title="Something broken or off? Leave a note"
-      onClick={() => {
-        const text = window.prompt('What went wrong / felt off?');
-        if (text && text.trim()) logTelemetry('note', text.trim());
-      }}
-    >
-      🐞
-    </button>
+    <>
+      <button
+        className="bug-note-btn"
+        type="button"
+        title="Something broken or off? Leave a note"
+        onClick={() => setOpen(true)}
+      >
+        🐞
+      </button>
+      {open && (
+        <div className="modal-backdrop" onClick={() => setOpen(false)}>
+          <div
+            className="modal bug-note-modal"
+            role="dialog"
+            aria-label="Report a problem"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3>What went wrong / felt off?</h3>
+            <p className="modal-hint">
+              The board, turn and recent events are attached automatically.
+            </p>
+            <textarea
+              autoFocus
+              rows={4}
+              value={text}
+              placeholder="The push looked wrong on turn 4…"
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) submit();
+                if (e.key === 'Escape') setOpen(false);
+              }}
+            />
+            <div className="modal-actions">
+              <button type="button" onClick={() => setOpen(false)}>
+                Cancel
+              </button>
+              <button type="button" className="primary" disabled={!text.trim()} onClick={submit}>
+                Send note
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -99,10 +150,30 @@ function Screen() {
   }
 }
 
+/**
+ * "A newer build is waiting." Without this a returning player runs the
+ * previous build until some later refresh, which during a playtest means bug
+ * reports filed against code we already fixed.
+ */
+function UpdateBanner() {
+  const [available, setAvailable] = useState(false);
+  useEffect(() => onUpdateAvailable(setAvailable), []);
+  if (!available) return null;
+  return (
+    <div className="update-banner" role="status">
+      <span>A new version is ready.</span>
+      <button type="button" className="primary" onClick={takeUpdate}>
+        Reload
+      </button>
+    </div>
+  );
+}
+
 export function App() {
   return (
     <>
       <Screen />
+      <UpdateBanner />
       <BugButton />
     </>
   );

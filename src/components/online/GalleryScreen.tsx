@@ -4,6 +4,7 @@
 
 import { useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
+import { clientStamp } from '../../services/telemetry';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { navigate } from '../../services/route';
@@ -35,7 +36,7 @@ function GalleryInner() {
   const create = (boardId: string) => {
     setBusyId(boardId);
     setError(null);
-    createGame({ name, boardId: boardId as Id<'boards'> })
+    createGame({ name, boardId: boardId as Id<'boards'>, client: clientStamp() })
       .then(({ gameId }) => navigate(`#/game/${gameId}`))
       .catch((e: unknown) => setError(errorMessage(e)))
       .finally(() => setBusyId(null));
