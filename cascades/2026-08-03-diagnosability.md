@@ -244,3 +244,50 @@ that justification.
 - No gameplay, rules or timing changes. If animating serially makes a turn
   drag, report the trade-off rather than silently speeding things up or
   dropping steps.
+
+#### PA survey (2026-08-03) — what already animates vs. what snaps
+
+Read `scene.ts` (the event switch, ~line 500-620), `boardMesh.ts` (`tick`),
+`effects.ts`, `directorMath.ts`. **Much more already animates than the brief
+assumes — the gap is narrower and more specific than "board elements don't
+animate."**
+
+**Already animated, do not rebuild:**
+- *Robots* — eased movement between cells, rotation, `rig.fall(cause, dir)`,
+  `rig.recoil()`, `rig.snap()` for teleports, plus the Phase 47 mesh animation
+  (treads, hexapod gait, wheels). Movement already reads as motion, not
+  teleport.
+- *Conveyor chevrons* scroll continuously and *portal rings* spin and pulse —
+  `boardMesh.tick(elapsed)`, gated by an `animated` flag.
+- *Lasers* — beam drawn along the path, plus a camera nudge, suppressed when
+  the path is zero-length so a pulse never reads as a dropped frame.
+- *Impacts* — bump rings, `slam`, `impact`, hazard pulses, flame, repair,
+  teleport arcs, landing marks, explosions.
+
+**The actual gap — board elements that resolve a rule without their own
+geometry moving:**
+1. **Pusher.** `pusher-fired` draws `effects.bump()` — a ring kicked in the
+   shove direction. **The pusher never extends or retracts.** Todd's headline
+   example, and the clearest defect.
+2. **Gear.** `gear-rotated` has **no case in the scene event switch at all**.
+   The robot turns; the gear tile itself never rotates. Todd's second example.
+3. **Conveyor carrying.** `conveyor-moved` likewise has **no case**. The robot
+   slides, but the belt does not respond to the pulse — its chevrons scroll at
+   a constant ambient rate whether or not it just moved someone.
+4. **Crusher.** Gets `slam` + `impact` + `bump`, but no press descending.
+
+**Mechanism already exists — this is the reason the work is tractable.**
+`boardMesh` keeps portal cells in batch order with their instance indices so
+`tick(elapsed)` can re-pose each ring and core every frame (`boardMesh.ts:318`,
+`tickPortals`). Pushers, gears and crushers need the same treatment: collect
+their cells with instance handles, then drive them from `tick`. The one new
+thing needed is an **event-driven** trigger (a short-lived per-cell animation
+kicked by the event) rather than the purely ambient time-driven poses that
+exist today.
+
+**Risk to watch:** `animated` currently gates the render-on-demand loop. Adding
+event-driven element animation must not flip boards into always-on rendering —
+that is a battery and heat regression on the phones a playtester holds, and it
+is the same class of quiet defect as the b99ef67 leak. The `webglcontextlost`
+alarm from P1 is in, so a context regression would now be caught, but an
+always-rendering board would not be. Worth its own check.
