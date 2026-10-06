@@ -2032,3 +2032,20 @@ button.quiet {
   border-color: var(--accent);
   color: var(--accent);
 }
+.programming-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+}
+.board-toggle {
+  margin-left: auto;
+}
+.controller-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+  margin: 0.5rem 0;
+}

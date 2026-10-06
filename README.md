@@ -131,6 +131,25 @@ Paste-ready invite message:
 > (there's a "First time?" link when you join). If anything feels broken
 > or confusing, smash the 🐞 button and tell me. → LINK
 
+## TV mode (couch play)
+
+Big screen shows the board and plays every turn; everyone programs on their
+own phone. Remote players can be in the same game.
+
+1. Create the game on a phone. Pick a **turn timer** if you want one
+   (Off by default; 1 min · 2 min · 5 min · 1 h · 24 h — the host can
+   change it in the game lobby until the game starts).
+2. On the TV's browser open **📺 Show on TV** from the game lobby, or type
+   the invite code into **Watch on a TV** on the home screen
+   (`#/tv/<code>`, no sign-in). The TV shows a QR code — friends scan it
+   to join.
+3. Each phone on the couch ticks **🎮 Controller mode**: it skips the
+   turn replays (the TV plays them) and tucks the board behind
+   *Show board ▾* so the cards get the screen. Remote players leave it off.
+4. When the timer runs out, anyone still programming gets random cards
+   from their hand in every empty register (the official rule) and the
+   turn runs. The TV plays it, then goes back to the board.
+
 ## Test-everything checklist
 
 ### Screens
@@ -212,6 +231,16 @@ Paste-ready invite message:
       ("forked from X by Y" appears on the fork's card once published)
 - [ ] Push notifications: installed PWA, allow → nudge arrives when the
       other player submits
+- [ ] **TV mode**: `#/tv/<code>` in a signed-out browser shows the QR +
+      code + players; after start it shows the board, ✓/⏳ per player and
+      the countdown, and plays each new turn once (opening it mid-game does
+      not replay the backlog), then the winner screen at the end
+- [ ] **Turn timer**: a 1-min game counts down on every phone and the TV;
+      lock in one player and wait — the other robot runs a random program
+      and the turn executes; an untimed game shows no countdown at all
+- [ ] **Controller mode**: with it on, the phone skips the replay and opens
+      straight on the next turn with the board collapsed; off, it replays
+      as before
 
 ### Mechanics, by board
 

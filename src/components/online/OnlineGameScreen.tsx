@@ -12,7 +12,7 @@ import type { Id } from '../../../convex/_generated/dataModel';
 import type { Direction, EventLog, GameState, Program } from '../../engine';
 import { countCheckpoints } from '../../engine';
 import { inviteUrl, navigate, tvUrl } from '../../services/route';
-import { setFocusPlayer } from '../../services/viewSettings';
+import { setFocusPlayer, setView, useControllerMode } from '../../services/viewSettings';
 import { BoardView } from '../board/BoardView';
 import { BoardThumb } from '../board/BoardThumb';
 import { PlayerStrip } from '../board/PlayerStrip';
@@ -23,6 +23,7 @@ import { ReplayPlayer } from '../replay/ReplayPlayer';
 import { CenterNote, errorMessage, SignInGate } from './common';
 import { HistoryBrowser } from './HistoryBrowser';
 import { NotificationsButton } from './NotificationsButton';
+import { TimerPicker, timerLabel, TurnTimer } from './TurnTimer';
 
 export function OnlineGameScreen({ gameId }: { gameId: string }) {
   return (
@@ -39,6 +40,8 @@ function GameInner({ gameId }: { gameId: Id<'games'> }) {
   const submitProgram = useMutation(api.games.submitProgram);
   const [error, setError] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const controller = useControllerMode();
+  const markTurnSeen = useMutation(api.games.markTurnSeen);
 
   // Online always has a local player, so the 3D camera's My-robot lock works
   // on every screen here — replays and the waiting view included. Deliberately
@@ -50,6 +53,16 @@ function GameInner({ gameId }: { gameId: Id<'games'> }) {
     if (mySeat === null || !g) return;
     setFocusPlayer((g.state as GameState | null)?.robots[mySeat]?.player ?? null);
   });
+
+  // Controller mode: the TV plays the turn, so this phone marks it watched
+  // instead of replaying it (HistoryBrowser still has every turn).
+  const unseenThrough =
+    g && g.status !== 'lobby' && g.myLastSeenTurn < g.currentTurn - 1 ? g.currentTurn - 1 : null;
+  useEffect(() => {
+    if (controller && g && unseenThrough !== null) {
+      void markTurnSeen({ gameId: g.gameId, turn: unseenThrough });
+    }
+  }, [controller, g?.gameId, unseenThrough]);
 
   if (g === undefined) return <CenterNote>Loading game…</CenterNote>;
   if (g === null) {
@@ -80,7 +93,7 @@ function GameInner({ gameId }: { gameId: Id<'games'> }) {
   }
 
   // Catch up on turns this player hasn't watched yet, oldest first.
-  if (g.myLastSeenTurn < executedThrough) {
+  if (g.myLastSeenTurn < executedThrough && !controller) {
     return <TurnReplay gameId={g.gameId} turn={g.myLastSeenTurn + 1} />;
   }
 
@@ -138,13 +151,21 @@ function GameInner({ gameId }: { gameId: Id<'games'> }) {
   return (
     <>
       {error && <p className="error-note floating">{error}</p>}
-      <ProgrammingView key={g.currentTurn} game={state} seat={g.mySeat} onSubmit={submit} />
+      <ProgrammingView
+        key={g.currentTurn}
+        game={state}
+        seat={g.mySeat}
+        onSubmit={submit}
+        turnDeadline={g.turnDeadline}
+        compactBoard={controller}
+      />
     </>
   );
 }
 
 function GameLobby({ g }: { g: GameView }) {
   const startGame = useMutation(api.games.startGame);
+  const setTurnTimer = useMutation(api.games.setTurnTimer);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Seats come from the board's spawn docks (2–4), not a hardcoded 4.
@@ -201,6 +222,27 @@ function GameLobby({ g }: { g: GameView }) {
       >
         📺 Show on TV
       </a>
+
+      {g.isHost ? (
+        <TimerPicker
+          value={g.turnTimerMs}
+          onChange={(ms) => {
+            setError(null);
+            setTurnTimer({
+              gameId: g.gameId,
+              ...(ms ? { turnTimerMs: ms } : {}),
+              client: clientStamp(),
+            }).catch((e: unknown) => setError(errorMessage(e)));
+          }}
+        />
+      ) : (
+        <p className="setup-hint" data-testid="timer-note">
+          {g.turnTimerMs
+            ? `Turn timer: ${timerLabel(g.turnTimerMs)} per turn`
+            : 'Untimed turns'}
+        </p>
+      )}
+      <ControllerToggle />
 
       {g.isHost ? (
         <button
@@ -314,6 +356,7 @@ function WaitingView({
         <h2>
           Turn {g.currentTurn} — {spectating ? 'spectating' : 'program locked in'}
         </h2>
+        <TurnTimer deadline={g.turnDeadline} />
       </header>
       <div className="game-layout">
         <BoardView board={state.board} visual={visual} />
@@ -334,10 +377,30 @@ function WaitingView({
           Watch past turns
         </button>
       )}
+      <ControllerToggle />
       <NotificationsButton />
       <a className="quiet-link" href="#/">
         ‹ Back to the lobby (your program is saved)
       </a>
     </div>
+  );
+}
+
+/** Per-phone switch for TV play: skip replays (the TV shows them), cards first. */
+function ControllerToggle() {
+  const on = useControllerMode();
+  return (
+    <label
+      className="controller-toggle"
+      title="Playing with the board on a TV? This phone skips the turn replays and shows your cards first."
+    >
+      <input
+        type="checkbox"
+        checked={on}
+        onChange={(e) => setView({ controllerMode: e.target.checked })}
+        data-testid="controller-mode"
+      />
+      🎮 Controller mode (board is on a TV)
+    </label>
   );
 }
