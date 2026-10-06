@@ -15,6 +15,7 @@ export {
   type TurnResult,
 } from './execute';
 export {
+  autoFillProgram,
   buildDeck,
   dealHands,
   drawCards,

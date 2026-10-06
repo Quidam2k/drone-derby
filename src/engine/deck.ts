@@ -1,4 +1,4 @@
-import type { Card, CardType, Deck, GameState, PlayerId } from './types';
+import type { Card, CardType, Deck, GameState, PlayerId, Program } from './types';
 import type { Rng } from './rng';
 import { shuffle } from './rng';
 
@@ -83,6 +83,35 @@ export function dealHands(state: GameState, rng: Rng): void {
     }
     state.hands[robot.player] = drawCards(state.deck, handSize(robot.damage), rng);
   }
+}
+
+/**
+ * Timer-expired program (official rule): every unlocked, still-empty register
+ * gets a random card from the hand, no card used twice. Locked registers stay
+ * null — the engine plays the locked card. Cards already in `partial` are kept
+ * and never reused. Pure: same inputs + same rng seed → same program.
+ */
+export function autoFillProgram(
+  hand: readonly Card[],
+  damage: number,
+  partial: Program,
+  rng: Rng,
+): Program {
+  const program: Program = [];
+  for (let r = 1; r <= 5; r++) {
+    program.push(isRegisterLocked(damage, r) ? null : (partial[r - 1] ?? null));
+  }
+  const used = new Set(program.flatMap((c) => (c ? [c.id] : [])));
+  const pool = shuffle(
+    hand.filter((c) => !used.has(c.id)),
+    rng,
+  );
+  for (let i = 0; i < 5; i++) {
+    if (program[i] === null && !isRegisterLocked(damage, i + 1) && pool.length > 0) {
+      program[i] = pool.shift()!;
+    }
+  }
+  return program;
 }
 
 export function discardHand(state: GameState, player: PlayerId): void {

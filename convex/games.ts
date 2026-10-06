@@ -3,15 +3,18 @@
 // ever see sanitized state (own hand, emptied deck) and the public EventLog.
 
 import { v } from 'convex/values';
-import { mutation, query } from './_generated/server';
+import { internalMutation, mutation, query } from './_generated/server';
 import type { MutationCtx, QueryCtx } from './_generated/server';
 import type { Doc, Id } from './_generated/dataModel';
 import { internal } from './_generated/api';
 import { getAuthUserId } from '@convex-dev/auth/server';
 import { clientStampValidator, logFlow, requireUserId } from './helpers';
+import type { ClientStamp } from './helpers';
 import {
   applyFlagPlacements,
+  autoFillProgram,
   BUILTIN_BOARDS,
+  createRng,
   createGame as engineCreateGame,
   executeTurn,
   isGameOver,
@@ -26,6 +29,9 @@ const MAX_PLAYERS = 4;
 const BOARD_NAME = 'Proving Grounds';
 const NUDGE_COOLDOWN_MS = 12 * 60 * 60 * 1000;
 const TAUNT_MAX_LENGTH = 60;
+/** Turn-timer bounds; absent games.turnTimerMs = untimed (the default). */
+const MIN_TURN_TIMER_MS = 30 * 1000;
+const MAX_TURN_TIMER_MS = 7 * 24 * 60 * 60 * 1000;
 
 const cardValidator = v.object({
   id: v.string(),
@@ -142,7 +148,8 @@ async function notifyOthers(
   ctx: MutationCtx,
   gameId: Id<'games'>,
   players: Doc<'players'>[],
-  actorUserId: Id<'users'>,
+  /** null = nobody acted (a timer fired) — notify everyone. */
+  actorUserId: Id<'users'> | null,
   body: string,
 ): Promise<void> {
   const userIds = [...new Set(players.map((p) => p.userId))].filter((u) => u !== actorUserId);
@@ -154,6 +161,129 @@ async function notifyOthers(
     url: `/#/game/${gameId}`,
     tag: `game-${gameId}`,
   });
+}
+
+function clampTurnTimer(ms: number | undefined): number | undefined {
+  if (ms === undefined || ms <= 0) return undefined;
+  return Math.min(MAX_TURN_TIMER_MS, Math.max(MIN_TURN_TIMER_MS, Math.round(ms)));
+}
+
+/**
+ * Start the clock on `turn` for a timed game: stamp the deadline clients count
+ * down to and schedule the timeout. Untimed games clear any old deadline.
+ * Stale jobs (the turn already executed) are no-ops in turnTimeout.
+ */
+async function startTurnClock(ctx: MutationCtx, game: Doc<'games'>, turn: number): Promise<void> {
+  if (game.turnTimerMs === undefined) {
+    if (game.turnDeadline !== undefined) await ctx.db.patch(game._id, { turnDeadline: undefined });
+    return;
+  }
+  const turnDeadline = Date.now() + game.turnTimerMs;
+  await ctx.db.patch(game._id, { turnDeadline });
+  await ctx.scheduler.runAt(turnDeadline, internal.games.turnTimeout, { gameId: game._id, turn });
+}
+
+/**
+ * Everyone's program is in: execute the current turn authoritatively, store
+ * the replay row, advance the game, restart the turn clock and notify.
+ * Shared by submitProgram (last player in) and turnTimeout (clock ran out).
+ * `actorUserId` is skipped by the push; null pushes to everyone.
+ */
+async function executeCurrentTurn(
+  ctx: MutationCtx,
+  game: Doc<'games'>,
+  players: Doc<'players'>[],
+  submissions: Doc<'submissions'>[],
+  actorUserId: Id<'users'> | null,
+  client?: ClientStamp,
+): Promise<void> {
+  const state = game.state as GameState;
+  const turn = game.currentTurn;
+  const byPlayerId = new Map(players.map((p) => [p._id, p.name]));
+  const programs: Record<PlayerId, Program> = {};
+  const taunts: Record<PlayerId, string> = {};
+  const respawnFacings: Record<PlayerId, Direction> = {};
+  const powerDown: PlayerId[] = [];
+  for (const sub of submissions) {
+    const name = byPlayerId.get(sub.playerId);
+    if (name === undefined) continue;
+    programs[name] = sub.program as Program;
+    if (sub.taunt) taunts[name] = sub.taunt;
+    if (sub.respawnFacing) respawnFacings[name] = sub.respawnFacing;
+    if (sub.powerDown) powerDown.push(name);
+  }
+
+  const startedAt = Date.now();
+  let result: ReturnType<typeof executeTurn>;
+  try {
+    result = executeTurn(state, programs, game.seed + turn, {
+      respawnFacing: respawnFacings,
+      powerDown,
+    });
+  } catch (err) {
+    // An engine crash here strands the whole game on this turn — exactly
+    // the event playtest telemetry exists to catch. Rethrowing would roll
+    // back this whole mutation INCLUDING the telemetry row (Convex
+    // mutations are transactions), so commit instead: the program stays
+    // submitted, the turn stays unexecuted, and the stack survives for
+    // `telemetry:digest`.
+    await logFlow(
+      ctx,
+      'turn-error',
+      {
+        turn,
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined,
+      },
+      game._id,
+      client,
+    );
+    return;
+  }
+  await logFlow(
+    ctx,
+    'turn-executed',
+    { turn, ms: Date.now() - startedAt, playerCount: players.length },
+    game._id,
+    client,
+  );
+  await ctx.db.insert('turns', {
+    gameId: game._id,
+    turn,
+    prevState: state,
+    events: result.events,
+    taunts,
+    executedAt: Date.now(),
+  });
+  const finished = isGameOver(result.state);
+  await ctx.db.patch(game._id, {
+    state: result.state,
+    currentTurn: turn + 1,
+    ...(finished ? { status: 'finished' as const, winner: result.state.winner } : {}),
+  });
+  if (finished) {
+    await logFlow(
+      ctx,
+      'game-finished',
+      { turns: turn, winner: result.state.winner ?? null },
+      game._id,
+      client,
+    );
+    if (game.turnDeadline !== undefined) await ctx.db.patch(game._id, { turnDeadline: undefined });
+  } else {
+    await startTurnClock(ctx, game, turn + 1);
+  }
+  await notifyOthers(
+    ctx,
+    game._id,
+    players,
+    actorUserId,
+    finished
+      ? result.state.winner
+        ? `Game over — ${result.state.winner} wins! Watch the final turn.`
+        : 'Game over — everyone was scrapped. Watch the final turn.'
+      : `Turn ${turn} executed — watch the replay and program your move!`,
+  );
 }
 
 // Unambiguous lowercase alphabet (no 0/o, 1/l/i) for invite codes.
@@ -183,6 +313,8 @@ export const createGame = mutation({
      * client only ever sends positions, never a board.
      */
     flagPlacements: v.optional(v.array(v.object({ x: v.number(), y: v.number() }))),
+    /** Per-turn time limit; absent/0 = untimed. Clamped to 30 s – 7 days. */
+    turnTimerMs: v.optional(v.number()),
     client: clientStampValidator,
   },
   handler: async (ctx, args) => {
@@ -244,6 +376,7 @@ export const createGame = mutation({
       createdBy: userId,
       currentTurn: 0,
       ...(board ? { board } : {}),
+      ...(clampTurnTimer(args.turnTimerMs) ? { turnTimerMs: clampTurnTimer(args.turnTimerMs) } : {}),
     });
     await ctx.db.insert('players', { gameId, userId, name, seat: 0, lastSeenTurn: 0 });
     await logFlow(
@@ -321,6 +454,7 @@ export const startGame = mutation({
       game.seed,
     );
     await ctx.db.patch(game._id, { status: 'active', currentTurn: 1, state });
+    await startTurnClock(ctx, game, 1);
     await logFlow(
       ctx,
       'game-started',
@@ -430,89 +564,75 @@ export const submitProgram = mutation({
     const submissions = await turnSubmissions(ctx, game._id, turn);
     if (waitingOnNames(state, players, submissions).length > 0) return { stale: false as const };
 
-    const byPlayerId = new Map(players.map((p) => [p._id, p.name]));
-    const programs: Record<PlayerId, Program> = {};
-    const taunts: Record<PlayerId, string> = {};
-    const respawnFacings: Record<PlayerId, Direction> = {};
-    const powerDown: PlayerId[] = [];
-    for (const sub of submissions) {
-      const name = byPlayerId.get(sub.playerId);
-      if (name === undefined) continue;
-      programs[name] = sub.program as Program;
-      if (sub.taunt) taunts[name] = sub.taunt;
-      if (sub.respawnFacing) respawnFacings[name] = sub.respawnFacing;
-      if (sub.powerDown) powerDown.push(name);
-    }
-
-    const startedAt = Date.now();
-    let result: ReturnType<typeof executeTurn>;
-    try {
-      result = executeTurn(state, programs, game.seed + turn, {
-        respawnFacing: respawnFacings,
-        powerDown,
-      });
-    } catch (err) {
-      // An engine crash here strands the whole game on this turn — exactly
-      // the event playtest telemetry exists to catch. Rethrowing would roll
-      // back this whole mutation INCLUDING the telemetry row (Convex
-      // mutations are transactions), so commit instead: the program stays
-      // submitted, the turn stays unexecuted, and the stack survives for
-      // `telemetry:digest`.
-      await logFlow(
-        ctx,
-        'turn-error',
-        {
-          turn,
-          error: err instanceof Error ? err.message : String(err),
-          stack: err instanceof Error ? err.stack : undefined,
-        },
-        game._id,
-        args.client,
-      );
-      return { stale: false as const };
-    }
-    await logFlow(
-      ctx,
-      'turn-executed',
-      { turn, ms: Date.now() - startedAt, playerCount: players.length },
-      game._id,
-      args.client,
-    );
-    await ctx.db.insert('turns', {
-      gameId: game._id,
-      turn,
-      prevState: state,
-      events: result.events,
-      taunts,
-      executedAt: Date.now(),
-    });
-    const finished = isGameOver(result.state);
-    await ctx.db.patch(game._id, {
-      state: result.state,
-      currentTurn: turn + 1,
-      ...(finished ? { status: 'finished' as const, winner: result.state.winner } : {}),
-    });
-    if (finished) {
-      await logFlow(
-        ctx,
-        'game-finished',
-        { turns: turn, winner: result.state.winner ?? null },
-        game._id,
-        args.client,
-      );
-    }
-    await notifyOthers(
-      ctx,
-      game._id,
-      players,
-      userId,
-      finished
-        ? result.state.winner
-          ? `Game over — ${result.state.winner} wins! Watch the final turn.`
-          : 'Game over — everyone was scrapped. Watch the final turn.'
-        : `Turn ${turn} executed — watch the replay and program your move!`,
-    );
+    await executeCurrentTurn(ctx, game, players, submissions, userId, args.client);
     return { stale: false as const };
+  },
+});
+
+/**
+ * The turn clock ran out (scheduled by startTurnClock). Official rule: every
+ * player still programming gets their empty registers filled with random
+ * cards from their hand, then the turn executes. A job for a turn that
+ * already executed — or a game that ended — does nothing.
+ */
+export const turnTimeout = internalMutation({
+  args: { gameId: v.id('games'), turn: v.number() },
+  handler: async (ctx, args) => {
+    const game = await ctx.db.get(args.gameId);
+    if (!game || game.status !== 'active' || !game.state || game.currentTurn !== args.turn) return;
+    const state = game.state as GameState;
+    const players = await gamePlayers(ctx, game._id);
+    const waiting = waitingOnNames(state, players, await turnSubmissions(ctx, game._id, args.turn));
+    if (waiting.length === 0) return;
+
+    for (const p of players.filter((pl) => waiting.includes(pl.name))) {
+      const robot = state.robots.find((r) => r.player === p.name)!;
+      // Seeded per (game, turn, seat) so a timed-out turn stays reproducible.
+      const rng = createRng(game.seed + args.turn * 7919 + p.seat);
+      const program = autoFillProgram(
+        state.hands[p.name] ?? [],
+        robot.damage,
+        [null, null, null, null, null],
+        rng,
+      );
+      await ctx.db.insert('submissions', {
+        gameId: game._id,
+        turn: args.turn,
+        playerId: p._id,
+        program,
+      });
+    }
+    await logFlow(ctx, 'turn-timeout', { turn: args.turn, autoFilled: waiting.length }, game._id);
+    const timedOut = players.filter((p) => waiting.includes(p.name));
+    await ctx.scheduler.runAfter(0, internal.push.send, {
+      userIds: [...new Set(timedOut.map((p) => p.userId))],
+      title: 'Drone Derby',
+      body: `Time's up on turn ${args.turn} — your robot ran a random program.`,
+      url: `/#/game/${game._id}`,
+      tag: `game-${game._id}`,
+    });
+    await executeCurrentTurn(
+      ctx,
+      game,
+      players,
+      await turnSubmissions(ctx, game._id, args.turn),
+      null,
+    );
+  },
+});
+
+/** Host sets the per-turn time limit while still in the lobby (0/absent = untimed). */
+export const setTurnTimer = mutation({
+  args: { gameId: v.id('games'), turnTimerMs: v.optional(v.number()), client: clientStampValidator },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const game = await ctx.db.get(args.gameId);
+    if (!game) throw new Error('Game not found');
+    if (game.createdBy !== userId) throw new Error('Only the host can set the turn timer');
+    if (game.status !== 'lobby') throw new Error('The turn timer can only change before the game starts');
+    const turnTimerMs = clampTurnTimer(args.turnTimerMs);
+    await ctx.db.patch(game._id, { turnTimerMs });
+    await logFlow(ctx, 'turn-timer-set', { turnTimerMs: turnTimerMs ?? null }, game._id, args.client);
   },
 });
 
@@ -530,9 +650,9 @@ export const markTurnSeen = mutation({
 });
 
 /**
- * Poke the players everyone is waiting on (the async-friendly alternative to
- * turn deadlines — this game has none). Any member who isn't being waited on
- * may nudge; in a lobby only the host may, and it pings everyone else.
+ * Poke the players everyone is waiting on (the async-friendly companion to
+ * the optional turn timer — most games are untimed). Any member who isn't
+ * being waited on may nudge; in a lobby only the host may, and it pings everyone else.
  * Rate-limited to one nudge per game per 12h so it can't become spam.
  */
 export const nudge = mutation({
@@ -690,6 +810,9 @@ export const game = query({
       waitingOn: state ? waitingOnNames(state, players, submissions) : [],
       /** Epoch ms when games.nudge next succeeds (rate limit). */
       nudgeAvailableAt: (game.lastNudgeAt ?? 0) + NUDGE_COOLDOWN_MS,
+      /** Per-turn limit (ms) and when the current turn auto-fills; null = untimed. */
+      turnTimerMs: game.turnTimerMs ?? null,
+      turnDeadline: game.turnDeadline ?? null,
       state: state ? sanitizeState(state, me.name) : null,
     };
   },
@@ -707,6 +830,73 @@ export const turn = query({
     const row = await ctx.db
       .query('turns')
       .withIndex('by_game_turn', (q) => q.eq('gameId', args.gameId).eq('turn', args.turn))
+      .unique();
+    if (!row) return null;
+    return {
+      turn: row.turn,
+      executedAt: row.executedAt,
+      events: row.events,
+      taunts: (row.taunts ?? {}) as Record<string, string>,
+      prevState: sanitizeState(row.prevState as GameState, null),
+    };
+  },
+});
+
+// ---------------------------------------------------------------------------
+// TV viewer — no sign-in. The invite code is the key: anyone holding it can
+// already join the game, and these return only public information (no hands,
+// no deck, no programs).
+
+async function gameByCode(ctx: QueryCtx, inviteCode: string): Promise<Doc<'games'> | null> {
+  return await ctx.db
+    .query('games')
+    .withIndex('by_inviteCode', (q) => q.eq('inviteCode', inviteCode.toLowerCase().trim()))
+    .unique();
+}
+
+/** Shared-screen view of a game: board, players with ✓/⏳, countdown, winner. */
+export const tvGame = query({
+  args: { inviteCode: v.string() },
+  handler: async (ctx, args) => {
+    const game = await gameByCode(ctx, args.inviteCode);
+    if (!game) return null;
+    const players = await gamePlayers(ctx, game._id);
+    const state = game.state as GameState | undefined;
+    const submissions =
+      game.status === 'active' ? await turnSubmissions(ctx, game._id, game.currentTurn) : [];
+    const submitted = new Set(submissions.map((s) => s.playerId));
+    return {
+      gameId: game._id,
+      boardName: game.boardName,
+      board: game.status === 'lobby' ? gameBoard(game) : null,
+      seats: maxSeats(gameBoard(game)),
+      status: game.status,
+      inviteCode: game.inviteCode,
+      currentTurn: game.currentTurn,
+      winner: game.winner ?? null,
+      players: players.map((p) => ({
+        name: p.name,
+        seat: p.seat,
+        isHost: p.userId === game.createdBy,
+        submitted: submitted.has(p._id),
+      })),
+      waitingOn: state ? waitingOnNames(state, players, submissions) : [],
+      turnTimerMs: game.turnTimerMs ?? null,
+      turnDeadline: game.turnDeadline ?? null,
+      state: state ? sanitizeState(state, null) : null,
+    };
+  },
+});
+
+/** One executed turn for the TV's replay — same shape as games.turn. */
+export const tvTurn = query({
+  args: { inviteCode: v.string(), turn: v.number() },
+  handler: async (ctx, args) => {
+    const game = await gameByCode(ctx, args.inviteCode);
+    if (!game) return null;
+    const row = await ctx.db
+      .query('turns')
+      .withIndex('by_game_turn', (q) => q.eq('gameId', game._id).eq('turn', args.turn))
       .unique();
     if (!row) return null;
     return {
