@@ -16,6 +16,7 @@ import { BoardPicker, type BoardOption } from '../board/BoardThumb';
 import { FlagPlacer } from '../board/FlagPlacer';
 import { errorMessage, SignInGate, useSavedName } from './common';
 import { NotificationsButton } from './NotificationsButton';
+import { TimerPicker } from './TurnTimer';
 
 /** board-picker option values: 'builtin:<key>' or a saved board's document id. */
 const BUILTIN_PREFIX = 'builtin:';
@@ -75,6 +76,8 @@ function LobbyInner() {
   const [flags, setFlags] = useState<Position[] | null>(null);
   const [code, setCode] = useState('');
   const [tvCode, setTvCode] = useState('');
+  /** Per-turn time limit; null = untimed (the default). */
+  const [turnTimerMs, setTurnTimerMs] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [muted, setMutedLocal] = useState(() => isMuted());
@@ -98,6 +101,7 @@ function LobbyInner() {
         ? { name, builtin: board.slice(BUILTIN_PREFIX.length) }
         : { name, boardId: board as Id<'boards'> }),
       ...(flags ? { flagPlacements: flags } : {}),
+      ...(turnTimerMs ? { turnTimerMs } : {}),
       client: clientStamp(),
     })
       .then(({ gameId }) => navigate(`#/game/${gameId}`))
@@ -149,6 +153,7 @@ function LobbyInner() {
           {selectedBoard && (
             <FlagPlacer board={selectedBoard} placements={flags} onChange={setFlags} />
           )}
+          <TimerPicker value={turnTimerMs} onChange={setTurnTimerMs} />
           <button
             className="primary"
             disabled={busy || name.trim().length === 0 || flags?.length === 0}

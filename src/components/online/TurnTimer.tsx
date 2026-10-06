@@ -35,3 +35,47 @@ export function TurnTimer({ deadline, className }: { deadline: number | null; cl
     </span>
   );
 }
+
+/** Picker choices; null = untimed (the default). */
+export const TIMER_OPTIONS: { label: string; ms: number | null }[] = [
+  { label: 'Off', ms: null },
+  { label: '1 min', ms: 60_000 },
+  { label: '2 min', ms: 120_000 },
+  { label: '5 min', ms: 300_000 },
+  { label: '1 h', ms: 3_600_000 },
+  { label: '24 h', ms: 86_400_000 },
+];
+
+/** "2 min", "24 h" — a picker label when it is one, else the countdown format. */
+export function timerLabel(ms: number): string {
+  return TIMER_OPTIONS.find((o) => o.ms === ms)?.label ?? formatRemaining(ms);
+}
+
+/** Turn-timer choice for the create form and the host's game lobby. */
+export function TimerPicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: number | null;
+  onChange: (ms: number | null) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="timer-picker" data-testid="timer-picker">
+      <span>Turn timer:</span>
+      {TIMER_OPTIONS.map((o) => (
+        <button
+          key={o.label}
+          type="button"
+          className={value === o.ms ? 'selected' : ''}
+          disabled={disabled}
+          onClick={() => onChange(o.ms)}
+          data-testid={`timer-${o.ms ?? 'off'}`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}

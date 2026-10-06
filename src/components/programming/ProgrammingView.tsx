@@ -9,6 +9,7 @@ import { countCheckpoints, isRegisterLocked, previewProgram } from '../../engine
 import { play } from '../../services/audio';
 import { setFocusPlayer } from '../../services/viewSettings';
 import { BoardView } from '../board/BoardView';
+import { TurnTimer } from '../online/TurnTimer';
 import { PlayerStrip } from '../board/PlayerStrip';
 import { CARD_GLYPH, CARD_LABEL } from '../cards';
 import { initialVisual, visualAt } from '../replay/visualState';
@@ -42,11 +43,22 @@ interface ProgrammingViewProps {
     respawnFacing?: Direction,
     powerDown?: boolean,
   ) => void;
+  /** Online timed games: when this turn auto-fills. Absent/null = no countdown. */
+  turnDeadline?: number | null;
+  /** Controller mode: board starts collapsed behind a toggle so the cards get the screen. */
+  compactBoard?: boolean;
 }
 
 const NULL_PROGRAM: Program = [null, null, null, null, null];
 
-export function ProgrammingView({ game, seat, onSubmit }: ProgrammingViewProps) {
+export function ProgrammingView({
+  game,
+  seat,
+  onSubmit,
+  turnDeadline = null,
+  compactBoard = false,
+}: ProgrammingViewProps) {
+  const [boardOpen, setBoardOpen] = useState(!compactBoard);
   const robot = game.robots[seat];
   const hand = game.hands[robot.player];
   // Powered down this turn: no hand, no registers — the whole turn is the
@@ -151,6 +163,17 @@ export function ProgrammingView({ game, seat, onSubmit }: ProgrammingViewProps) 
     );
   };
 
+  // Controller mode only: the board is one tap away rather than gone.
+  const boardToggle = compactBoard && (
+    <button
+      className="quiet board-toggle"
+      onClick={() => setBoardOpen((o) => !o)}
+      data-testid="board-toggle"
+    >
+      {boardOpen ? 'Hide board ▴' : 'Show board ▾'}
+    </button>
+  );
+
   // The powered-down turn is a single choice: stay down another turn or wake
   // up. It still submits (same await as any other player) — an all-null
   // program the engine ignores, carrying the stay/wake flag.
@@ -166,10 +189,12 @@ export function ProgrammingView({ game, seat, onSubmit }: ProgrammingViewProps) 
             <span className="player-swatch" style={{ background: `var(--player-${seat})` }} />
             {robot.player} — turn {game.turn}: powered down
           </h2>
+          <TurnTimer deadline={turnDeadline} />
+          {boardToggle}
         </header>
 
         <div className="game-layout">
-          <BoardView board={game.board} visual={liveVisual} />
+          {boardOpen && <BoardView board={game.board} visual={liveVisual} />}
           <PlayerStrip
             visual={liveVisual}
             checkpointTarget={countCheckpoints(game.board)}
@@ -206,14 +231,18 @@ export function ProgrammingView({ game, seat, onSubmit }: ProgrammingViewProps) 
           <span className="player-swatch" style={{ background: `var(--player-${seat})` }} />
           {robot.player} — program turn {game.turn}
         </h2>
+        <TurnTimer deadline={turnDeadline} />
+        {boardToggle}
       </header>
 
       <div className="game-layout">
-        <BoardView
-          board={game.board}
-          visual={liveVisual}
-          ghost={ghostRobot ? { robot: ghostRobot, seat } : undefined}
-        />
+        {boardOpen && (
+          <BoardView
+            board={game.board}
+            visual={liveVisual}
+            ghost={ghostRobot ? { robot: ghostRobot, seat } : undefined}
+          />
+        )}
         <PlayerStrip
           visual={liveVisual}
           checkpointTarget={countCheckpoints(game.board)}

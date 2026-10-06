@@ -17,7 +17,7 @@ import { initialVisual } from '../replay/visualState';
 import { ReplayPlayer } from '../replay/ReplayPlayer';
 import { GameOverScreen } from '../programming/GameOverScreen';
 import { CenterNote } from '../online/common';
-import { TurnTimer } from '../online/TurnTimer';
+import { timerLabel, TurnTimer } from '../online/TurnTimer';
 import { QrCode } from './QrCode';
 
 export function TvScreen({ code }: { code: string }) {
@@ -156,10 +156,4 @@ function TvTurn({ code, turn, onDone }: { code: string; turn: number; onDone: ()
       autoContinue
     />
   );
-}
-
-function timerLabel(ms: number): string {
-  return ms < 60 * 60 * 1000
-    ? `${Math.round(ms / (60 * 1000))} min`
-    : `${Math.round(ms / (60 * 60 * 1000))} h`;
 }

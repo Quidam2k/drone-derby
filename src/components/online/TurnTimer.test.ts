@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatRemaining } from './TurnTimer';
+import { formatRemaining, timerLabel } from './TurnTimer';
 
 describe('formatRemaining', () => {
   it('shows m:ss under an hour', () => {
@@ -15,5 +15,13 @@ describe('formatRemaining', () => {
     expect(formatRemaining(47.9 * 3_600_000)).toBe('47 h');
     expect(formatRemaining(48 * 3_600_000)).toBe('2 d');
     expect(formatRemaining(7 * 86_400_000)).toBe('7 d');
+  });
+});
+
+describe('timerLabel', () => {
+  it('uses the picker label when there is one', () => {
+    expect(timerLabel(120_000)).toBe('2 min');
+    expect(timerLabel(86_400_000)).toBe('24 h');
+    expect(timerLabel(90_000)).toBe('1:30');
   });
 });

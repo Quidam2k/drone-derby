@@ -16,6 +16,7 @@
 // than restating them — one source of truth for the legal envelope, at the
 // cost of ~1 KB of arithmetic in the main chunk.
 
+import { useSyncExternalStore } from 'react';
 import type { Renderer } from '../components/board/rendererChoice';
 import { clampView, DEFAULT_VIEW, type FollowMode, type View } from '../components/board3d/viewMath';
 import type { PlayerId } from '../engine';
@@ -39,6 +40,12 @@ export interface ViewSettings extends View {
    * capability beats intent there.
    */
   renderer: Renderer;
+  /**
+   * Controller mode (TV play): this phone is just the controller — skip the
+   * turn replay (the TV plays it) and shrink the board so the cards get the
+   * screen. Per device, default off.
+   */
+  controllerMode: boolean;
 }
 
 const KEY = 'dd-view';
@@ -47,7 +54,12 @@ const RENDERERS: readonly Renderer[] = ['3d', 'dom'];
 /** Coalesce the writes a 60 fps drag would otherwise fire at localStorage. */
 const WRITE_DELAY_MS = 250;
 
-export const DEFAULT_SETTINGS: ViewSettings = { ...DEFAULT_VIEW, follow: 'action', renderer: '3d' };
+export const DEFAULT_SETTINGS: ViewSettings = {
+  ...DEFAULT_VIEW,
+  follow: 'action',
+  renderer: '3d',
+  controllerMode: false,
+};
 
 let state: ViewSettings = read();
 let focusPlayer: PlayerId | null = null;
@@ -68,6 +80,7 @@ function read(): ViewSettings {
       renderer: RENDERERS.includes(parsed?.renderer as Renderer)
         ? (parsed.renderer as Renderer)
         : DEFAULT_SETTINGS.renderer,
+      controllerMode: parsed?.controllerMode === true,
     };
   } catch {
     // Unparseable or unreadable — the default view is always safe.
@@ -115,7 +128,14 @@ export function setView(patch: Partial<ViewSettings>): void {
     patch.follow && FOLLOW_MODES.includes(patch.follow) ? patch.follow : state.follow;
   const renderer =
     patch.renderer && RENDERERS.includes(patch.renderer) ? patch.renderer : state.renderer;
-  const next: ViewSettings = { ...clampView({ ...state, ...patch }), follow, renderer };
+  const controllerMode =
+    typeof patch.controllerMode === 'boolean' ? patch.controllerMode : state.controllerMode;
+  const next: ViewSettings = {
+    ...clampView({ ...state, ...patch }),
+    follow,
+    renderer,
+    controllerMode,
+  };
   // Every field, by name — a field missing from this guard is a change that
   // silently never reaches localStorage or the subscribers.
   if (
@@ -123,7 +143,8 @@ export function setView(patch: Partial<ViewSettings>): void {
     next.tilt === state.tilt &&
     next.zoom === state.zoom &&
     next.follow === state.follow &&
-    next.renderer === state.renderer
+    next.renderer === state.renderer &&
+    next.controllerMode === state.controllerMode
   ) {
     return;
   }
@@ -134,11 +155,11 @@ export function setView(patch: Partial<ViewSettings>): void {
 
 /**
  * Back to 3D-1's angles and automatic following — what ↺ and double-tap do.
- * Deliberately does NOT reset the renderer: ↺ is a camera control, and
+ * Deliberately does NOT reset the renderer (or controller mode): ↺ is a camera control, and
  * bouncing a player who chose the DOM board back into 3D is not "reset view".
  */
 export function resetView(): void {
-  setView({ ...DEFAULT_SETTINGS, renderer: state.renderer });
+  setView({ ...DEFAULT_SETTINGS, renderer: state.renderer, controllerMode: state.controllerMode });
 }
 
 /**
@@ -185,4 +206,9 @@ export function subscribe(fn: () => void): () => void {
   return () => {
     listeners.delete(fn);
   };
+}
+
+/** React view of controller mode — re-renders when any phone toggle flips it. */
+export function useControllerMode(): boolean {
+  return useSyncExternalStore(subscribe, () => state.controllerMode);
 }
