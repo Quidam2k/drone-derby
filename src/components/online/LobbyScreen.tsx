@@ -74,6 +74,7 @@ function LobbyInner() {
   /** Custom flag positions; null = the board's printed flags (untouched). */
   const [flags, setFlags] = useState<Position[] | null>(null);
   const [code, setCode] = useState('');
+  const [tvCode, setTvCode] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [muted, setMutedLocal] = useState(() => isMuted());
@@ -176,6 +177,28 @@ function LobbyInner() {
             data-testid="join-code-go"
           >
             Join
+          </button>
+        </div>
+
+        <div className="lobby-card">
+          <h3>Watch on a TV</h3>
+          <p className="lobby-card-note">Open this on the big screen; everyone plays on their phone.</p>
+          <input
+            value={tvCode}
+            placeholder="Invite code"
+            maxLength={12}
+            onChange={(e) => setTvCode(e.target.value)}
+            data-testid="tv-code-input"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && tvCode.trim()) navigate(`#/tv/${tvCode.trim().toLowerCase()}`);
+            }}
+          />
+          <button
+            disabled={tvCode.trim().length === 0}
+            onClick={() => navigate(`#/tv/${tvCode.trim().toLowerCase()}`)}
+            data-testid="tv-code-go"
+          >
+            📺 Watch
           </button>
         </div>
 

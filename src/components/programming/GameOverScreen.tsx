@@ -6,7 +6,8 @@ interface GameOverScreenProps {
   winner: string | null;
   /** Final game state, for the per-player summary; omit to skip it. */
   finalState?: GameState | null;
-  onNewGame: () => void;
+  /** Omit to hide Play again (the TV has nobody to start a game). */
+  onNewGame?: () => void;
   /** Extra actions (e.g. the online history browser button). */
   children?: ReactNode;
 }
@@ -32,9 +33,11 @@ export function GameOverScreen({ winner, finalState, onNewGame, children }: Game
           ))}
         </div>
       )}
-      <button className="primary big" onClick={onNewGame} data-testid="play-again">
-        Play again
-      </button>
+      {onNewGame && (
+        <button className="primary big" onClick={onNewGame} data-testid="play-again">
+          Play again
+        </button>
+      )}
       {children}
     </div>
   );

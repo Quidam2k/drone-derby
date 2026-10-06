@@ -5,6 +5,7 @@
 //   #/editor/<id> level editor on a cloud-saved board
 //   #/game/<id>   online game screen
 //   #/join/<code> join via invite link
+//   #/tv/<code>   shared big-screen view of a game (no sign-in)
 //   #/gallery     published-board gallery
 //   #/rules       how-to-play (works without a backend)
 
@@ -16,6 +17,7 @@ export type Route =
   | { name: 'editor'; boardId?: string }
   | { name: 'game'; gameId: string }
   | { name: 'join'; code: string }
+  | { name: 'tv'; code: string }
   | { name: 'gallery' }
   | { name: 'rules' };
 
@@ -25,6 +27,7 @@ export function parseHash(hash: string): Route {
   if (head === 'editor') return arg ? { name: 'editor', boardId: arg } : { name: 'editor' };
   if (head === 'game' && arg) return { name: 'game', gameId: arg };
   if (head === 'join' && arg) return { name: 'join', code: arg };
+  if (head === 'tv' && arg) return { name: 'tv', code: arg.toLowerCase() };
   if (head === 'gallery') return { name: 'gallery' };
   if (head === 'rules') return { name: 'rules' };
   return { name: 'home' };
@@ -42,6 +45,10 @@ export function useRoute(): Route {
 
 export function navigate(to: string): void {
   window.location.hash = to;
+}
+
+export function tvUrl(code: string): string {
+  return `${location.origin}${location.pathname}#/tv/${code}`;
 }
 
 export function inviteUrl(code: string): string {

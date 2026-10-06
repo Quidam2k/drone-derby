@@ -20,6 +20,7 @@
     "@auth/core": "^0.41.2",
     "@convex-dev/auth": "^0.0.94",
     "convex": "^1.42.1",
+    "qrcode-generator": "^2.0.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "three": "^0.185.1",

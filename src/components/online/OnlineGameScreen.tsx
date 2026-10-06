@@ -11,7 +11,7 @@ import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import type { Direction, EventLog, GameState, Program } from '../../engine';
 import { countCheckpoints } from '../../engine';
-import { inviteUrl, navigate } from '../../services/route';
+import { inviteUrl, navigate, tvUrl } from '../../services/route';
 import { setFocusPlayer } from '../../services/viewSettings';
 import { BoardView } from '../board/BoardView';
 import { BoardThumb } from '../board/BoardThumb';
@@ -191,6 +191,16 @@ function GameLobby({ g }: { g: GameView }) {
           {copied ? 'Copied!' : 'Copy invite link'}
         </button>
       </div>
+      <a
+        className="quiet-link"
+        href={tvUrl(g.inviteCode)}
+        target="_blank"
+        rel="noopener"
+        title="Open this on the TV's browser (or type the code into Watch on a TV) — it shows the board and plays every turn"
+        data-testid="show-on-tv"
+      >
+        📺 Show on TV
+      </a>
 
       {g.isHost ? (
         <button

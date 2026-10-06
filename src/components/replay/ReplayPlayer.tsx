@@ -2,7 +2,7 @@
 // turn started from) — in Phase 3 the same component replays turns fetched
 // from Convex without running the engine.
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { EventLog, GameState } from '../../engine';
 import { countCheckpoints } from '../../engine';
 import { playForEvent, isMuted, setMuted } from '../../services/audio';
@@ -23,9 +23,19 @@ interface ReplayPlayerProps {
   /** Speech-bubble lines by player, shown when each robot first acts. */
   taunts?: Record<string, string>;
   onDone: () => void;
+  /** Call onDone by itself shortly after the last event (the TV — nobody taps Continue). */
+  autoContinue?: boolean;
 }
 
-export function ReplayPlayer({ prevState, events, taunts, onDone }: ReplayPlayerProps) {
+const AUTO_CONTINUE_MS = 2500;
+
+export function ReplayPlayer({
+  prevState,
+  events,
+  taunts,
+  onDone,
+  autoContinue,
+}: ReplayPlayerProps) {
   const initial = useMemo(() => initialVisual(prevState), [prevState]);
   const [cursor, setCursor] = useState(0);
   const [playing, setPlaying] = useState(true);
@@ -57,6 +67,16 @@ export function ReplayPlayer({ prevState, events, taunts, onDone }: ReplayPlayer
     );
     return () => clearTimeout(t);
   }, [playing, cursor, speed, events]);
+
+  // Through a ref so a parent re-rendering with a fresh onDone closure (the
+  // TV re-renders on every submission) never restarts the countdown.
+  const onDoneRef = useRef(onDone);
+  onDoneRef.current = onDone;
+  useEffect(() => {
+    if (!autoContinue || !atEnd || reelOpen) return;
+    const t = setTimeout(() => onDoneRef.current(), AUTO_CONTINUE_MS);
+    return () => clearTimeout(t);
+  }, [autoContinue, atEnd, reelOpen]);
 
   // Play sound for the current event.
   useEffect(() => {
