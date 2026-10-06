@@ -11,6 +11,7 @@ import { JoinScreen } from './components/online/JoinScreen';
 import { OnlineGameScreen } from './components/online/OnlineGameScreen';
 import { GalleryScreen } from './components/online/GalleryScreen';
 import { RulesScreen } from './components/rules/RulesScreen';
+import { TvScreen } from './components/tv/TvScreen';
 
 /** Catches render-time errors (e.g. a malformed game id in the hash). */
 class RouteBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -143,6 +144,13 @@ function Screen() {
       return (
         <RouteBoundary key={route.gameId}>
           <OnlineGameScreen gameId={route.gameId} />
+        </RouteBoundary>
+      );
+    case 'tv':
+      // No SignInGate: the TV is a viewer, and the invite code is the key.
+      return (
+        <RouteBoundary key={route.code}>
+          <TvScreen code={route.code} />
         </RouteBoundary>
       );
     case 'gallery':

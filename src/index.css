@@ -1949,3 +1949,86 @@ button.quiet {
   resize: vertical;
   font: inherit;
 }
+
+/* ---- TV mode (#/tv/<code>) + turn timer --------------------------------- */
+.tv-screen {
+  font-size: 1.15rem;
+}
+.tv-join {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin: 1.5rem 0;
+}
+.qr-code {
+  border-radius: var(--radius);
+  max-width: 80vw;
+  height: auto;
+}
+.tv-join-text {
+  text-align: center;
+}
+.tv-code {
+  display: block;
+  font-size: 3.5rem;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+  margin: 0.5rem 0;
+  user-select: all;
+}
+.tv-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.tv-code-small {
+  margin-left: auto;
+  color: var(--text-dim);
+}
+.tv-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.25rem;
+  margin-top: 0.75rem;
+  font-size: 1.3rem;
+}
+.tv-player {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  opacity: 0.6;
+}
+.tv-player.ready {
+  opacity: 1;
+}
+.turn-timer {
+  display: inline-block;
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.turn-timer.urgent {
+  background: var(--danger);
+  color: #fff;
+}
+.tv-timer {
+  font-size: 1.6rem;
+}
+.timer-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+.timer-picker button.selected {
+  border-color: var(--accent);
+  color: var(--accent);
+}
