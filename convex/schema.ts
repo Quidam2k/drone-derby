@@ -28,6 +28,10 @@ export default defineSchema({
     board: v.optional(v.any()),
     /** When the last nudge push went out — rate-limits games.nudge. */
     lastNudgeAt: v.optional(v.number()),
+    /** Per-turn time limit in ms; absent = untimed (the default). */
+    turnTimerMs: v.optional(v.number()),
+    /** Epoch ms the current turn auto-fills at; set only while a timed game is active. */
+    turnDeadline: v.optional(v.number()),
   }).index('by_inviteCode', ['inviteCode']),
 
   /** Player-made boards (level editor). `board` is an engine BoardDef. */
