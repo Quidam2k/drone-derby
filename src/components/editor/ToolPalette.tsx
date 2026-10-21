@@ -64,7 +64,7 @@ const TOOL_ICONS: Record<ToolId, ReactNode> = {
   eraser: ERASER_ICON,
 };
 
-const PORTAL_COLORS: PortalColor[] = ['red', 'blue', 'green', 'purple', 'orange'];
+const PORTAL_COLORS: PortalColor[] = ['red', 'blue', 'green', 'purple', 'orange', 'yellow'];
 
 /** Tools sharing the 1/3/5 vs 2/4 register-schedule preset. */
 const SCHEDULED_TOOLS: ToolId[] = ['trapdoor', 'crusher', 'flamer'];

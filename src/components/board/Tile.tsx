@@ -7,6 +7,7 @@ import {
   EmitterSprite,
   FlamerSprite,
   GearSprite,
+  OilSprite,
   PitSprite,
   PortalSprite,
   PusherSprite,
@@ -16,6 +17,8 @@ import {
   TeleporterSprite,
   TrapdoorSprite,
   WasteSprite,
+  WaterSprite,
+  WhirlpoolSprite,
   WrenchSprite,
 } from './sprites';
 
@@ -61,6 +64,12 @@ function tileContent(def: TileDef) {
       return <ConveyorSprite dir={def.dir} express={def.express} curve={def.curve} />;
     case 'gear':
       return <GearSprite cw={def.cw} />;
+    case 'oil':
+      return <OilSprite />;
+    case 'water':
+      return <WaterSprite current={def.current} />;
+    case 'whirlpool':
+      return <WhirlpoolSprite cw={def.cw} />;
     case 'checkpoint':
       return <CheckpointSprite n={def.n} />;
     case 'spawn':

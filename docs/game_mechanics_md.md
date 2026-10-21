@@ -86,6 +86,17 @@ step at a time.
   pushing, wall blocking (the whole chain stays put) and pit/edge falls.
   Powered-down robots are shoved like anything else; a pusher with no robot
   in front of it does nothing.
+- **House rules (pending Todd's review, 2026-10-21)** for printed elements
+  we have no rule text for:
+  - **Oil slick**: a robot whose movement card ends on oil slides 1 more
+    square the same way, repeating while it lands on oil (walls, pushes and
+    pits apply as normal). Belts, pushes and pistons onto oil never slide.
+  - **Water**: a movement card begun in water moves 1 square less (Move 1
+    and Back Up go nowhere). A water **current** pulses with the normal belts.
+  - **Whirlpool**: water that turns the robot like a gear and deals 1 damage
+    to a robot ending any register phase on it.
+  - **Steep ledge** (hill boards): a one-way wall — robots drop down it but
+    cannot climb it; ramps are the gaps in the ledge.
 - **Board lasers** are wall-mounted; the beam covers the emitter's own
   square and travels until a robot, wall edge, or board edge stops it. The
   first robot in the path takes the laser's strength in damage each

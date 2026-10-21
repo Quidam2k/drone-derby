@@ -306,9 +306,23 @@ function cardMoveRobot(ctx: Ctx, idx: number, steps: number, backward: boolean):
   if (tileAt(ctx.s.board, ctx.s.robots[idx].pos).kind === 'teleporter') {
     if (teleportJump(ctx, idx, backward ? 2 : steps + 2)) return;
   }
+  // Water (house rule): a card begun in water moves one square less.
+  const start = tileAt(ctx.s.board, ctx.s.robots[idx].pos).kind;
+  const moves = start === 'water' || start === 'whirlpool' ? steps - 1 : steps;
   ctx.cardMove = true;
   ctx.cardValue = steps;
-  moveRobot(ctx, idx, steps, backward);
+  moveRobot(ctx, idx, moves, backward);
+  // Oil (house rule): ending the card's movement on oil slides the robot
+  // on in the same direction, square by square, until it leaves the oil or
+  // is stopped. Capped by the board size so a ring of oil can't loop.
+  if (moves > 0) {
+    const robot = ctx.s.robots[idx];
+    const dir = backward ? opposite(robot.facing) : robot.facing;
+    for (let i = 0; i < ctx.s.board.width + ctx.s.board.height; i++) {
+      if (!isActive(ctx, idx) || tileAt(ctx.s.board, robot.pos).kind !== 'oil') break;
+      if (!tryStep(ctx, idx, dir)) break;
+    }
+  }
   ctx.cardMove = false;
   ctx.cardValue = 0;
 }
@@ -493,15 +507,20 @@ function conveyorPulse(ctx: Ctx, expressOnly: boolean): void {
     if (!isActive(ctx, idx)) continue;
     const pos = s.robots[idx].pos;
     const tile = tileAt(s.board, pos);
-    if (tile.kind !== 'conveyor') continue;
-    if (expressOnly && !tile.express) continue;
-    if (wallBlocked(s.board, pos, tile.dir)) continue;
+    // A water current (house rule) pulses with the normal belts.
+    const belt =
+      tile.kind === 'conveyor' ? tile
+      : tile.kind === 'water' && tile.current ? { dir: tile.current, express: false }
+      : null;
+    if (!belt) continue;
+    if (expressOnly && !belt.express) continue;
+    if (wallBlocked(s.board, pos, belt.dir)) continue;
     proposals.push({
       idx,
       from: pos,
-      to: step(pos, tile.dir),
-      dir: tile.dir,
-      express: tile.express,
+      to: step(pos, belt.dir),
+      dir: belt.dir,
+      express: belt.express,
       cancelled: false,
     });
   }
@@ -641,7 +660,7 @@ function rotateGears(ctx: Ctx): void {
     if (!isActive(ctx, idx)) continue;
     const robot = s.robots[idx];
     const tile = tileAt(s.board, robot.pos);
-    if (tile.kind !== 'gear') continue;
+    if (tile.kind !== 'gear' && tile.kind !== 'whirlpool') continue;
     const from = robot.facing;
     robot.facing = rotate(from, tile.cw ? 1 : -1);
     emit(ctx, { type: 'gear-rotated', player: robot.player, cw: tile.cw, from, to: robot.facing });
@@ -747,6 +766,7 @@ function hazardFloorDamage(ctx: Ctx, register: number): void {
     const pos = s.robots[idx].pos;
     const tile = tileAt(s.board, pos);
     if (tile.kind === 'waste') applyDamage(ctx, idx, 1, 'waste');
+    else if (tile.kind === 'whirlpool') applyDamage(ctx, idx, 1, 'whirlpool');
     else if (tile.kind === 'radiation' && register === 5) applyDamage(ctx, idx, 1, 'radiation');
     // Ending the register phase on an active flamer burns 1 more (printed:
     // "an additional 1 point of damage" during Resolve Laser Fire).
@@ -758,7 +778,7 @@ function applyDamage(
   ctx: Ctx,
   idx: number,
   amount: number,
-  source?: 'flamer' | 'radiation' | 'waste',
+  source?: 'flamer' | 'radiation' | 'waste' | 'whirlpool',
 ): void {
   const robot = ctx.s.robots[idx];
   if (robot.destroyed || robot.eliminated) return;

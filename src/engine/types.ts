@@ -34,7 +34,7 @@ export type PlayerId = string;
  */
 export type Program = (Card | null)[];
 
-export type PortalColor = 'red' | 'blue' | 'green' | 'purple' | 'orange';
+export type PortalColor = 'red' | 'blue' | 'green' | 'purple' | 'orange' | 'yellow';
 
 export type TileDef =
   | { kind: 'floor' }
@@ -103,6 +103,30 @@ export type TileDef =
        * The entry travel direction is derived: rotate(dir, cw ? -1 : +1).
        */
       curve?: 'cw' | 'ccw';
+    }
+  | {
+      /**
+       * Oil slick (house rule, Grand Prix boards): a robot whose movement
+       * card ends with it on oil slides 1 more square the same way (and on,
+       * while it keeps landing on oil). Belts and pushes never slide.
+       */
+      kind: 'oil';
+    }
+  | {
+      /**
+       * Water (house rule, flooded boards): a movement card begun in water
+       * moves 1 square less. `current` pulses like a normal belt.
+       */
+      kind: 'water';
+      current?: Direction;
+    }
+  | {
+      /**
+       * Whirlpool (house rule): water that turns a robot like a gear and
+       * deals 1 damage to a robot ending a register phase on it.
+       */
+      kind: 'whirlpool';
+      cw: boolean;
     }
   | { kind: 'gear'; cw: boolean }
   | { kind: 'checkpoint'; n: number }

@@ -125,6 +125,58 @@ export function RadiationSprite() {
   );
 }
 
+/** Oil slick (house rule): a glossy black splat with a sheen. */
+export function OilSprite() {
+  return (
+    <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+      <path
+        d="M 8 26 C 6 16, 16 10, 24 12 C 32 6, 44 12, 43 21 C 49 27, 44 38, 35 39 C 29 46, 15 44, 13 37 C 7 35, 6 30, 8 26 Z"
+        fill="#121216"
+        stroke="#2c2c36"
+        strokeWidth="1.5"
+      />
+      <path d="M 17 22 C 21 17, 29 16, 33 19" fill="none" stroke="#6a6f8a" strokeWidth="2" strokeLinecap="round" opacity="0.7" />
+      <circle cx="31" cy="31" r="2" fill="#6a6f8a" opacity="0.5" />
+    </svg>
+  );
+}
+
+/** Water (house rule): rippled blue; a current shows as an arrow of flow. */
+export function WaterSprite({ current }: { current?: Direction }) {
+  return (
+    <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+      <rect x="0" y="0" width="52" height="52" fill="#2d5f9e" opacity="0.85" />
+      {[14, 26, 38].map((y) => (
+        <path key={y} d={`M 4 ${y} q 6 -4 11 0 t 11 0 t 11 0 t 11 0`} fill="none" stroke="#7fb3ea" strokeWidth="1.6" opacity="0.6" />
+      ))}
+      {current && (
+        <g transform={`rotate(${DIR_ANGLE[current]} 26 26)`}>
+          <path d="M 26 40 L 26 14 M 18 22 L 26 13 L 34 22" fill="none" stroke="#d9ecff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+/** Whirlpool (house rule): a spiral in water, drawn CW and mirrored for CCW. */
+export function WhirlpoolSprite({ cw }: { cw: boolean }) {
+  return (
+    <svg className="sprite" viewBox="0 0 52 52" aria-hidden="true">
+      <rect x="0" y="0" width="52" height="52" fill="#2d5f9e" opacity="0.85" />
+      <g transform={cw ? undefined : 'matrix(-1 0 0 1 52 0)'}>
+        <path
+          d="M 26 26 m 0 -3 a 3 3 0 1 1 -3 3 a 7 7 0 0 1 7 -7 a 11 11 0 0 1 11 11 a 15 15 0 0 1 -15 15 a 19 19 0 0 1 -19 -19"
+          fill="none"
+          stroke="#cfe6ff"
+          strokeWidth="2.6"
+          strokeLinecap="round"
+        />
+        <polygon points="5,22 2,30 10,29" fill="#cfe6ff" />
+      </g>
+    </svg>
+  );
+}
+
 /** Radioactive-waste sludge: an irregular glowing green puddle. */
 export function WasteSprite() {
   return (
@@ -154,6 +206,7 @@ const PORTAL_FILL: Record<PortalColor, string> = {
   green: '#58c470',
   purple: '#a06ae0',
   orange: '#e09a4a',
+  yellow: '#e8d24a',
 };
 
 /** Portal: hex housing with a color-keyed swirl — twins share the color. */
