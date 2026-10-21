@@ -1,6 +1,6 @@
 # Drone Derby
 
-An asynchronous multiplayer programming game in the spirit of RoboRally:
+An asynchronous multiplayer programming game in the classic factory-race style:
 program five moves for your drone, submit, and watch everyone's turn play
 out at once — with conveyor belts, gears, lasers, and pits doing their best
 to ruin the plan.
@@ -125,7 +125,7 @@ invite link is all a first-timer needs. The host-side flow:
 
 Paste-ready invite message:
 
-> Wanna playtest my robot-programming game? It's like RoboRally in the
+> Wanna playtest my robot-programming game? It's a robot factory race in the
 > browser — plan 5 moves, submit, watch everyone's plans collide.
 > Turns are async, so play whenever. No account needed, ~2 min to learn
 > (there's a "First time?" link when you join). If anything feels broken
@@ -277,8 +277,7 @@ own phone. Remote players can be in the same game.
       board (12×17, the composed one): launch from the south docks
       through the baffle walls, then the whole Spin Cycle race above;
       Spin Cycle's old spawn row is plain floor
-- [ ] **Reactor Core** (authentic, transcribed from the Radioactive
-      expansion board; 12×19 over the dockyard) — nearly every tile is
+- [ ] **Hot Zone** (authentic; 12×19 over the dockyard) — nearly every tile is
       radiation: END THE TURN on green and take 1 damage; the bright
       mottled waste burns 1 per REGISTER ended on it. Four teleporters
       hurl you (card + 2) squares past walls and drains; belt lines feed
@@ -287,28 +286,24 @@ own phone. Remote players can be in the same game.
       can't shove you in — flag 2 sits in one (enter from N/W only).
       Drains are pits with grates. Check the one-way walls read
       red/green in both renderers
-- [ ] **Gear Box** (authentic; 12×19 over the dockyard) — 20 meshed
-      gears spin the middle; repulsor fields fling you back your card's
-      value (chain-pushing whoever's behind); two DOUBLE lasers (2
-      damage) including the walled cage at the board's east; a 2-cell
-      pit chasm; three corner teleporters fed by belt spirals. Verify a
-      repulsor fling mid-Move-3 eats the rest of the card
-- [ ] **Pinwheel** (authentic; 12×19 over the dockyard) — four belt
-      spokes all turning left spin the floor counterclockwise; two
-      FLAMERS burn both squares of their printed flame on registers
-      1/2/4 (N) and 2/4/5 (S) — moving through, rotating on, or ending
-      a phase on an active one costs 1 each; two DOUBLE lasers cross
-      the middle; eight trap-door pits open on their printed registers
-      (stand on one when it opens and you fall); radiation corners with
-      waste pools; the purple portal pair links the corners — step in
-      while the twin is empty and you pop out across the board
-- [ ] **Shake 'n' Bake** (authentic; 12×19 over the dockyard) — every
+- [ ] **Rattle Oven** (authentic; 12×19 over the dockyard) — every
       belt is express and every line feeds the four-flamer oven in the
       middle; the oven's one-way doors (green side out) let belts and
       pushes shove you IN but nothing walks back out — check red/green
       band art on all 12 one-ways; something in the oven burns on every
       register, so escape via the blue/orange portal pairs or eat 1 a
       phase; eight trap-doors in stacked pairs guard the portals
+- [ ] **The 23 transcribed boards** (authentic, faithful and unmirrored;
+      each 12×19 over the dockyard, our names, our three flags):
+      Atoll, Beam Lattice, Cog Yard, Crossroads, Far Straight, Gambit,
+      Gorge Run, Packing Plant, Scrapyard, Service Lane, Short Circuit,
+      Sinkhole Grid, Smelter, Spillway, Spiral Mill, Strongroom, Summit,
+      Switchyard, The Rift, The Ring, Tool Room, Turntable, Windmill.
+      Start a hot-seat game on each and play a turn: does every element
+      look like what it does? House rules to judge (see Rules screen):
+      OIL (Far Straight, Gorge Run, Service Lane, Tool Room, Summit —
+      you slide one more square), WATER + currents + whirlpools
+      (Spillway), the STEEP centre of Summit (drop off, can't climb on)
 - [ ] Repair (any board): end a damaged robot's turn on a wrench tile or
       a checkpoint flag → 1 damage comes off (replay caption + a pip
       drops); at 5+ damage, repairing back below the threshold unlocks
