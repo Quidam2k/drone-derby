@@ -24,7 +24,8 @@ export {
   lockedRegisterCount,
 } from './deck';
 export { createRng, shuffle, type Rng } from './rng';
-export { previewProgram } from './preview';
+export { previewPoses, previewProgram } from './preview';
+export type { GhostPose } from './preview';
 export {
   countCheckpoints,
   DIR_VECTORS,

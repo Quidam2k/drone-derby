@@ -114,8 +114,9 @@ export function RulesScreen() {
           the fun is everyone's plans colliding.
         </p>
         <p>
-          While programming, a translucent <strong>ghost</strong> previews your moves — board
-          effects only. Rival robots move unpredictably, so the ghost passes right through them.
+          While programming, a numbered translucent <strong>ghost</strong> shows where you end
+          each register, board effects included. Rival robots move unpredictably, so ghosts
+          ignore them — a push can still knock you off the plan.
         </p>
       </section>
 
