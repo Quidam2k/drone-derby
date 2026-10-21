@@ -137,7 +137,7 @@ export function Board3D({
   visual,
   currentEvent,
   bubbles,
-  ghost,
+  ghosts,
   events,
   cursor,
   reel,
@@ -150,12 +150,12 @@ export function Board3D({
     board,
     visual,
     currentEvent,
-    ghost,
+    ghosts,
     events,
     cursor,
     reel,
   });
-  inputRef.current = { board, visual, currentEvent, ghost, events, cursor, reel };
+  inputRef.current = { board, visual, currentEvent, ghosts, events, cursor, reel };
   /** Live bubble elements by player, written to by the scene's frame callback. */
   const bubbleRefs = useRef(new Map<string, HTMLDivElement>());
 
@@ -219,7 +219,7 @@ export function Board3D({
   }, []);
 
   useEffect(() => {
-    sceneRef.current?.update({ board, visual, currentEvent, ghost, events, cursor, reel });
+    sceneRef.current?.update({ board, visual, currentEvent, ghosts, events, cursor, reel });
   });
 
   // Sized off the DOM board's own tileFit(), so the 3D board is exactly as

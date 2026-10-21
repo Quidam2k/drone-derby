@@ -535,12 +535,39 @@ select:focus {
   filter: grayscale(0.8) brightness(0.8);
 }
 
-/* Programming-preview ghost: same sprite, translucent, drawn over the live
-   robots. Inherits .robot's transform transition so steps glide. */
+/* Programming-preview ghosts: one per programmed register, same sprite,
+   translucent, drawn over the live robots. The badge stays opaque so the
+   register number reads at a glance. Inherits .robot's transform transition,
+   so a ghost glides when a card change moves it. */
 .robot.ghost {
+  background: none;
+  z-index: 1;
+  pointer-events: none;
+}
+.robot.ghost .robot-body {
   opacity: 0.45;
   filter: saturate(0.75);
-  z-index: 1;
+}
+.ghost-badge {
+  position: absolute;
+  top: 2%;
+  left: 2%;
+  min-width: 1.5em;
+  padding: 0 0.3em;
+  border-radius: 0.8em;
+  background: rgba(14, 18, 30, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  color: #fff;
+  font: 700 calc(var(--tile) * 0.26) / 1.35 system-ui, sans-serif;
+  text-align: center;
+  white-space: nowrap;
+}
+.ghost-dead .ghost-badge {
+  background: rgba(150, 30, 30, 0.9);
+}
+.ghost-wreck {
+  color: rgba(242, 92, 84, 0.85);
+  font: 700 calc(var(--tile) * 0.6) / 1 system-ui, sans-serif;
 }
 
 /* Robots are Blender renders (scripts/blender/robots.py) with the seat colour
@@ -2048,4 +2075,11 @@ button.quiet {
   font-size: 0.9rem;
   color: var(--text-dim);
   margin: 0.5rem 0;
+}
+
+.ghost-caption {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  opacity: 0.7;
+  text-align: center;
 }

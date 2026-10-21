@@ -59,12 +59,53 @@ import {
 import { loadChassis, RobotRig, SEAT_COLORS } from './robots';
 import { loadTileKit } from './tileKit';
 import type { FollowMode } from './viewMath';
+import type { GhostMark } from '../board/ghosts';
+
+interface GhostSlot {
+  rig: RobotRig;
+  badge: THREE.Sprite;
+  /** Label the badge texture was drawn for, so it redraws only on change. */
+  key: string;
+}
+
+/** World height of a ghost's register badge, and where it floats. */
+const GHOST_BADGE_SIZE = 0.34;
+const GHOST_BADGE_HEIGHT = 0.95;
+
+/** A pill with the register number(s): dark for a live ghost, red + ✕ for the death square. */
+function badgeTexture(label: string, alive: boolean): { texture: THREE.CanvasTexture; aspect: number } {
+  const text = alive ? label : `✕ ${label}`;
+  const h = 64;
+  const w = Math.max(h, 26 + text.length * 30);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = alive ? 'rgba(14, 18, 30, 0.88)' : 'rgba(170, 32, 32, 0.92)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.roundRect(2, 2, w - 4, h - 4, (h - 4) / 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = `700 ${h * 0.6}px 'Segoe UI', system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, w / 2, h * 0.54);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return { texture, aspect: w / h };
+}
 
 export interface BoardSceneInput {
   board: BoardDef;
   visual: VisualState;
   currentEvent?: EngineEvent | null;
-  ghost?: { robot: RobotVisual; seat: number };
+  /** Programming preview: one translucent, register-numbered ghost per square. */
+  ghosts?: { marks: GhostMark[]; seat: number };
   /**
    * Replay look-ahead: the whole turn's log and the replay cursor. Optional —
    * the live views (programming, online) have no future to look at and simply
@@ -345,7 +386,15 @@ export async function createBoardScene(
 
   const director = new CameraDirector(board, aspect());
   const rigs = new Map<PlayerId, RobotRig>();
-  let ghostRig: { rig: RobotRig; seat: number } | null = null;
+  /** Preview ghosts, pooled by index; all rebuilt when the seat changes. */
+  let ghostSlots: GhostSlot[] = [];
+  let ghostSeat = -1;
+  function dropGhost(g: GhostSlot): void {
+    scene.remove(g.rig.object, g.badge);
+    g.rig.dispose();
+    g.badge.material.map?.dispose();
+    g.badge.material.dispose();
+  }
   let lastEvent: EngineEvent | null | undefined;
   let settled = false;
   /** Last input seen, so the follow rule can be re-applied on a mode change. */
@@ -792,7 +841,7 @@ export async function createBoardScene(
 
     let moving = director.step(dt);
     for (const rig of rigs.values()) moving = rig.step(dt) || moving;
-    if (ghostRig) moving = ghostRig.rig.step(dt) || moving;
+    for (const g of ghostSlots) moving = g.rig.step(dt) || moving;
     // Effects, the beam punch and the key lift all keep the loop alive — without
     // this a Playwright screenshot lands mid-animation, and half an effect is
     // worse than none.
@@ -989,27 +1038,42 @@ export async function createBoardScene(
       rig.setStill(still);
     });
 
-    if (next.ghost) {
-      if (!ghostRig || ghostRig.seat !== next.ghost.seat) {
-        if (ghostRig) {
-          scene.remove(ghostRig.rig.object);
-          ghostRig.rig.dispose();
-        }
-        const seat = next.ghost.seat;
-        const rig = new RobotRig(chassis[seat % chassis.length] ?? null, seat, true);
-        scene.add(rig.object);
-        rig.setTarget(next.ghost.robot.pos, next.ghost.robot.facing);
-        rig.snap();
-        ghostRig = { rig, seat };
-      }
-      ghostRig.rig.setTarget(next.ghost.robot.pos, next.ghost.robot.facing);
-      ghostRig.rig.setVisible(next.ghost.robot.visible);
-      ghostRig.rig.setStill(still);
-    } else if (ghostRig) {
-      scene.remove(ghostRig.rig.object);
-      ghostRig.rig.dispose();
-      ghostRig = null;
+    const marks = next.ghosts?.marks ?? [];
+    const seat = next.ghosts?.seat ?? -1;
+    if (seat !== ghostSeat) {
+      for (const g of ghostSlots) dropGhost(g);
+      ghostSlots = [];
+      ghostSeat = seat;
     }
+    while (ghostSlots.length > marks.length) dropGhost(ghostSlots.pop()!);
+    marks.forEach((m, i) => {
+      let g = ghostSlots[i];
+      if (!g) {
+        const rig = new RobotRig(chassis[seat % chassis.length] ?? null, seat, true);
+        rig.setTarget(m.pos, m.facing);
+        rig.snap();
+        const badge = new THREE.Sprite(
+          new THREE.SpriteMaterial({ depthTest: false, depthWrite: false, transparent: true }),
+        );
+        badge.renderOrder = 10;
+        scene.add(rig.object, badge);
+        g = { rig, badge, key: '' };
+        ghostSlots.push(g);
+      }
+      g.rig.setTarget(m.pos, m.facing);
+      g.rig.setVisible(m.alive);
+      g.rig.setStill(still);
+      const key = `${m.alive ? '' : 'x'}${m.label}`;
+      if (g.key !== key) {
+        g.key = key;
+        const { texture, aspect } = badgeTexture(m.label, m.alive);
+        g.badge.material.map?.dispose();
+        g.badge.material.map = texture;
+        g.badge.material.needsUpdate = true;
+        g.badge.scale.set(GHOST_BADGE_SIZE * aspect, GHOST_BADGE_SIZE, 1);
+      }
+      g.badge.position.set(m.pos.x + 0.5, m.alive ? GHOST_BADGE_HEIGHT : 0.25, m.pos.y + 0.5);
+    });
 
     const e = next.currentEvent;
     if (e !== lastEvent) {
@@ -1075,7 +1139,7 @@ export async function createBoardScene(
       unsubscribe();
       observer.disconnect();
       for (const rig of rigs.values()) rig.dispose();
-      ghostRig?.rig.dispose();
+      for (const g of ghostSlots) dropGhost(g);
       effects.dispose();
       meshes.dispose();
       kit?.dispose();

@@ -7,6 +7,7 @@
 import { useRef, type CSSProperties } from 'react';
 import type { BoardDef, Direction, EngineEvent, EventLog, PlayerId, Position } from '../../engine';
 import type { RobotVisual, VisualState } from '../replay/visualState';
+import type { GhostMark } from './ghosts';
 import { Tile, type WallSeg } from './Tile';
 import { RobotSprite } from './sprites';
 
@@ -40,24 +41,6 @@ function cellPx(n: number): string {
  */
 function robotBodyStyle(angle: number): CSSProperties {
   return { transform: `rotate(${angle}deg)` };
-}
-
-/**
- * Smooth rotation for the single ghost robot. Separate from useSmoothAngles
- * because the ghost shares its player id with a real robot on the board.
- */
-function useGhostAngle(ghost: { robot: RobotVisual } | undefined): number {
-  const ref = useRef<number | null>(null);
-  if (!ghost) {
-    ref.current = null;
-    return 0;
-  }
-  const target = DIR_ANGLE[ghost.robot.facing];
-  const prev = ref.current ?? target;
-  let delta = (((target - prev) % 360) + 360) % 360;
-  if (delta > 180) delta -= 360;
-  ref.current = prev + delta;
-  return ref.current;
 }
 
 /**
@@ -101,8 +84,8 @@ interface BoardProps {
   currentEvent?: EngineEvent | null;
   /** Speech bubbles to draw over robots (replay taunts). */
   bubbles?: { player: PlayerId; text: string }[];
-  /** Translucent programming-preview robot, drawn over the live board. */
-  ghost?: { robot: RobotVisual; seat: number };
+  /** Programming preview: one translucent, register-numbered ghost per square. */
+  ghosts?: { marks: GhostMark[]; seat: number };
   /**
    * Replay look-ahead: the whole turn's log and the cursor into it. THIS board
    * ignores both — it is declared here because Board3D's props are derived from
@@ -169,9 +152,8 @@ export function boardCellMaps(board: BoardDef): {
   return { wallsByCell, emittersByCell, pushersByCell, crushersByCell, flamersByCell };
 }
 
-export function Board({ board, visual, currentEvent, bubbles, ghost }: BoardProps) {
+export function Board({ board, visual, currentEvent, bubbles, ghosts }: BoardProps) {
   const angles = useSmoothAngles(visual.robots);
-  const ghostAngle = useGhostAngle(ghost);
   const { wallsByCell, emittersByCell, pushersByCell, crushersByCell, flamersByCell } =
     boardCellMaps(board);
 
@@ -220,21 +202,25 @@ export function Board({ board, visual, currentEvent, bubbles, ghost }: BoardProp
               ),
           )}
 
-          {ghost && ghost.robot.visible && (
+          {ghosts?.marks.map((m, i) => (
             <div
-              className="robot ghost"
+              key={i}
+              className={`robot ghost${m.alive ? '' : ' ghost-dead'}`}
               data-testid="robot-ghost"
-              data-x={ghost.robot.pos.x}
-              data-y={ghost.robot.pos.y}
-              style={{
-                transform: `translate(${cellPx(ghost.robot.pos.x)}, ${cellPx(ghost.robot.pos.y)})`,
-              }}
+              data-x={m.pos.x}
+              data-y={m.pos.y}
+              style={{ transform: `translate(${cellPx(m.pos.x)}, ${cellPx(m.pos.y)})` }}
             >
-              <div className="robot-body" style={robotBodyStyle(ghostAngle)}>
-                <RobotSprite seat={ghost.seat} />
-              </div>
+              {m.alive ? (
+                <div className="robot-body" style={robotBodyStyle(DIR_ANGLE[m.facing])}>
+                  <RobotSprite seat={ghosts.seat} />
+                </div>
+              ) : (
+                <div className="ghost-wreck">✕</div>
+              )}
+              <span className="ghost-badge">{m.label}</span>
             </div>
-          )}
+          ))}
 
           {bubbles?.map((b) => {
             const robot = visual.robots.find((r) => r.player === b.player);

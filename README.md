@@ -176,10 +176,11 @@ own phone. Remote players can be in the same game.
 - [ ] Online: create → join via invite code from a second browser/phone
 - [ ] Rejoin: close the tab mid-game, reopen the game link, state intact
 - [ ] Programming dock: deal, drag/tap cards into registers, submit, taunt
-- [ ] Ghost preview: placing a card plays a translucent ghost through
-      the turn-so-far — belts/gears/lasers/pits previewed, other robots
-      ignored (ghost passes through them); updates on every placement
-      change and rests at the final pose
+- [ ] Ghost preview: each programmed register shows a translucent ghost
+      badged with its number (1–5) where the robot ends that register —
+      belts/gears/pits included, other robots ignored (no pushes); two
+      registers on one square share a badge ("2·3"); a death shows a red ✕;
+      updates on every placement change
 - [ ] Turn replay: animations match outcomes; auto-plays for the player
       who was waiting
 - [ ] **Renderer, both ways**: a fresh browser lands on the 3D board with

@@ -5,17 +5,15 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import type { Card, Direction, GameState, Program } from '../../engine';
-import { countCheckpoints, isRegisterLocked, previewProgram } from '../../engine';
+import { countCheckpoints, isRegisterLocked, previewPoses } from '../../engine';
 import { play } from '../../services/audio';
 import { setFocusPlayer } from '../../services/viewSettings';
 import { BoardView } from '../board/BoardView';
 import { TurnTimer } from '../online/TurnTimer';
 import { PlayerStrip } from '../board/PlayerStrip';
 import { CARD_GLYPH, CARD_LABEL } from '../cards';
-import { initialVisual, visualAt } from '../replay/visualState';
-
-/** Fixed cadence for stepping the ghost through its preview events. */
-const GHOST_STEP_MS = 220;
+import { initialVisual } from '../replay/visualState';
+import { ghostMarks } from '../board/ghosts';
 
 function CardFace({ card, small }: { card: Card; small?: boolean }) {
   return (
@@ -102,39 +100,16 @@ export function ProgrammingView({
     return v;
   }, [game, seat, choosingFacing, respawnFacing]);
 
-  // Ghost preview: solo engine sim of the turn-so-far (board effects only —
-  // other robots are excluded, so the ghost may pass through them). Replays
-  // once from the start whenever placements change, then rests at the pose.
-  const previewEvents = useMemo(
-    () => previewProgram(game, robot.player, slots, choosingFacing ? respawnFacing : undefined),
+  // Ghost preview: one translucent, numbered ghost per programmed register,
+  // at that register's end pose — a solo engine sim, so board effects play
+  // out but other robots are excluded (they may push us; the caption says so).
+  const ghostMarksNow = useMemo(
+    () =>
+      ghostMarks(
+        previewPoses(game, robot.player, slots, choosingFacing ? respawnFacing : undefined),
+      ),
     [game, robot.player, slots, choosingFacing, respawnFacing],
   );
-  const [previewCursor, setPreviewCursor] = useState(0);
-  useEffect(() => {
-    if (previewEvents.length === 0) {
-      setPreviewCursor(0);
-      return;
-    }
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setPreviewCursor(previewEvents.length); // jump straight to the final pose
-      return;
-    }
-    setPreviewCursor(0);
-    let i = 0;
-    let timer: number | undefined;
-    const tick = () => {
-      i += 1;
-      setPreviewCursor(i);
-      if (i < previewEvents.length) timer = window.setTimeout(tick, GHOST_STEP_MS);
-    };
-    timer = window.setTimeout(tick, GHOST_STEP_MS);
-    return () => window.clearTimeout(timer);
-  }, [previewEvents]);
-
-  const ghostRobot =
-    previewEvents.length > 0
-      ? visualAt(liveVisual, previewEvents, previewCursor).robots[seat]
-      : null;
 
   const placedIds = new Set(slots.filter((c): c is Card => c !== null).map((c) => c.id));
   const locked = (r: number) => isRegisterLocked(robot.damage, r);
@@ -240,7 +215,7 @@ export function ProgrammingView({
           <BoardView
             board={game.board}
             visual={liveVisual}
-            ghost={ghostRobot ? { robot: ghostRobot, seat } : undefined}
+            ghosts={ghostMarksNow.length > 0 ? { marks: ghostMarksNow, seat } : undefined}
           />
         )}
         <PlayerStrip
@@ -268,6 +243,13 @@ export function ProgrammingView({
             </button>
           ))}
         </div>
+      )}
+
+      {ghostMarksNow.length > 0 && (
+        <p className="ghost-caption" data-testid="ghost-caption">
+          Numbered ghosts show where you end each register — board effects included,
+          assumes no pushes from other robots.
+        </p>
       )}
 
       <div className="registers" data-testid="registers">

@@ -319,7 +319,7 @@ export class RobotRig {
       mesh.castShadow = !ghost;
       if (ghost) {
         material.transparent = true;
-        material.opacity = 0.42;
+        material.opacity = 0.3;
         material.depthWrite = false;
       } else if (material.emissive) {
         this.emissives.push({

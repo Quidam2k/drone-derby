@@ -4,7 +4,7 @@
 // robots are EXCLUDED, not frozen: their programs are unknown, so a predicted
 // push would usually be wrong. The ghost may pass through them.
 
-import type { Card, Direction, GameState, PlayerId, Program } from './types';
+import type { Card, Direction, GameState, PlayerId, Position, Program } from './types';
 import type { EventLog } from './events';
 import { isRegisterLocked } from './deck';
 import { executeTurn, isGameOver } from './execute';
@@ -70,4 +70,66 @@ export function previewProgram(
       e.type === 'turn-ended',
   );
   return cut === -1 ? events : events.slice(0, cut);
+}
+
+/** Where the ghost stands at the end of one programmed register. */
+export interface GhostPose {
+  register: number;
+  pos: Position;
+  facing: Direction;
+  /** False on the register the ghost dies in: `pos` is the death square. */
+  alive: boolean;
+}
+
+/**
+ * One pose per programmed register (hand-placed or locked): the robot's
+ * square and facing once that register's board effects have run. Empty
+ * registers get no ghost — the robot idles there, though belts still carry
+ * it. Poses stop after the register the ghost dies in.
+ */
+export function previewPoses(
+  state: GameState,
+  player: PlayerId,
+  program: Program,
+  respawnFacing?: Direction,
+): GhostPose[] {
+  const events = previewProgram(state, player, program, respawnFacing);
+  const robot = state.robots.find((r) => r.player === player);
+  if (!robot || events.length === 0) return [];
+
+  const programmed = (r: number) => isRegisterLocked(robot.damage, r) || (program[r - 1] ?? null) !== null;
+  const poses: GhostPose[] = [];
+  let pos = robot.pos;
+  let facing = robot.facing;
+  let register = 0;
+  const close = () => {
+    if (register > 0 && programmed(register)) poses.push({ register, pos, facing, alive: true });
+  };
+
+  for (const e of events) {
+    if ('player' in e && e.player !== player) continue;
+    switch (e.type) {
+      case 'register-started':
+        close();
+        register = e.register;
+        break;
+      case 'robot-moved':
+      case 'conveyor-moved':
+      case 'robot-teleported':
+      case 'repulsed':
+        pos = e.to;
+        break;
+      case 'robot-rotated':
+      case 'gear-rotated':
+      case 'conveyor-rotated':
+        facing = e.to;
+        break;
+      case 'robot-fell':
+      case 'robot-destroyed':
+        if (register > 0) poses.push({ register, pos: e.at, facing, alive: false });
+        return poses;
+    }
+  }
+  close();
+  return poses;
 }
