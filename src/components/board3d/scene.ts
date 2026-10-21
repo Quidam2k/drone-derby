@@ -71,6 +71,8 @@ interface GhostSlot {
 /** World height of a ghost's register badge, and where it floats. */
 const GHOST_BADGE_SIZE = 0.34;
 const GHOST_BADGE_HEIGHT = 0.95;
+/** Just above the floor and belt chevrons, under the robots. */
+const GHOST_TRAIL_HEIGHT = 0.08;
 
 /** A pill with the register number(s): dark for a live ghost, red + ✕ for the death square. */
 function badgeTexture(label: string, alive: boolean): { texture: THREE.CanvasTexture; aspect: number } {
@@ -105,7 +107,7 @@ export interface BoardSceneInput {
   visual: VisualState;
   currentEvent?: EngineEvent | null;
   /** Programming preview: one translucent, register-numbered ghost per square. */
-  ghosts?: { marks: GhostMark[]; seat: number };
+  ghosts?: { marks: GhostMark[]; seat: number; trail: Position[] };
   /**
    * Replay look-ahead: the whole turn's log and the replay cursor. Optional —
    * the live views (programming, online) have no future to look at and simply
@@ -389,6 +391,16 @@ export async function createBoardScene(
   /** Preview ghosts, pooled by index; all rebuilt when the seat changes. */
   let ghostSlots: GhostSlot[] = [];
   let ghostSeat = -1;
+  /** Dashed route through the ghosts, rebuilt only when the route changes. */
+  let ghostTrail: THREE.Line<THREE.BufferGeometry, THREE.LineDashedMaterial> | null = null;
+  let ghostTrailKey = '';
+  function dropTrail(): void {
+    if (!ghostTrail) return;
+    scene.remove(ghostTrail);
+    ghostTrail.geometry.dispose();
+    ghostTrail.material.dispose();
+    ghostTrail = null;
+  }
   function dropGhost(g: GhostSlot): void {
     scene.remove(g.rig.object, g.badge);
     g.rig.dispose();
@@ -1042,6 +1054,7 @@ export async function createBoardScene(
     const seat = next.ghosts?.seat ?? -1;
     if (seat !== ghostSeat) {
       for (const g of ghostSlots) dropGhost(g);
+      dropTrail();
       ghostSlots = [];
       ghostSeat = seat;
     }
@@ -1074,6 +1087,29 @@ export async function createBoardScene(
       }
       g.badge.position.set(m.pos.x + 0.5, m.alive ? GHOST_BADGE_HEIGHT : 0.25, m.pos.y + 0.5);
     });
+
+    const trail = next.ghosts?.trail ?? [];
+    const trailKey = `${seat}:${trail.map((p) => `${p.x},${p.y}`).join(';')}`;
+    if (trailKey !== ghostTrailKey) {
+      ghostTrailKey = trailKey;
+      dropTrail();
+      if (trail.length > 1) {
+        const points = trail.map((p) => new THREE.Vector3(p.x + 0.5, GHOST_TRAIL_HEIGHT, p.y + 0.5));
+        ghostTrail = new THREE.Line(
+          new THREE.BufferGeometry().setFromPoints(points),
+          new THREE.LineDashedMaterial({
+            color: SEAT_COLORS[seat % SEAT_COLORS.length],
+            dashSize: 0.16,
+            gapSize: 0.12,
+            transparent: true,
+            opacity: 0.85,
+            depthWrite: false,
+          }),
+        );
+        ghostTrail.computeLineDistances();
+        scene.add(ghostTrail);
+      }
+    }
 
     const e = next.currentEvent;
     if (e !== lastEvent) {

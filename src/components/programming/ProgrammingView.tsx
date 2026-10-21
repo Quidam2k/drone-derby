@@ -103,13 +103,12 @@ export function ProgrammingView({
   // Ghost preview: one translucent, numbered ghost per programmed register,
   // at that register's end pose — a solo engine sim, so board effects play
   // out but other robots are excluded (they may push us; the caption says so).
-  const ghostMarksNow = useMemo(
-    () =>
-      ghostMarks(
-        previewPoses(game, robot.player, slots, choosingFacing ? respawnFacing : undefined),
-      ),
-    [game, robot.player, slots, choosingFacing, respawnFacing],
-  );
+  const ghosts = useMemo(() => {
+    const poses = previewPoses(game, robot.player, slots, choosingFacing ? respawnFacing : undefined);
+    if (poses.length === 0) return undefined;
+    // The dashed route: live robot, then each ghost in register order.
+    return { marks: ghostMarks(poses), seat, trail: [robot.pos, ...poses.map((p) => p.pos)] };
+  }, [game, robot.player, robot.pos, slots, choosingFacing, respawnFacing, seat]);
 
   const placedIds = new Set(slots.filter((c): c is Card => c !== null).map((c) => c.id));
   const locked = (r: number) => isRegisterLocked(robot.damage, r);
@@ -215,7 +214,7 @@ export function ProgrammingView({
           <BoardView
             board={game.board}
             visual={liveVisual}
-            ghosts={ghostMarksNow.length > 0 ? { marks: ghostMarksNow, seat } : undefined}
+            ghosts={ghosts}
           />
         )}
         <PlayerStrip
@@ -245,7 +244,7 @@ export function ProgrammingView({
         </div>
       )}
 
-      {ghostMarksNow.length > 0 && (
+      {ghosts && (
         <p className="ghost-caption" data-testid="ghost-caption">
           Numbered ghosts show where you end each register — board effects included,
           assumes no pushes from other robots.

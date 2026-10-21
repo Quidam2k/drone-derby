@@ -85,7 +85,7 @@ interface BoardProps {
   /** Speech bubbles to draw over robots (replay taunts). */
   bubbles?: { player: PlayerId; text: string }[];
   /** Programming preview: one translucent, register-numbered ghost per square. */
-  ghosts?: { marks: GhostMark[]; seat: number };
+  ghosts?: { marks: GhostMark[]; seat: number; trail: Position[] };
   /**
    * Replay look-ahead: the whole turn's log and the cursor into it. THIS board
    * ignores both — it is declared here because Board3D's props are derived from
@@ -202,6 +202,16 @@ export function Board({ board, visual, currentEvent, bubbles, ghosts }: BoardPro
               ),
           )}
 
+          {ghosts && ghosts.trail.length > 1 && (
+            <svg
+              className="ghost-trail"
+              viewBox={`0 0 ${board.width} ${board.height}`}
+              preserveAspectRatio="none"
+              style={{ color: `var(--player-${ghosts.seat})` }}
+            >
+              <polyline points={ghosts.trail.map((p) => `${p.x + 0.5},${p.y + 0.5}`).join(' ')} />
+            </svg>
+          )}
           {ghosts?.marks.map((m, i) => (
             <div
               key={i}
