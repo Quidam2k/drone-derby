@@ -59,3 +59,14 @@ registers swap. Smelter: one flamer's registers shift. Tool Room: one oil slick
 → floor. Windmill / Hot Zone / Rattle Oven: rename only. Gambit: move a wrench 1
 square. Scrapyard: one pit → floor. Turntable: one gear flips spin. Strongroom:
 drop one laser. Summit: move one ramp square.
+
+## Verification fixes at registry time (2026-10-21, commit 751fc30)
+
+- Spiral Mill: added the missing mount wall `9,11 S` (every other edge pusher
+  had one; 180° partner `9,0 N` exists).
+- Far Straight + Service Lane: pushers print with their wall stripe in the
+  art and no separate wall, so mount walls were added under each pusher.
+- Summit / Gorge Run plateau rails kept as plain two-way walls (gaps at the
+  ramps); Summit centre uses `steep`. One-way-ledge alternative is a question
+  on Todd's Review card (notes/review/2026-10-21-drone-derby-25-boards-in-ok-the-house-rules.md, Pantheon).
+- Spillway whirlpool spin direction (all W-) is a guess; the art has no arrows.
