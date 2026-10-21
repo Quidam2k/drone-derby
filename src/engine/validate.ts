@@ -25,6 +25,9 @@ const TILE_KINDS = new Set([
   'portal',
   'teleporter',
   'repulsor',
+  'oil',
+  'water',
+  'whirlpool',
   'conveyor',
   'gear',
   'checkpoint',
@@ -32,7 +35,7 @@ const TILE_KINDS = new Set([
   'wrench',
 ]);
 
-const PORTAL_COLORS = new Set(['red', 'blue', 'green', 'purple', 'orange']);
+const PORTAL_COLORS = new Set(['red', 'blue', 'green', 'purple', 'orange', 'yellow']);
 
 function isDirection(d: unknown): d is Direction {
   return DIRECTIONS.includes(d as Direction);
@@ -60,13 +63,19 @@ function tileError(t: TileDef, x: number, y: number): string | null {
     return `${at}: trap-door needs registers from 1–5 (e.g. [1,3,5])`;
   }
   if (t.kind === 'portal' && !PORTAL_COLORS.has(t.color)) {
-    return `${at}: portal needs a color (red, blue, green, purple, orange)`;
+    return `${at}: portal needs a color (red, blue, green, purple, orange, yellow)`;
   }
   if (t.kind === 'conveyor' && (!isDirection(t.dir) || typeof t.express !== 'boolean')) {
     return `${at}: conveyor needs a direction and an express flag`;
   }
   if (t.kind === 'conveyor' && t.curve !== undefined && t.curve !== 'cw' && t.curve !== 'ccw') {
     return `${at}: conveyor curve must be "cw" or "ccw"`;
+  }
+  if (t.kind === 'water' && t.current !== undefined && !isDirection(t.current)) {
+    return `${at}: water current must be a direction`;
+  }
+  if (t.kind === 'whirlpool' && typeof t.cw !== 'boolean') {
+    return `${at}: whirlpool needs a spin (cw true/false)`;
   }
   if (t.kind === 'gear' && typeof t.cw !== 'boolean') {
     return `${at}: gear needs a spin direction`;
@@ -156,7 +165,10 @@ export function validateBoard(board: BoardDef): BoardValidation {
         t.kind === 'waste' ||
         t.kind === 'repulsor' ||
         t.kind === 'conveyor' ||
-        t.kind === 'gear'
+        t.kind === 'gear' ||
+        t.kind === 'oil' ||
+        t.kind === 'water' ||
+        t.kind === 'whirlpool'
       ) {
         hazards++;
       }

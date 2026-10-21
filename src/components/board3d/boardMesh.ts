@@ -45,6 +45,7 @@ const PORTAL_HEX: Record<string, number> = {
   green: 0x58c470,
   purple: 0xa06ae0,
   orange: 0xe09a4a,
+  yellow: 0xe8d24a,
 };
 
 const DIR_VEC: Record<Direction, THREE.Vector3> = {
@@ -359,6 +360,10 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
   const trapdoorPlates = new Batch();
   const radiationDiscs = new Batch();
   const wastePatches = new Batch();
+  // House-rule floors (oil, water, whirlpools): primitives only, no kit piece.
+  const oilPatches = new Batch();
+  const waterPlanes = new Batch();
+  const whirlRings = new Batch();
   const portalRings = new Batch(); // per-instance tint = pair color
   const portalCores = new Batch();
   const teleporterRings = new Batch();
@@ -525,6 +530,35 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
           yaw: ((x * 7 + y * 13) % 8) * (Math.PI / 8),
           scale: new THREE.Vector3(1, 1, 0.82),
         });
+        break;
+      case 'oil':
+        oilPatches.add({
+          pos: centre(x, y, 0.025),
+          yaw: ((x * 5 + y * 11) % 8) * (Math.PI / 8),
+          scale: new THREE.Vector3(1, 1, 0.78),
+        });
+        break;
+      case 'water':
+        waterPlanes.add({ pos: centre(x, y, 0.012) });
+        if (def.current) {
+          // A current is a slow belt under water: reuse the belt chevrons.
+          for (let i = 0; i < 2; i++) {
+            chevrons.push({
+              cell: `${x},${y}`,
+              centre: centre(x, y, 0.02),
+              dir: DIR_VEC[def.current],
+              yaw: DIR_YAW[def.current],
+              offset: i / 2,
+              speed: 0.08,
+              surge: 0,
+            });
+          }
+        }
+        break;
+      case 'whirlpool':
+        waterPlanes.add({ pos: centre(x, y, 0.012) });
+        whirlRings.add({ pos: centre(x, y, 0.02) });
+        whirlRings.add({ pos: centre(x, y, 0.021), scale: 0.55 });
         break;
       case 'portal':
         portalRings.add({ pos: centre(x, y, 0.05), color: PORTAL_HEX[def.color] });
@@ -721,6 +755,18 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
       roughness: 0.6,
     }),
   );
+  const oilMat = mat(
+    new THREE.MeshStandardMaterial({ color: 0x121216, roughness: 0.15, metalness: 0.6 }),
+  );
+  const waterMat = mat(
+    new THREE.MeshStandardMaterial({
+      color: 0x2d5f9e,
+      roughness: 0.2,
+      transparent: true,
+      opacity: 0.85,
+    }),
+  );
+  const whirlMat = mat(new THREE.MeshStandardMaterial({ color: 0xcfe6ff, roughness: 0.4 }));
   const wasteMat = mat(
     new THREE.MeshStandardMaterial({
       color: 0x3f7d36,
@@ -925,6 +971,16 @@ export function buildBoard(board: BoardDef, kit?: TileKit | null): BoardMeshes {
       pieceGeom(kit?.radiation_disc, () => new THREE.CylinderGeometry(0.36, 0.36, 0.03, 20)),
       kit?.radiation_disc?.material ?? radiationMat,
       { receive: true },
+    ),
+  );
+  add(
+    oilPatches.build(new THREE.CylinderGeometry(0.42, 0.44, 0.02, 12), oilMat, { receive: true }),
+  );
+  add(waterPlanes.build(new THREE.BoxGeometry(1, 0.02, 1), waterMat, { receive: true }));
+  add(
+    whirlRings.build(
+      new THREE.TorusGeometry(0.3, 0.035, 6, 20).rotateX(Math.PI / 2),
+      whirlMat,
     ),
   );
   add(

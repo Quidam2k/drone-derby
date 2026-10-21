@@ -24,6 +24,9 @@ import {
   TrapdoorSprite,
   WasteSprite,
   WrenchSprite,
+  OilSprite,
+  WaterSprite,
+  WhirlpoolSprite,
 } from '../board/sprites';
 
 /** Back to wherever the player came from (join link, lobby, hot-seat setup). */
@@ -237,6 +240,17 @@ export function RulesScreen() {
           <LegendRow sprite={<FlamerSprite registers={[1, 3, 5]} />} name="Flamer">
             a fire jet, live on its printed registers. Moving through a live one burns 1 damage,
             turning on it burns 1, and ending the register on it burns 1 more.
+          </LegendRow>
+          <LegendRow sprite={<OilSprite />} name="Oil slick">
+            end a move card on oil and you keep sliding the same way, one square at a time, until
+            you're off the oil or something stops you. Getting pushed or carried onto oil is safe.
+          </LegendRow>
+          <LegendRow sprite={<WaterSprite current="N" />} name="Water">
+            heavy going: any move card you start in water moves one square less (Move 1 and Back
+            Up go nowhere). An arrow is a current, which carries you like a normal belt.
+          </LegendRow>
+          <LegendRow sprite={<WhirlpoolSprite cw />} name="Whirlpool">
+            water that spins you like a gear and deals 1 damage for every register you end on it.
           </LegendRow>
           <LegendRow sprite={<CheckpointSprite n={1} />} name="Checkpoint">
             tag these in numbered order to win. Any checkpoint you touch becomes your respawn

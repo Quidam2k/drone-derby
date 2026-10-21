@@ -32,7 +32,7 @@ export type EngineEvent =
       amount: number;
       total: number;
       /** Absent = laser fire (the original source). Environmental otherwise. */
-      source?: 'flamer' | 'radiation' | 'waste';
+      source?: 'flamer' | 'radiation' | 'waste' | 'whirlpool';
     }
   /** The slam visual; the kill itself follows as a normal robot-destroyed. */
   | { type: 'crusher-crushed'; player: PlayerId; at: Position }

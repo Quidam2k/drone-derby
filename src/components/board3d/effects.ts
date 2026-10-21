@@ -65,10 +65,11 @@ const HAZARD: Record<HazardKind, number> = {
   flamer: 0xff9636, // flameMat
   radiation: 0xd3e34a, // radiationMat
   waste: 0x58c470, // wasteMat's emissive
+  whirlpool: 0x3f7fd0, // waterMat
 };
 
 /** The `damage` event's environmental sources. Laser damage is not one. */
-export type HazardKind = 'flamer' | 'radiation' | 'waste';
+export type HazardKind = 'flamer' | 'radiation' | 'waste' | 'whirlpool';
 
 interface Anim {
   t: number;
@@ -469,7 +470,7 @@ export class EffectField {
       // Radiation and waste are ambient — they seep. A flamer is a burst, so it
       // gets the flash attack and the other two get a plain fade.
       flash: kind === 'flamer',
-      spin: kind === 'waste' ? 0.5 : 0,
+      spin: kind === 'waste' ? 0.5 : kind === 'whirlpool' ? 1.2 : 0,
     });
   }
 
