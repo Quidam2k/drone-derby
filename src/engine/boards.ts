@@ -1,9 +1,11 @@
 import type { BoardDef, Direction } from './types';
 import { emptyBoard, setTile } from './board';
 import { composeBoards } from './compose';
-import { gearBox, pinwheel, reactorCore, shakeNBake } from './authentic';
+import { reactorCore, shakeNBake } from './authentic';
+import { fromLayout, type LayoutSpec } from './layout';
+import * as layouts from './layouts';
 
-export { gearBox, pinwheel, reactorCore, shakeNBake } from './authentic';
+export { reactorCore, shakeNBake } from './authentic';
 
 /**
  * Built-in 10×10 board exercising every element: 4 spawn docks, 3 checkpoints,
@@ -480,23 +482,21 @@ export const BUILTIN_BOARDS: Record<string, { name: string; factory: () => Board
     name: 'Grand Circuit',
     factory: () => composeBoards([spinCycle(), dockyard()], 'Grand Circuit'),
   },
-  // Authentic boards, transcribed from the photographed 1994-era originals
-  // (src/engine/authentic.ts). Composed over the dockyard: the printed
-  // boards carry no docks of their own.
-  'reactor-core': {
-    name: 'Reactor Core',
-    factory: () => composeBoards([reactorCore(), dockyard()], 'Reactor Core'),
+  // Authentic boards, transcribed from printed originals (authentic.ts from
+  // photographs, layouts.ts from reference sheets). Composed over the
+  // dockyard: the printed boards carry no docks of their own. Names are ours.
+  'hot-zone': {
+    name: 'Hot Zone',
+    factory: () => composeBoards([reactorCore(), dockyard()], 'Hot Zone'),
   },
-  'gear-box': {
-    name: 'Gear Box',
-    factory: () => composeBoards([gearBox(), dockyard()], 'Gear Box'),
+  'rattle-oven': {
+    name: 'Rattle Oven',
+    factory: () => composeBoards([shakeNBake(), dockyard()], 'Rattle Oven'),
   },
-  'pinwheel': {
-    name: 'Pinwheel',
-    factory: () => composeBoards([pinwheel(), dockyard()], 'Pinwheel'),
-  },
-  'shake-n-bake': {
-    name: "Shake 'n' Bake",
-    factory: () => composeBoards([shakeNBake(), dockyard()], "Shake 'n' Bake"),
-  },
+  ...Object.fromEntries(
+    (Object.values(layouts) as LayoutSpec[]).map((spec) => [
+      spec.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+      { name: spec.name, factory: () => composeBoards([fromLayout(spec), dockyard()], spec.name) },
+    ]),
+  ),
 };
