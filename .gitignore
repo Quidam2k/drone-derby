@@ -13,3 +13,11 @@ screengrab/
 input/
 .playwright-mcp/
 __pycache__/
+
+# Internal working material (kept locally, not published)
+/notes/
+/cascades/
+/.claude/
+NOTE-*
+session-state.md
+CLAUDE.local.md

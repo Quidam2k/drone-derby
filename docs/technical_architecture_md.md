@@ -2,7 +2,7 @@
 
 > **⚠️ STALE — v1 document, kept as history.** This describes the archived
 > legacy stack (`legacy/`). The v2 architecture is Vite + React + Convex;
-> see `CLAUDE.md` and `cascades/2026-07-05-v2-rewrite.md`.
+> see `CLAUDE.md` and `README.md`.
 
 ## Technology Stack
 

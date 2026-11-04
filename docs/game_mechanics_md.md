@@ -86,7 +86,7 @@ step at a time.
   pushing, wall blocking (the whole chain stays put) and pit/edge falls.
   Powered-down robots are shoved like anything else; a pusher with no robot
   in front of it does nothing.
-- **House rules (pending Todd's review, 2026-10-21)** for printed elements
+- **House rules (pending the author's review, 2026-10-21)** for printed elements
   we have no rule text for:
   - **Oil slick**: a robot whose movement card ends on oil slides 1 more
     square the same way, repeating while it lands on oil (walls, pushes and
