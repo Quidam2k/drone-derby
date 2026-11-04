@@ -359,3 +359,7 @@ own phone. Remote players can be in the same game.
 - `src/services/` — client plumbing (Convex client, routing, push, telemetry)
 - `convex/` — backend functions + schema
 - `docs/game_mechanics_md.md` — rules source of truth
+
+## License
+
+MIT, see [LICENSE](LICENSE).

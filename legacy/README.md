@@ -26,7 +26,7 @@ Drone Derby is a strategic programming game where 2-4 players command robots on 
 
 1. **Clone and install:**
    ```bash
-   git clone https://github.com/your-org/drone-derby.git
+   git clone https://github.com/Quidam2k/drone-derby.git
    cd drone-derby
    npm run setup
    ```
@@ -203,7 +203,7 @@ REACT_APP_WS_URL=wss://api.yourdomain.com
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](../LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
